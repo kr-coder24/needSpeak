@@ -22,13 +22,15 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Supported Sites
+# Known JS-only / login-required sites that cannot be scraped
 # ---------------------------------------------------------------------------
-SUPPORTED_DOMAINS = {
-    "allrecipes.com",
-    "www.allrecipes.com",
-    "bbcgoodfood.com",
-    "www.bbcgoodfood.com",
+JAVASCRIPT_ONLY_DOMAINS = {
+    "instagram.com",
+    "www.instagram.com",
+    "zomato.com",
+    "www.zomato.com",
+    "swiggy.com",
+    "www.swiggy.com",
 }
 
 HEADERS = {
@@ -43,18 +45,8 @@ HEADERS = {
 
 
 # ---------------------------------------------------------------------------
-# URL Validation
+# URL Helpers
 # ---------------------------------------------------------------------------
-def is_supported_url(url: str) -> bool:
-    """Check if the URL is from a supported domain."""
-    try:
-        parsed = urlparse(url)
-        domain = parsed.hostname or ""
-        return domain.lower() in SUPPORTED_DOMAINS
-    except Exception:
-        return False
-
-
 def is_youtube_url(url: str) -> bool:
     """Check if the URL is a YouTube video."""
     try:
@@ -65,15 +57,25 @@ def is_youtube_url(url: str) -> bool:
         return False
 
 
-def get_unsupported_url_message(url: str) -> str:
-    """Generate a helpful error message for unsupported URLs."""
+def _is_js_only_domain(url: str) -> bool:
+    """Return True for sites that are known to require JavaScript / login."""
+    try:
+        parsed = urlparse(url)
+        domain = (parsed.hostname or "").lower()
+        return domain in JAVASCRIPT_ONLY_DOMAINS
+    except Exception:
+        return False
+
+
+def _js_only_message(url: str) -> str:
+    """Generate a descriptive error for JS-only sites."""
     try:
         parsed = urlparse(url)
         domain = (parsed.hostname or "unknown").lower()
     except Exception:
         domain = "unknown"
 
-    known_unsupported = {
+    messages = {
         "instagram.com": "Instagram requires login and renders dynamically.",
         "www.instagram.com": "Instagram requires login and renders dynamically.",
         "zomato.com": "Zomato uses React rendering — no content in raw HTML.",
@@ -81,8 +83,7 @@ def get_unsupported_url_message(url: str) -> str:
         "swiggy.com": "Swiggy uses React rendering — no content in raw HTML.",
         "www.swiggy.com": "Swiggy uses React rendering — no content in raw HTML.",
     }
-
-    reason = known_unsupported.get(domain, "This site is not yet supported.")
+    reason = messages.get(domain, "This site requires JavaScript and cannot be scraped.")
     return f"{reason} Please paste the recipe or list text directly instead."
 
 
@@ -173,15 +174,15 @@ def fetch_url_content(url: str) -> str:
     """
     Fetch a recipe URL and extract its content as plain text.
 
-    Supports:
-    - AllRecipes.com (JSON-LD)
-    - BBC Good Food (JSON-LD)
+    Tries any HTTP(S) URL:
+    1. JSON-LD schema.org/Recipe extraction (works for most food blogs)
+    2. Fallback: raw body text extraction
 
-    Returns the recipe as plain text for the extractor pipeline.
-    Raises ValueError with helpful message for unsupported URLs.
+    Raises ValueError with helpful message if nothing usable is found.
     """
-    if not is_supported_url(url):
-        raise ValueError(get_unsupported_url_message(url))
+    # Reject known JS-only / login-required sites immediately
+    if _is_js_only_domain(url):
+        raise ValueError(_js_only_message(url))
 
     try:
         response = requests.get(url, headers=HEADERS, timeout=10, allow_redirects=True)

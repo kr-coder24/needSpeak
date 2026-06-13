@@ -104,37 +104,28 @@ function CartPage() {
     cartItems.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
   const budgetPct = Math.min(100, (total / budget) * 100);
 
-  // Run CompareCart comparison with new parameters
+  // Run CompareCart — calls /api/recompare to re-resolve same items with new params (no LLM)
   const runCompare = useCallback(async (newBudget: number, attendees: number, dietary: string) => {
     if (!session) return;
 
     setComparing(true);
 
-    // Build the input text - use original input or context summary
-    let inputText = session.original_input || session.context_summary || intentSummary || "general groceries";
-
-    // Modify attendee count in the input text
-    const attendeePattern = /(\d+)\s*(people|guests|attendees|persons?)/gi;
-    if (attendeePattern.test(inputText)) {
-      inputText = inputText.replace(attendeePattern, `${attendees} people`);
-    } else {
-      inputText += ` for ${attendees} people`;
-    }
-
-    // Add dietary constraint if not "any"
-    if (dietary && dietary !== "any") {
-      inputText += ` (${dietary} only)`;
-    }
+    // Determine original servings from session context
+    const contextText = session.context_summary || session.original_input || "";
+    const attendeeMatch = contextText.match(/(\d+)\s*(people|guests|attendees|persons?)/i);
+    const originalServings = attendeeMatch ? parseInt(attendeeMatch[1], 10) : undefined;
 
     try {
-      const res = await fetch("/api/parse", {
+      const res = await fetch("/api/recompare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: inputText,
-          input_type: "text",
+          session_id: session.session_id,
           budget_inr: newBudget,
-          dietary_pref: dietary !== "any" ? dietary : undefined,
+          servings_override: attendees,
+          original_servings: originalServings,
+          dietary_pref: dietary !== "any" ? dietary : null,
+          budget_mode: "balanced",
         }),
       });
 
@@ -154,7 +145,7 @@ function CartPage() {
     } finally {
       setComparing(false);
     }
-  }, [session, intentSummary, cartItems]);
+  }, [session, cartItems]);
 
   // Debounced compare on parameter change
   const debouncedCompare = useCallback((budget: number, attendees: number, dietary: string) => {

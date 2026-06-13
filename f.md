@@ -222,8 +222,8 @@
 ### Collaboration
 | # | Feature | Priority | Why |
 |---|---------|----------|-----|
-| B.15 | **Real-time collab via WebSocket** — host creates cart, shares link, others join and add items live | ✅ Done | Implemented real-time sync with `collab_ws.py` and `useCollabWebSocket.ts` |
-| B.16 | **Per-contributor budget split** — show how much each person owes | ✅ Done | Wired up `getBudgetSplit` REST API to Live Cart display |
+| B.15 | **Real-time collab via WebSocket** — host creates cart, shares link, others join and add items live | ✅ Done | Typed demand is resolved through the existing catalog and quantity engine, merged by SKU in real time, attributed per contributor, and enriched with typo suggestions, explicit not-found feedback, and host-approved better deals. |
+| B.16 | **Per-contributor budget split** — show how much each person owes | ✅ Done | Each contributor owes the proportional cost of their requested demand after package merging; the live view also shows merge savings, shared budget progress, and host budget updates. |
 
 ### Data & Catalog
 | # | Feature | Priority | Why |

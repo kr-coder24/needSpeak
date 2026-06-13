@@ -1,5 +1,5 @@
 import * as React from "react";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,15 @@ interface CreateCollabCardProps {
   className?: string;
   isCreating?: boolean;
 }
+
+const FADE_IN_VARIANTS: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring" },
+  },
+};
 
 export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
   onSubmit,
@@ -30,11 +39,6 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
     onSubmit({ name, hostName, budget: parseInt(budgetStr) || 0 });
   };
 
-  const FADE_IN_VARIANTS = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: "spring" } },
-  };
-
   return (
     <motion.div
       initial="hidden"
@@ -48,16 +52,19 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
           },
         },
       }}
-      className={cn(
-        "relative w-full rounded-xl bg-background p-6",
-        className
-      )}
+      className={cn("relative w-full rounded-xl bg-background p-6", className)}
     >
       <div className="flex items-center justify-between">
         <motion.h3 variants={FADE_IN_VARIANTS} className="text-xl font-semibold text-foreground">
           Create Collaborative Cart
         </motion.h3>
-        <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Close" disabled={isCreating}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCancel}
+          aria-label="Close"
+          disabled={isCreating}
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -81,7 +88,9 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
 
           <motion.div variants={FADE_IN_VARIANTS} className="grid w-full items-center gap-1.5">
             <div className="flex items-center gap-1">
-              <Label htmlFor="host-name">Your Name <span className="text-red-500">*</span></Label>
+              <Label htmlFor="host-name">
+                Your Name <span className="text-red-500">*</span>
+              </Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -109,7 +118,9 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
               <Label htmlFor="budget">Total Budget (₹)</Label>
             </div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                ₹
+              </span>
               <Input
                 type="number"
                 id="budget"

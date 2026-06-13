@@ -297,7 +297,7 @@ async def parse_content(req: ParseRequest, request: Request):
         prefs = UserPreferences(
             dietary=dietary_list,
             preferred_brands=req.preferred_brands or [],
-            budget_mode=req.budget_style or "balanced"
+            budget_mode=req.budget_mode or "balanced"
         )
         extraction = apply_preferences(extraction, prefs)
 
@@ -609,6 +609,7 @@ async def _run_multimodal_pipeline(
 # ---------------------------------------------------------------------------
 # POST /api/ingest/image — Image OCR Pipeline
 # ---------------------------------------------------------------------------
+@app.post("/api/parse-image")
 @app.post("/api/ingest/image")
 async def ingest_image(
     request: Request,
@@ -802,7 +803,10 @@ async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
 async def parse_pdf(
     request: Request,
     pdf: UploadFile = File(...),
-    budget_inr: float = None,
+    budget_inr: float = Form(None),
+    dietary_pref: Optional[str] = Form(None),
+    preferred_brands: Optional[str] = Form(None),
+    budget_style: Optional[str] = Form(None),
 ):
     """
     Accept a PDF file, extract text via pypdf, and run through the pipeline.

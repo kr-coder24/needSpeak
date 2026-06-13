@@ -485,15 +485,14 @@ def _get_mock_extraction(text: str) -> ExtractionResult:
             ]
         )
     else:
+        # Fallback to extracting exactly what they typed so it fails correctly if not in catalog
         return ExtractionResult(
             intents=[
                 ExtractedIntent(
                     intent_type=IntentType.GENERAL,
-                    context_summary="General shopping list",
+                    context_summary=f"Mock extraction for: {text[:30]}",
                     items=[
-                        ExtractedItem(name="rice", quantity=1, unit="kg", category="grains"),
-                        ExtractedItem(name="onion", quantity=1, unit="kg", category="vegetables"),
-                        ExtractedItem(name="salt", quantity=1, unit="pack", category="spices"),
+                        ExtractedItem(name=text.strip(), quantity=1, unit="piece", category="general")
                     ]
                 )
             ]

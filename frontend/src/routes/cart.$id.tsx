@@ -36,6 +36,41 @@ export const Route = createFileRoute("/cart/$id")({
   component: CartPage,
 });
 
+function UnavailableItemRow({ item }: { item: any }) {
+  const reasonText = item.reason
+    ? item.reason.replace(/_/g, " ")
+    : "Unavailable";
+  
+  const isOutOfStock = item.reason === "out_of_stock";
+  const badgeBg = isOutOfStock
+    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+    : "bg-destructive/10 text-destructive border-destructive/20";
+  const iconColor = isOutOfStock ? "bg-amber-500/10 text-amber-500" : "bg-destructive/10 text-destructive";
+
+  return (
+    <div className="group rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm transition-all hover:shadow-md hover:border-destructive/30 hover:bg-background">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+            <AlertTriangle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium capitalize text-foreground/90">{item.name}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Not added to cart
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0">
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize tracking-wide ${badgeBg}`}>
+            {reasonText}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CartPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -308,18 +343,15 @@ function CartPage() {
 
             {/* Unavailable items */}
             {unavailableItems.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
-                <div className="mb-3 text-xs font-medium uppercase tracking-wider text-destructive">
-                  Unavailable items
+              <div className="mt-6">
+                <div className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Unavailable Items
                 </div>
-                {unavailableItems.map((it: any, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 py-1.5 text-sm">
-                    <span className="font-medium">{it.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      — {it.reason?.replace(/_/g, " ")}
-                    </span>
-                  </div>
-                ))}
+                <div className="space-y-2">
+                  {unavailableItems.map((it: any, idx: number) => (
+                    <UnavailableItemRow key={idx} item={it} />
+                  ))}
+                </div>
               </div>
             )}
           </div>

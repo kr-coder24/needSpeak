@@ -163,12 +163,12 @@ function CartItemRow({
   const effectiveTotal = (item.price_per_unit_inr * qty).toFixed(0);
 
   return (
-    <div className="group rounded-xl border border-border bg-background p-3">
+    <div className="group rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm transition-all hover:shadow-md hover:border-brand/30 hover:bg-background">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium">{item.name}</div>
+          <div className="truncate text-sm font-medium capitalize">{item.name}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>{item.brand} · {item.unit_quantity}{item.unit}</span>
+            <span className="capitalize">{item.brand}</span><span> · {item.unit_quantity}{item.unit}</span>
             {getItemBadge(item.sku) && (
               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getItemBadge(item.sku)!.color}`}>
                 {getItemBadge(item.sku)!.label}
@@ -197,6 +197,43 @@ function CartItemRow({
           </button>
           <div className="text-sm font-semibold">₹{effectiveTotal}</div>
           <div className="text-[10px] text-muted-foreground">₹{item.price_per_unit_inr}/unit</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── UnavailableItemRow ───────────────────────────────────────────────────────
+
+function UnavailableItemRow({ item }: { item: any }) {
+  const reasonText = item.reason
+    ? item.reason.replace(/_/g, " ")
+    : "Unavailable";
+  
+  const isOutOfStock = item.reason === "out_of_stock";
+  const badgeBg = isOutOfStock
+    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+    : "bg-destructive/10 text-destructive border-destructive/20";
+  const iconColor = isOutOfStock ? "bg-amber-500/10 text-amber-500" : "bg-destructive/10 text-destructive";
+
+  return (
+    <div className="group rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm transition-all hover:shadow-md hover:border-destructive/30 hover:bg-background">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+            <AlertTriangle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium capitalize text-foreground/90">{item.name}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Not added to cart
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0">
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize tracking-wide ${badgeBg}`}>
+            {reasonText}
+          </span>
         </div>
       </div>
     </div>
@@ -792,7 +829,7 @@ function ChatPage() {
                       Live Cart
                     </div>
                   </div>
-                  <div className="mt-3 font-display text-xl font-semibold tracking-tight">{cartData.intent_type}</div>
+                  <div className="mt-3 font-display text-xl font-semibold tracking-tight capitalize">{cartData.intent_type}</div>
                   <div className="mt-1 text-sm text-muted-foreground">{cartData.context_summary}</div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1">
@@ -868,13 +905,9 @@ function ChatPage() {
                             </div>
                             {/* Per-group unavailable */}
                             {group.unavailable_items?.length > 0 && (
-                              <div className="mt-2 space-y-1">
+                              <div className="mt-3 space-y-2">
                                 {group.unavailable_items.map((it: any, idx: number) => (
-                                  <div key={idx} className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs">
-                                    <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />
-                                    <span className="font-medium">{it.name}</span>
-                                    <span className="text-muted-foreground">— {it.reason?.replace(/_/g, " ")}</span>
-                                  </div>
+                                  <UnavailableItemRow key={idx} item={it} />
                                 ))}
                               </div>
                             )}
@@ -917,16 +950,7 @@ function ChatPage() {
                       </div>
                       <div className="space-y-2">
                         {cartData.unavailable_items.map((it: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-xs"
-                          >
-                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                            <span className="font-medium">{it.name}</span>
-                            <span className="text-muted-foreground">
-                              — {it.reason?.replace(/_/g, " ")}
-                            </span>
-                          </div>
+                          <UnavailableItemRow key={idx} item={it} />
                         ))}
                       </div>
                     </div>

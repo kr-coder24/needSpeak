@@ -166,7 +166,8 @@ function CheckoutPage() {
           <p className="mt-2 text-sm text-muted-foreground">{error}</p>
           <div className="mt-6 flex justify-center gap-4">
             <Link
-              to={`/cart/${sessionId}`}
+              to="/cart/$id"
+              params={{ id: sessionId }}
               className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium hover:border-foreground"
             >
               Back to Cart

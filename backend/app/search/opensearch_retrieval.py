@@ -5,7 +5,7 @@ Implements ProductRetriever interface for AWS OpenSearch using hybrid vector + t
 import logging
 import json
 import boto3
-from typing import Optional
+from typing import Optional, Any
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 
 from app.config import AWS_REGION
@@ -23,6 +23,7 @@ class OpenSearchRetriever(ProductRetriever):
         self.mock_mode = mock_mode
         self.index_name = index_name
         self.host = host
+        self.client: Optional[OpenSearch] = None
 
         if not self.mock_mode:
             credentials = boto3.Session().get_credentials()
@@ -35,8 +36,6 @@ class OpenSearchRetriever(ProductRetriever):
                 connection_class=RequestsHttpConnection,
                 pool_maxsize=20
             )
-        else:
-            self.client = None
 
     def retrieve(self, query: ProductQuery, limit: int = 20) -> list[RankedProduct]:
         """Execute hybrid search on OpenSearch."""
@@ -47,7 +46,7 @@ class OpenSearchRetriever(ProductRetriever):
         # Example mock embedding extraction
         query_embedding = [0.1] * 384  # Replace with actual embedding model output
 
-        search_body = {
+        search_body: dict[str, Any] = {
             "size": limit,
             "query": {
                 "hybrid": {
@@ -75,10 +74,17 @@ class OpenSearchRetriever(ProductRetriever):
 
         # Apply category filter if present
         if query.category and query.category != "general":
-            search_body["query"]["hybrid"]["queries"][0]["match"] = {
+            search_body["query"]["hybrid"]["queries"][0] = {
                 "bool": {
                     "must": [
-                        {"match": {"search_text": query.query_text}},
+                        {
+                            "match": {
+                                "search_text": {
+                                    "query": query.query_text,
+                                    "boost": 1.0
+                                }
+                            }
+                        },
                         {"term": {"category": query.category}}
                     ]
                 }
@@ -100,11 +106,13 @@ class OpenSearchRetriever(ProductRetriever):
                     brand=source["brand"],
                     category=source["category"],
                     price_inr=source["price_inr"],
-                    unit=source["unit"],
-                    unit_quantity=source["unit_quantity"],
+                    unit=source.get("unit", "piece"),
+                    unit_quantity=source.get("unit_quantity", 1.0),
                     rating=source.get("rating", 4.0),
                     in_stock=source.get("in_stock", True),
-                    tags=source.get("tags", []),
+                    dietary_tags=set(source.get("dietary_tags", [])),
+                    image_url=source.get("image_url", ""),
+                    review_count=source.get("review_count", 0),
                     score=hit["_score"]
                 ))
             return results

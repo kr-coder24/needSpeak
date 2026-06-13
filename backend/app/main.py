@@ -807,6 +807,7 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
             status_code=exc.status_code,
             content=detail,
         )
+    return JSONResponse(
         status_code=exc.status_code,
         content={"error_code": "internal_error", "message": str(detail)},
     )

@@ -11,7 +11,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # DynamoDB Resource (singleton)
 # ---------------------------------------------------------------------------
-_dynamodb = None
+_dynamodb: Any = None
 
 
-def _get_dynamodb():
+def _get_dynamodb() -> Any:
     global _dynamodb
     if _dynamodb is None:
         _dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)

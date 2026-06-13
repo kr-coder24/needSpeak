@@ -7,15 +7,15 @@ and train a hybrid collaborative filtering model using LightFM.
 import os
 import csv
 import logging
-import numpy as np
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 try:
-    from lightfm import LightFM
-    from lightfm.data import Dataset
-    from lightfm.evaluation import precision_at_k
+    from lightfm import LightFM  # type: ignore
+    from lightfm.data import Dataset  # type: ignore
+    from lightfm.evaluation import precision_at_k  # type: ignore
     LIGHTFM_AVAILABLE = True
 except ImportError:
     LIGHTFM_AVAILABLE = False

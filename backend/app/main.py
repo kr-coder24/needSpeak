@@ -1268,7 +1268,7 @@ async def extract_preferences(req: PreferenceExtractRequest):
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=config.GEMINI_MODEL_ID,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

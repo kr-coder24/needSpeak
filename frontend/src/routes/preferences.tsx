@@ -82,11 +82,11 @@ function PreferencesPage() {
         if (data.dietary) setDiet(data.dietary);
         if (data.budget_mode) setStyle(data.budget_mode);
         if (data.preferred_brands && Array.isArray(data.preferred_brands)) {
-          const validBrands = data.preferred_brands
-            .filter((b: string) => brands.some(vb => vb.toLowerCase() === b.toLowerCase()))
-            .map((b: string) => brands.find(vb => vb.toLowerCase() === b.toLowerCase())!);
-          
-          setPicked(Array.from(new Set([...picked, ...validBrands])));
+          // Capitalize properly and add all brands (even if not in predefined list)
+          const extractedBrands = data.preferred_brands.map((b: string) => 
+            b.charAt(0).toUpperCase() + b.slice(1)
+          );
+          setPicked(Array.from(new Set([...picked, ...extractedBrands])));
         }
       }
     } catch (e) {
@@ -227,6 +227,19 @@ function PreferencesPage() {
                 </button>
               );
             })}
+            {/* Show extracted brands that aren't in the predefined list */}
+            {picked.filter(p => !brands.includes(p)).map((b) => (
+              <button
+                key={b}
+                onClick={() => toggle(b)}
+                className="rounded-full border border-brand bg-brand/15 px-3 py-1.5 text-sm text-foreground relative"
+              >
+                {b}
+                <span className="ml-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-brand-foreground">
+                  ✓
+                </span>
+              </button>
+            ))}
           </div>
         </section>
 

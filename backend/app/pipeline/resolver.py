@@ -47,7 +47,8 @@ def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
             host = os.getenv("OPENSEARCH_HOST", "")
             _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
         else:
-            _retriever = LocalRetriever(mock_mode=mock_mode)
+            from app.search.local_vector_retrieval import LocalVectorRetriever
+            _retriever = LocalVectorRetriever(mock_mode=mock_mode)
     return _retriever
 
 

@@ -18,6 +18,8 @@ class InputType(str, Enum):
     URL = "url"
     WHATSAPP = "whatsapp"
     IMAGE = "image"
+    PDF = "pdf"
+    PRESCRIPTION = "prescription"
 
 
 class IntentType(str, Enum):

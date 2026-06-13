@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 # Load .env before importing config
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -305,6 +305,85 @@ async def parse_content(req: ParseRequest, request: Request):
                 "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
                 "message": "The request timed out. Please try again.",
             }
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/transcribe — Voice-to-Text via Gemini
+# ---------------------------------------------------------------------------
+@app.post("/api/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...), request: Request = None):
+    """
+    Accept an audio file (webm/opus) and return transcribed text using Gemini.
+    Used by the frontend voice input feature.
+    """
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    # Read audio bytes
+    audio_bytes = await audio.read()
+    if len(audio_bytes) < 1000:
+        raise HTTPException(status_code=400, detail={"message": "Audio too short to transcribe."})
+
+    logger.info(f"[transcribe] Received {len(audio_bytes)} bytes, mime={audio.content_type}")
+
+    if mock_mode:
+        # In mock mode, return a sample transcription
+        return {"text": "I need groceries for a birthday party for 20 people, budget 3000 rupees"}
+
+    try:
+        from app.pipeline.gemini_client import get_gemini_client
+        import base64
+
+        client = get_gemini_client()
+
+        # Determine MIME type
+        mime_type = audio.content_type or "audio/webm"
+
+        # Send audio to Gemini for transcription
+        response = client.models.generate_content(
+            model=config.GEMINI_MODEL_ID,
+            contents=[
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": base64.b64encode(audio_bytes).decode("utf-8"),
+                            }
+                        },
+                        {
+                            "text": (
+                                "Transcribe this audio exactly as spoken. "
+                                "Return ONLY the transcribed text, nothing else. "
+                                "If the audio contains Hindi or Hinglish, transcribe it in English/Roman script. "
+                                "If the audio is unclear or silent, respond with an empty string."
+                            )
+                        },
+                    ],
+                }
+            ],
+        )
+
+        transcribed_text = response.text.strip() if response.text else ""
+        logger.info(f"[transcribe] Result: '{transcribed_text[:100]}...'")
+
+        return {"text": transcribed_text}
+
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"[transcribe] Failed: {error_str}")
+
+        # Handle rate limiting gracefully
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+            )
+
+        raise HTTPException(
+            status_code=500,
+            detail={"message": f"Transcription failed: {error_str}"},
         )
 
 

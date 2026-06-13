@@ -224,10 +224,9 @@ function ChatPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Voice input via Web Speech API
+  // Voice input via MediaRecorder + backend transcription
   const voice = useVoiceInput({
-    lang: "en-IN",
-    onFinalResult: (transcript) => {
+    onResult: (transcript) => {
       setText((prev) => (prev ? prev + " " + transcript : transcript));
     },
   });
@@ -509,7 +508,13 @@ function ChatPage() {
               <PromptInputTextarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder={voice.status === "listening" ? "Listening… speak now" : "Describe what you're planning…"}
+                placeholder={
+                  voice.status === "listening"
+                    ? "Listening… speak now"
+                    : voice.status === "processing"
+                    ? "Transcribing…"
+                    : "Describe what you're planning…"
+                }
               />
               <div className="flex items-center justify-between p-2">
                 {/* Voice input button */}
@@ -518,10 +523,19 @@ function ChatPage() {
                     <button
                       type="button"
                       onClick={voice.toggle}
-                      title={voice.status === "listening" ? "Stop listening" : "Voice input"}
+                      disabled={voice.status === "processing"}
+                      title={
+                        voice.status === "listening"
+                          ? "Stop recording"
+                          : voice.status === "processing"
+                          ? "Transcribing…"
+                          : "Voice input"
+                      }
                       className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                         voice.status === "listening"
                           ? "bg-destructive/10 text-destructive animate-pulse"
+                          : voice.status === "processing"
+                          ? "bg-brand/10 text-brand opacity-70 cursor-wait"
                           : "text-muted-foreground hover:bg-surface hover:text-foreground"
                       }`}
                     >
@@ -533,10 +547,13 @@ function ChatPage() {
                     </button>
                   )}
                   {voice.status === "listening" && (
-                    <span className="text-xs text-destructive animate-pulse">Listening…</span>
+                    <span className="text-xs text-destructive animate-pulse">Recording…</span>
                   )}
-                  {voice.errorMessage && (
-                    <span className="text-xs text-destructive">{voice.errorMessage}</span>
+                  {voice.status === "processing" && (
+                    <span className="text-xs text-brand">Transcribing…</span>
+                  )}
+                  {voice.errorMessage && voice.status !== "listening" && (
+                    <span className="max-w-[200px] truncate text-xs text-destructive">{voice.errorMessage}</span>
                   )}
                 </div>
                 <PromptInputSubmit status={phase === "thinking" ? "submitted" : undefined} />

@@ -173,7 +173,23 @@ function HistoryPanel({
   onClose: () => void;
   onRestore: (entry: CartHistoryEntry) => void;
 }) {
-  const history = loadHistory();
+  const [history, setHistory] = useState<CartHistoryEntry[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setHistory(loadHistory());
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setHistory(loadHistory());
+    };
+    window.addEventListener("cart-history-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("cart-history-updated", handleUpdate);
+    };
+  }, []);
 
   if (!open) return null;
 
@@ -252,6 +268,37 @@ function ChatPage() {
       setText((prev) => (prev ? prev + " " + transcript : transcript));
     },
   });
+
+  // Auto-restore the most recent cart from history on mount (if no prefill prompt)
+  const hasRestoredRef = useRef(false);
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    if (prefillPrompt) return; // Don't restore if coming from an occasion tile
+    const history = loadHistory();
+    if (history.length > 0) {
+      hasRestoredRef.current = true;
+      const latest = history[0];
+      const normalized = {
+        session_id: latest.session_id,
+        cart: latest.cart,
+        unavailable_items: latest.unavailable_items,
+        intent_type: latest.intent_type,
+        context_summary: latest.context_summary,
+        total_price_inr: latest.total_price_inr,
+        budget_exceeded: false,
+        summary: latest.summary,
+      };
+      setCartData(normalized);
+      setIntentGroups([]);
+      if (latest.budget_inr) setBudgetInput(String(latest.budget_inr));
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: `Restored your last cart: ${latest.context_summary || latest.intent_type} — ₹${latest.total_price_inr}` },
+      ]);
+      setPhase("cart");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

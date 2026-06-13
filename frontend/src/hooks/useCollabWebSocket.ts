@@ -26,7 +26,8 @@ export function useCollabWebSocket(
     if (!sessionId || !contributorId) return;
 
     // Use ws:// for local development, wss:// for production
-    const wsUrl = `ws://127.0.0.1:8000/api/collab/${sessionId}/ws?contributor_id=${contributorId}`;
+    const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+    const wsUrl = `ws://${host}:8000/api/collab/${sessionId}/ws?contributor_id=${contributorId}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -50,6 +51,12 @@ export function useCollabWebSocket(
           case "budget_updated":
             if (msg.data.session) {
               setSession(msg.data.session);
+            }
+            break;
+          case "items_unavailable":
+            if (msg.data.unavailable_items && msg.data.unavailable_items.length > 0) {
+              const names = msg.data.unavailable_items.map((i: any) => i.name).join(", ");
+              alert(`Could not add items (not found in catalog or out of stock): ${names}`);
             }
             break;
           default:

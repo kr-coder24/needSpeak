@@ -181,12 +181,47 @@ async def collab_websocket(websocket: WebSocket, session_id: str, contributor_id
             data = msg.get("data", {})
             
             if msg_type == "add_items":
-                items_input = [CollabCartItem(**item) for item in data.get("items", [])]
-                # Re-use the existing logic by creating input objects
+                from app.models import ExtractedItem
+                from app.pipeline.resolver import resolve_cart
                 from app.collab.models import CollabItemInput
-                inputs = [CollabItemInput(**item) for item in data.get("items", [])]
                 
-                new_items = add_items(session_id, contributor_id, inputs)
+                extracted_items = [
+                    ExtractedItem(
+                        name=item.get("name", ""),
+                        quantity=float(item.get("quantity", 1.0)),
+                        unit=item.get("unit", "piece"),
+                        category=item.get("category", "general"),
+                    )
+                    for item in data.get("items", [])
+                ]
+                
+                cart_items, unavailable_items, _, _ = resolve_cart(
+                    items=extracted_items,
+                    session_id=session_id,
+                    mock_mode=False
+                )
+                
+                if unavailable_items:
+                    await websocket.send_json({
+                        "type": "items_unavailable",
+                        "data": {
+                            "unavailable_items": [ui.model_dump() for ui in unavailable_items]
+                        }
+                    })
+                
+                inputs = [
+                    CollabItemInput(
+                        name=c_item.name,
+                        quantity=float(c_item.quantity_units),
+                        unit=c_item.unit,
+                        category="general",
+                        estimated_price_inr=c_item.price_per_unit_inr,
+                        notes=None
+                    )
+                    for c_item in cart_items
+                ]
+                
+                new_items = add_items(session_id, contributor_id, inputs) if inputs else []
                 if new_items:
                     await manager.broadcast(session_id, {
                         "type": "items_added",

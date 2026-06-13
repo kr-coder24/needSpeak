@@ -5,12 +5,14 @@ import logo from "@/assets/needspeak-logo.png";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
 import { getStoredAuth } from "@/routes/login";
+import { createCollabSession } from "@/lib/collab-api";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { CreateCollabCard } from "@/components/collab/CreateCollabCard";
 
 const nav = [
   { to: "/chat", label: "Chat" },
   { to: "/occasions", label: "Occasions" },
   { to: "/recipe", label: "Recipe" },
-  { to: "/collab/ipl-finals-10", label: "Collab" },
 ];
 
 export function AppShell({ children, noFooter = false }: { children: ReactNode; noFooter?: boolean }) {
@@ -49,6 +51,24 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
     };
   }, []);
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreatingCollab, setIsCreatingCollab] = useState(false);
+
+  const handleCreateCollab = async (data: { name: string; hostName: string; budget: number }) => {
+    setIsCreatingCollab(true);
+    try {
+      const { session, contributor } = await createCollabSession(data.name, data.hostName, data.budget);
+      localStorage.setItem(`collab_${session.session_id}_contributor`, contributor.id);
+      setIsDialogOpen(false);
+      navigate({ to: `/collab/${session.session_id}` });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create collab session");
+    } finally {
+      setIsCreatingCollab(false);
+    }
+  };
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -75,6 +95,21 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
                 </Link>
               );
             })}
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <button className="rounded-md px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand/10 transition-colors">
+                  + Create Collab
+                </button>
+              </DialogTrigger>
+              <DialogContent className="p-0 bg-transparent border-none shadow-none max-w-lg w-full outline-none sm:max-w-[500px]">
+                <CreateCollabCard 
+                  onSubmit={handleCreateCollab} 
+                  onCancel={() => setIsDialogOpen(false)} 
+                  isCreating={isCreatingCollab}
+                />
+              </DialogContent>
+            </Dialog>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">

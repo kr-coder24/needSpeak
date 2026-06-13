@@ -124,3 +124,26 @@ class CollabSummary(BaseModel):
     total_estimated_cost: float
     budget_remaining: float
     is_active: bool
+
+class RemoveCollabItemRequest(BaseModel):
+    """Request to remove an item from the collaborative cart."""
+    contributor_id: str
+
+class UpdateBudgetRequest(BaseModel):
+    """Request to update the total budget."""
+    contributor_id: str
+    new_budget_inr: float = Field(..., ge=0)
+
+class BudgetSplit(BaseModel):
+    """Represents the budget split for a single contributor."""
+    contributor_id: str
+    name: str
+    items_added: int
+    amount_spent: float
+    fair_share: float
+    owes: float  # Positive means owes to pool, negative means gets from pool
+
+class WebSocketMessage(BaseModel):
+    """Typed WebSocket message payload."""
+    type: str
+    data: dict

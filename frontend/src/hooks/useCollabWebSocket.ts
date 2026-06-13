@@ -62,6 +62,11 @@ export function useCollabWebSocket(
               });
             }
             break;
+          case "error":
+            if (msg.data && msg.data.message) {
+              toast.error("Error", { description: msg.data.message });
+            }
+            break;
           default:
             console.warn("Unknown message type:", msg.type);
         }

@@ -185,6 +185,7 @@ async def collab_websocket(websocket: WebSocket, session_id: str, contributor_id
                 from app.pipeline.resolver import resolve_cart
                 from app.collab.models import CollabItemInput
                 from app.pipeline.extractor import extract_items
+                from app.intelligence.preference_engine import apply_preferences, UserPreferences
                 from app import config
                 
                 raw_items = data.get("items", [])
@@ -193,6 +194,24 @@ async def collab_websocket(websocket: WebSocket, session_id: str, contributor_id
                     
                 text_to_extract = ", ".join([f"{it.get('quantity', 1)} {it.get('name', '')}" for it in raw_items])
                 extraction = extract_items(text_to_extract, None, mock_mode=config.MOCK_MODE)
+                
+                # Mirror edge-cases from Context-to-Cart extraction
+                if extraction.error == "no_shoppable_content":
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": "No shoppable items found in the input."}
+                    })
+                    continue
+                elif extraction.error in ("extraction_failed", "bedrock_timeout"):
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": "AI extraction failed. Please try again."}
+                    })
+                    continue
+                
+                # Apply Preference Engine logic (Pillar 9 and 10) identically
+                prefs = UserPreferences(dietary=[], preferred_brands=[], budget_mode="balanced")
+                extraction = apply_preferences(extraction, prefs)
                 
                 extracted_items = []
                 for intent in extraction.intents:

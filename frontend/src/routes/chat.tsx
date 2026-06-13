@@ -452,24 +452,6 @@ function ChatPage() {
                 </Message>
               )}
 
-              {phase === "cart" && cartData && (
-                <Message from="assistant">
-                  <MessageContent>
-                    <div className="space-y-3">
-                      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Intent extracted
-                      </div>
-                      <pre className="overflow-x-auto rounded-lg bg-surface p-3 text-xs leading-relaxed text-foreground">
-                        {JSON.stringify(
-                          { intent: cartData.intent_type, summary: cartData.context_summary },
-                          null,
-                          2,
-                        )}
-                      </pre>
-                    </div>
-                  </MessageContent>
-                </Message>
-              )}
               <div ref={bottomRef} />
             </ConversationContent>
             <ConversationScrollButton />

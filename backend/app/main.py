@@ -578,6 +578,189 @@ async def parse_image(
         )
 
 
+
+# ---------------------------------------------------------------------------
+# POST /api/parse-pdf — PDF Text Extraction Pipeline (Feature B.13)
+# ---------------------------------------------------------------------------
+@app.post("/api/parse-pdf")
+async def parse_pdf(
+    request: Request,
+    pdf: UploadFile = File(...),
+    budget_inr: float = None,
+):
+    """
+    Accept a PDF file, extract text via pypdf, and run through the pipeline.
+    Returns both the extracted text and the full pipeline result.
+    """
+    session_id = str(uuid.uuid4())
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    pdf_bytes = await pdf.read()
+    
+    if len(pdf_bytes) < 100:
+        raise HTTPException(status_code=400, detail={"message": "PDF too small or empty."})
+
+    logger.info(f"[{session_id}] PDF upload: {len(pdf_bytes)} bytes")
+
+    if mock_mode:
+        return {
+            "extracted_text": "Sample mock text from PDF: milk 2L, bread 1 pack",
+            "session_id": session_id,
+            "hint": "Submit this text to /api/parse with input_type=text",
+        }
+
+    try:
+        from app.ingestion.pdf_input import extract_text_from_pdf
+        import uuid
+        from datetime import datetime, timezone
+        from app.models import ParseResponse, IntentGroup, ErrorCode
+        import asyncio
+        from starlette.concurrency import run_in_threadpool
+        from app.db.dynamo import save_session, store_cart_result
+        
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+
+        if not extracted_text or not extracted_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": ErrorCode.NO_CONTENT.value,
+                    "message": "No readable text found in the PDF. Ensure it is a text-based PDF.",
+                },
+            )
+
+        logger.info(f"[{session_id}] Extracted from PDF: '{extracted_text[:200]}'")
+
+        def run_pdf_pipeline():
+            from app.pipeline.extractor import extract_items
+            from app.pipeline.resolver import resolve_cart
+            from app.pipeline.summarizer import generate_summary
+
+            extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
+
+            if extraction.error == "no_shoppable_content":
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error_code": ErrorCode.NO_CONTENT.value,
+                        "message": "No shoppable items found in the extracted text from the PDF.",
+                    },
+                )
+
+            if extraction.error in ("extraction_failed", "bedrock_timeout"):
+                error_code = (
+                    ErrorCode.BEDROCK_TIMEOUT
+                    if extraction.error == "bedrock_timeout"
+                    else ErrorCode.EXTRACTION_FAILED
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "error_code": error_code.value,
+                        "message": "AI extraction failed. Please try again.",
+                    },
+                )
+
+            resolved_intent_groups = []
+            global_total_price = 0.0
+            global_budget_exceeded = False
+
+            budget_int = int(budget_inr) if budget_inr else None
+
+            for intent in extraction.intents:
+                cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
+                    items=intent.items,
+                    budget_inr=budget_int,
+                    session_id=session_id,
+                    mock_mode=mock_mode,
+                )
+                global_total_price += intent_total_price
+                global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
+
+                resolved_intent_groups.append(IntentGroup(
+                    intent_type=intent.intent_type,
+                    context_summary=intent.context_summary,
+                    cart=cart_items,
+                    unavailable_items=unavailable_items,
+                ))
+
+            summary = generate_summary(
+                intent_groups=resolved_intent_groups,
+                total_price=global_total_price,
+                budget_inr=budget_int,
+                budget_exceeded=global_budget_exceeded,
+                mock_mode=mock_mode,
+            )
+
+            response_data = ParseResponse(
+                session_id=session_id,
+                confidence=extraction.confidence,
+                clarification_question=extraction.clarification_question,
+                intents=resolved_intent_groups,
+                total_price_inr=global_total_price,
+                budget_exceeded=global_budget_exceeded,
+                summary=summary,
+            )
+
+            session_data = {
+                "session_id": session_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "input_type": "text",
+                "confidence": extraction.confidence,
+                "extracted_text_from_pdf": extracted_text,
+                "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
+                "total_price_inr": global_total_price,
+                "budget_inr": budget_int,
+                "budget_exceeded": global_budget_exceeded,
+                "summary": summary,
+                "status": "completed",
+            }
+            save_session(session_data, mock_mode=mock_mode)
+            store_cart_result(session_id, session_data, mock_mode=mock_mode)
+
+            return {
+                "extracted_text": extracted_text,
+                **response_data.model_dump(),
+            }
+
+        return await asyncio.wait_for(
+            run_in_threadpool(run_pdf_pipeline), timeout=45.0
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"[{session_id}] PDF pipeline timed out after 45 seconds.")
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
+                "message": "PDF processing timed out. Please try again.",
+            },
+        )
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"[{session_id}] PDF pipeline failed: {error_str}")
+
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+            )
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": ErrorCode.INTERNAL_ERROR.value,
+                "message": f"PDF processing failed: {error_str}",
+            },
+        )
+
 # ---------------------------------------------------------------------------
 # GET /api/session/{session_id} — Reload Session
 # ---------------------------------------------------------------------------

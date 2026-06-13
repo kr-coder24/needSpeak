@@ -269,6 +269,7 @@ function ChatPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [inputType, setInputType] = useState<"text" | "whatsapp">("text");
 
   // Voice input via MediaRecorder + backend transcription
@@ -570,7 +571,10 @@ function ChatPage() {
                 <ImageIcon className="h-3.5 w-3.5" /> Image
               </button>
 
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+              <button 
+                onClick={() => pdfInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+              >
                 <FileText className="h-3.5 w-3.5" /> PDF
               </button>
 
@@ -605,6 +609,37 @@ function ChatPage() {
                   try {
                     const res = await fetch("/api/parse-image", { method: "POST", body: formData });
                     if (!res.ok) throw new Error("Image parsing failed");
+                    const data = await res.json();
+                    if (data.extracted_text) {
+                      setText(data.extracted_text);
+                      setInputType("text");
+                      onSubmit(data.extracted_text, "text");
+                    }
+                  } catch (err: any) {
+                    setErrorMsg(err.message);
+                    setPhase("idle");
+                  }
+                }}
+              />
+
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setPhase("thinking");
+                  setMessages(m => [...m, { role: "user", text: `📄 Uploaded PDF: ${file.name}` }]);
+
+                  const formData = new FormData();
+                  formData.append("pdf", file);
+                  if (budgetInput) formData.append("budget_inr", budgetInput);
+
+                  try {
+                    const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
+                    if (!res.ok) throw new Error("PDF parsing failed");
                     const data = await res.json();
                     if (data.extracted_text) {
                       setText(data.extracted_text);

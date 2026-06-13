@@ -16,8 +16,9 @@ import boto3
 from google import genai
 from google.genai import types
 
-from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_API_KEY, GEMINI_MODEL_ID
+from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_API_KEY, GEMINI_MODEL_ID, LLM_PROVIDER
 from app.models import ExtractionResult, ExtractedItem, IntentType
+from app.pipeline.bedrock_client import get_bedrock_client
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,41 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> str:
     return response.text
 
 
+def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
+    """Invoke Bedrock with the given prompts, return raw text response."""
+    client = get_bedrock_client()
+
+    request_body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 4096,
+        "temperature": 0.1,  # Low temperature for structured output
+        "system": system_prompt,
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": user_prompt}],
+            }
+        ],
+    }
+
+    response = client.invoke_model(
+        modelId=BEDROCK_MODEL_ID,
+        body=json.dumps(request_body),
+        contentType="application/json",
+    )
+
+    response_body = json.loads(response["body"].read())
+    return response_body["content"][0]["text"]
+
+
+def _call_llm(system_prompt: str, user_prompt: str) -> str:
+    """Route intent extraction call to either Gemini or Bedrock."""
+    if LLM_PROVIDER == "bedrock":
+        return _call_bedrock(system_prompt, user_prompt)
+    else:
+        return _call_gemini(system_prompt, user_prompt)
+
+
 def extract_items(
     text: str,
     servings_override: Optional[int] = None,
@@ -152,26 +188,26 @@ def extract_items(
     )
 
     # First attempt
-    logger.info("Calling Gemini for extraction (attempt 1)...")
+    logger.info(f"Calling {LLM_PROVIDER} for extraction (attempt 1)...")
     try:
-        raw_response = _call_gemini(SYSTEM_PROMPT, user_prompt)
+        raw_response = _call_llm(SYSTEM_PROMPT, user_prompt)
     except Exception as e:
-        logger.error(f"Gemini call failed: {e}")
+        logger.error(f"{LLM_PROVIDER} call failed: {e}")
         return ExtractionResult(error="extraction_failed")
 
     parsed = _sanitize_json_response(raw_response)
 
     # Retry once with stricter prompt if parse failed
     if parsed is None:
-        logger.warning("First extraction attempt returned invalid JSON. Retrying with stricter prompt...")
+        logger.warning(f"First extraction attempt via {LLM_PROVIDER} returned invalid JSON. Retrying with stricter prompt...")
         strict_prompt = (
             "You MUST respond with ONLY a JSON object. No other text before or after. "
             "No markdown fences. Just the raw JSON.\n\n" + user_prompt
         )
         try:
-            raw_response = _call_gemini(SYSTEM_PROMPT, strict_prompt)
+            raw_response = _call_llm(SYSTEM_PROMPT, strict_prompt)
         except Exception as e:
-            logger.error(f"Gemini retry failed: {e}")
+            logger.error(f"{LLM_PROVIDER} retry failed: {e}")
             return ExtractionResult(error="extraction_failed")
 
         parsed = _sanitize_json_response(raw_response)

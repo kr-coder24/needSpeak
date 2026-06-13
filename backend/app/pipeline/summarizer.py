@@ -14,8 +14,9 @@ from typing import Optional
 from google import genai
 from google.genai import types
 
-from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_API_KEY, GEMINI_MODEL_ID
+from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_API_KEY, GEMINI_MODEL_ID, LLM_PROVIDER
 from app.models import CartItem, UnavailableItem
+from app.pipeline.bedrock_client import get_bedrock_client
 
 logger = logging.getLogger(__name__)
 
@@ -74,17 +75,41 @@ def generate_summary(
     user_prompt = f"Summarize this shopping cart result:\n{json.dumps(cart_summary, indent=2)}"
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=GEMINI_MODEL_ID,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SUMMARY_SYSTEM_PROMPT,
-                max_output_tokens=256,
-                temperature=0.4,
+        if LLM_PROVIDER == "bedrock":
+            logger.info("Using Bedrock (Claude) provider for summarization.")
+            client = get_bedrock_client()
+            request_body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 256,
+                "temperature": 0.4,
+                "system": SUMMARY_SYSTEM_PROMPT,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": user_prompt}],
+                    }
+                ],
+            }
+            response = client.invoke_model(
+                modelId=BEDROCK_MODEL_ID,
+                body=json.dumps(request_body),
+                contentType="application/json",
             )
-        )
-        summary = response.text.strip() if response.text else ""
+            response_body = json.loads(response["body"].read())
+            summary = response_body["content"][0]["text"].strip()
+        else:
+            logger.info("Using Google Gemini provider for summarization.")
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            response = client.models.generate_content(
+                model=GEMINI_MODEL_ID,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SUMMARY_SYSTEM_PROMPT,
+                    max_output_tokens=256,
+                    temperature=0.4,
+                )
+            )
+            summary = response.text.strip() if response.text else ""
         logger.info(f"Summary generated: {summary[:80]}...")
         return summary
 

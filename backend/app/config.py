@@ -50,3 +50,7 @@ MOCK_MODE = os.getenv("MOCK_MODE", "0").strip().lower() in ("1", "true", "yes")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
 
+# Active LLM Provider: "gemini" or "bedrock"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
+
+

@@ -38,7 +38,7 @@ function Landing() {
         <div className="bg-background border-t border-border">
           <HowItWorks />
         </div>
-        <div className="border-t border-border" style={{ background: "oklch(0.9 0.06 55)" }}>
+        <div className="border-t border-border" style={{ background: "#8A5A44" }}>
           <LiveExample />
         </div>
         <div className="bg-background border-t border-border">

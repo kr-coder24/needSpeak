@@ -29,7 +29,7 @@ export function HowItWorks() {
         {steps.map((s) => (
           <div
             key={s.n}
-            className="group rounded-2xl border border-border bg-card/70 p-6 transition-colors duration-300 hover:border-foreground/30 hover:bg-[oklch(0.93_0.025_75)]"
+            className="group rounded-2xl border border-border bg-card/70 p-6 transition-colors duration-300 hover:border-foreground/30 hover:bg-[oklch(0.93_0.025_75)] dark:hover:bg-white/10"
           >
             <div className="font-display text-sm text-muted-foreground">{s.n}</div>
             <h3 className="mt-4 font-display text-xl font-medium tracking-tight">{s.title}</h3>

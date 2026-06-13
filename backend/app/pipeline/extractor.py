@@ -16,9 +16,11 @@ import boto3
 from google import genai
 from google.genai import types
 
+from app import config
 from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_API_KEY, GEMINI_MODEL_ID, LLM_PROVIDER
 from app.models import ExtractionResult, ExtractedItem, ExtractedIntent, IntentType
 from app.pipeline.bedrock_client import get_bedrock_client
+from app.pipeline.gemini_client import get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ Your job is to extract every item that needs to be purchased.
 
 RULES:
 1. Output ONLY valid JSON. No prose, no markdown fences, no explanation, no preamble.
-2. If the input contains no shoppable items, return: {"intents": [], "error": "no_shoppable_content"}
+2. If the input is completely unrelated to shopping, cooking, events, gatherings, or any activity that might need supplies (e.g. "what is the weather?"), return: {"intents": [], "error": "no_shoppable_content"}
 3. Never invent quantities not implied by the text. If no quantity is stated, use reasonable defaults (e.g., 1 for countable items, 100g for small amounts).
 4. Normalize units to: g, ml, piece, pack, cup, tbsp, tsp, clove, bunch, kg, litre. Use the most natural unit for the item.
 5. For recipes, estimate quantities for the stated number of servings.
@@ -42,7 +44,9 @@ RULES:
 9. For budget-constrained requests, extract the budget but still list all items normally.
 10. If the text mentions servings/people, set the servings field accordingly.
 11. DEDUPLICATE: Combine identical or similar ingredients (e.g. "onions" and "sliced onions") into a single entry with their quantities combined/summed. Do NOT list the same item multiple times for different recipe steps.
-12. CONFIDENCE EVALUATION: Assess how confident you are in the user's intent. If the input is too vague or broad (e.g., "I need snacks for guests" without specifying what kind of gathering), set confidence to "low" and provide a helpful clarification_question (e.g., "Is this a sports gathering, a children's birthday, or a formal dinner?"). Otherwise, set confidence to "high" and clarification_question to null."""
+12. CONFIDENCE EVALUATION: Assess how confident you are in the user's intent. If the input is too vague or broad (e.g., "I need snacks for guests" without specifying what kind of gathering), set confidence to "low" and provide a helpful clarification_question (e.g., "Is this a sports gathering, a children's birthday, or a formal dinner?"). Otherwise, set confidence to "high" and clarification_question to null.
+13. EVENT INFERENCE: For event, party, occasion, or gathering descriptions (e.g. "IPL watch party for 10 people", "birthday party", "movie night", "picnic for 5"), infer and suggest common items that would be needed (snacks, drinks, disposables, etc.) even if the user did not list specific items. Scale quantities to the number of people mentioned. These are valid shopping requests — do NOT return no_shoppable_content for them.
+14. For Indian events and occasions, suggest culturally appropriate items (e.g. chips, namkeen, cold drinks, popcorn, paper cups, paper plates for a cricket watch party)."""
 
 USER_PROMPT_TEMPLATE = """Extract the shopping list from this text.{servings_instruction}
 
@@ -112,7 +116,7 @@ def _sanitize_json_response(raw: str) -> Optional[dict]:
 def _call_gemini(system_prompt: str, user_prompt: str) -> str:
     """Invoke Gemini with retry and fallback models to handle transient 503/429 load spikes."""
     import time
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = get_gemini_client()
     
     # Try the configured model first, followed by reliable fallbacks
     models_to_try = [GEMINI_MODEL_ID]
@@ -133,6 +137,7 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> str:
                         system_instruction=system_prompt,
                         response_mime_type="application/json",
                         temperature=0.1,
+                        max_output_tokens=4096,
                     )
                 )
                 if response.text:
@@ -148,7 +153,6 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> str:
                 
     # If all models/attempts failed, raise the final exception
     raise last_error or RuntimeError("Gemini API call failed for all models")
-
 
 
 def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
@@ -177,6 +181,11 @@ def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
     response_body = json.loads(response["body"].read())
     return response_body["content"][0]["text"]
 
+def _call_llm(system_prompt: str, user_prompt: str) -> str:
+    if config.LLM_PROVIDER == "gemini":
+        return _call_gemini(system_prompt, user_prompt)
+    return _call_bedrock(system_prompt, user_prompt)
+
 
 def _call_llm(system_prompt: str, user_prompt: str) -> str:
     """Route intent extraction call to either Gemini or Bedrock."""
@@ -203,6 +212,8 @@ def extract_items(
         ExtractionResult with parsed items
     """
     is_mock = mock_mode if mock_mode is not None else MOCK_MODE
+    # MOCK_MODE bypasses the LLM entirely (canned extraction). AWS mocking is
+    # handled separately by MOCK_AWS in the db layer.
     if is_mock:
         return _get_mock_extraction(text)
 

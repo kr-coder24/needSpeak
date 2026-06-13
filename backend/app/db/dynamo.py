@@ -420,7 +420,7 @@ def _get_mock_products() -> list[dict]:
             "sku": "MOCK-BEV-001", "name": "coca cola soft drink", "category": "beverages",
             "subcategory": "soda", "brand": "Coca-Cola", "price_inr": 90,
             "unit": "ml", "unit_quantity": 2000, "rating": 4.5, "in_stock": True,
-            "keywords": ["coke", "cola", "soft drink", "coca cola", "soda"],
+            "keywords": ["coke", "cola", "soft drink", "coca cola", "soda", "cold drink", "cold drinks"],
             "tags": ["party"],
         },
         {
@@ -429,6 +429,34 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 500, "rating": 4.6, "in_stock": True,
             "keywords": ["tea", "chai", "tea powder", "red label"],
             "tags": ["everyday"],
+        },
+        {
+            "sku": "MOCK-BEV-003", "name": "bisleri water bottle", "category": "beverages",
+            "subcategory": "water", "brand": "Bisleri", "price_inr": 20,
+            "unit": "ml", "unit_quantity": 1000, "rating": 4.5, "in_stock": True,
+            "keywords": ["water", "water bottle", "pani", "mineral water", "bisleri"],
+            "tags": ["everyday", "party"],
+        },
+        {
+            "sku": "MOCK-DSP-001", "name": "paper plates pack of 50", "category": "cleaning",
+            "subcategory": "disposables", "brand": "Generic", "price_inr": 80,
+            "unit": "pack", "unit_quantity": 1, "rating": 4.0, "in_stock": True,
+            "keywords": ["paper plates", "plates", "disposable plates", "party plates"],
+            "tags": ["party", "disposable"],
+        },
+        {
+            "sku": "MOCK-DSP-002", "name": "paper cups pack of 50", "category": "cleaning",
+            "subcategory": "disposables", "brand": "Generic", "price_inr": 60,
+            "unit": "pack", "unit_quantity": 1, "rating": 4.0, "in_stock": True,
+            "keywords": ["paper cups", "cups", "disposable cups", "party cups"],
+            "tags": ["party", "disposable"],
+        },
+        {
+            "sku": "MOCK-DSP-003", "name": "napkins tissue paper pack", "category": "cleaning",
+            "subcategory": "disposables", "brand": "Generic", "price_inr": 40,
+            "unit": "pack", "unit_quantity": 1, "rating": 4.1, "in_stock": True,
+            "keywords": ["napkins", "tissues", "tissue paper", "paper napkins"],
+            "tags": ["party", "everyday"],
         },
 
         # Snacks

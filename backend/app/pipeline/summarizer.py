@@ -14,9 +14,11 @@ from typing import Optional
 from google import genai
 from google.genai import types
 
+from app import config
 from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_API_KEY, GEMINI_MODEL_ID, LLM_PROVIDER
 from app.models import IntentGroup, CartItem, UnavailableItem
 from app.pipeline.bedrock_client import get_bedrock_client
+from app.pipeline.gemini_client import get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +104,7 @@ def generate_summary(
             summary = response_body["content"][0]["text"].strip()
         else:
             logger.info("Using Google Gemini provider for summarization.")
-            client = genai.Client(api_key=GEMINI_API_KEY)
-            
+            client = get_gemini_client()
             models_to_try = [GEMINI_MODEL_ID]
             for m in ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]:
                 if m not in models_to_try:

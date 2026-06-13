@@ -331,32 +331,40 @@ async def health_check(request: Request):
     dynamo_ok = check_dynamodb_health(mock_mode=mock_mode)
     s3_ok = check_s3_health(mock_mode=mock_mode)
 
-    # Bedrock health: only relevant when Bedrock is the active provider and
-    # AWS is not mocked. Skip entirely for Gemini / mocked-AWS setups.
-    bedrock_ok = True
-    if config.LLM_PROVIDER == "bedrock" and not config.MOCK_AWS and not mock_mode:
+    # LLM health: probe whichever provider is active. Skip in mock mode,
+    # and never probe Bedrock when AWS is mocked (no Amazon contact).
+    llm_ok = True
+    if not mock_mode and not (config.LLM_PROVIDER == "bedrock" and config.MOCK_AWS):
         try:
-            import boto3
-            import json
-            client = boto3.client("bedrock-runtime", region_name=config.AWS_REGION)
-            test_body = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 10,
-                "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
-            }
-            client.invoke_model(
-                modelId=config.BEDROCK_MODEL_ID,
-                body=json.dumps(test_body),
-                contentType="application/json",
-            )
+            if config.LLM_PROVIDER == "gemini":
+                from app.pipeline.gemini_client import get_gemini_client
+                client = get_gemini_client()
+                client.models.generate_content(
+                    model=config.GEMINI_MODEL_ID,
+                    contents="hi"
+                )
+            else:
+                import boto3
+                import json
+                client = boto3.client("bedrock-runtime", region_name=config.AWS_REGION)
+                test_body = {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 10,
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
+                }
+                client.invoke_model(
+                    modelId=config.BEDROCK_MODEL_ID,
+                    body=json.dumps(test_body),
+                    contentType="application/json",
+                )
         except Exception as e:
-            logger.warning(f"Bedrock health check failed: {e}")
-            bedrock_ok = False
+            logger.warning(f"LLM ({config.LLM_PROVIDER}) health check failed: {e}")
+            llm_ok = False
 
-    status = "ok" if (dynamo_ok and bedrock_ok and s3_ok) else "degraded"
+    status = "ok" if (dynamo_ok and llm_ok and s3_ok) else "degraded"
     return HealthResponse(
         status=status,
-        bedrock="ok" if bedrock_ok else "error",
+        bedrock="ok" if llm_ok else "error",  # Keeping key as bedrock for backwards compatibility
         dynamodb="ok" if dynamo_ok else "error",
         s3="ok" if s3_ok else "error",
     )

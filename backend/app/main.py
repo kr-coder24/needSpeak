@@ -257,6 +257,29 @@ async def parse_content(req: ParseRequest, request: Request):
 
         logger.info(f"[{session_id}] Extracted {len(extraction.intents)} intents")
 
+        # Feature 4.3: Deterministic Quantity Engine Scaling
+        if req.servings_override:
+            from app.intelligence.quantity_scaler import scale_quantities
+            # Determine base_servings, fallback to 4 if the LLM didn't extract any
+            base_servings = extraction.servings or 4
+            
+            # If an occasion template was used, and extraction didn't specify servings, use the occasion's default
+            if req.occasion and not extraction.servings:
+                from app.intelligence.occasion_templates import get_template_by_id
+                template = get_template_by_id(req.occasion)
+                if template:
+                    base_servings = template.default_attendees
+                    
+            logger.info(f"[{session_id}] Applying deterministic quantity scaling: {base_servings} -> {req.servings_override}")
+            for intent in extraction.intents:
+                intent.items = scale_quantities(
+                    items=intent.items, 
+                    target_attendees=req.servings_override, 
+                    base_servings=base_servings
+                )
+            # Update extraction servings to reflect the scaled amount
+            extraction.servings = req.servings_override
+
         # ── Step 3: Resolve ─────────────────────────────────────────────
         logger.info(f"[{session_id}] Resolving SKUs per intent...")
         

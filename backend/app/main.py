@@ -32,6 +32,7 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from app import config
 from app.models import (
@@ -245,6 +246,12 @@ async def parse_content(req: ParseRequest, request: Request):
                 budget_inr=req.budget_inr,
                 session_id=session_id,
                 mock_mode=mock_mode,
+                # V2 preference params
+                dietary_pref=req.dietary_pref,
+                preferred_brands=req.preferred_brands,
+                avoided_brands=req.avoided_brands,
+                budget_mode=req.budget_mode or "balanced",
+                occasion=req.occasion,
             )
             global_total_price += intent_total_price
             global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -396,10 +403,153 @@ async def transcribe_audio(request: Request, audio: UploadFile = File(...)):
 
 
 # ---------------------------------------------------------------------------
-# POST /api/parse-image — Image OCR Pipeline (Member 2, Feature 1)
+# Multimodal Pipeline Helper
 # ---------------------------------------------------------------------------
-@app.post("/api/parse-image")
-async def parse_image(
+async def _run_multimodal_pipeline(
+    session_id: str,
+    extracted_text: str,
+    input_type: str,
+    budget_inr: float = None,
+    mock_mode: bool = False,
+):
+    from app.pipeline.extractor import extract_items
+    from app.pipeline.resolver import resolve_cart
+    from app.pipeline.summarizer import generate_summary
+
+    def run_pipeline():
+        extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
+
+        if extraction.error == "no_shoppable_content":
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": ErrorCode.NO_CONTENT.value,
+                    "message": "No shoppable items found in the extracted text from the document.",
+                },
+            )
+
+        if extraction.error in ("extraction_failed", "bedrock_timeout"):
+            error_code = (
+                ErrorCode.BEDROCK_TIMEOUT
+                if extraction.error == "bedrock_timeout"
+                else ErrorCode.EXTRACTION_FAILED
+            )
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error_code": error_code.value,
+                    "message": "AI extraction failed. Please try again.",
+                },
+            )
+
+        resolved_intent_groups = []
+        global_total_price = 0.0
+        global_budget_exceeded = False
+
+        budget_int = int(budget_inr) if budget_inr else None
+
+        for intent in extraction.intents:
+            cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
+                items=intent.items,
+                budget_inr=budget_int,
+                session_id=session_id,
+                mock_mode=mock_mode,
+                dietary_pref=None,
+                preferred_brands=None,
+                avoided_brands=None,
+                budget_mode="balanced",
+                occasion=None,
+            )
+            global_total_price += intent_total_price
+            global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
+
+            resolved_intent_groups.append(IntentGroup(
+                intent_type=intent.intent_type,
+                context_summary=intent.context_summary,
+                cart=cart_items,
+                unavailable_items=unavailable_items,
+            ))
+
+        summary = generate_summary(
+            intent_groups=resolved_intent_groups,
+            total_price=global_total_price,
+            budget_inr=budget_int,
+            budget_exceeded=global_budget_exceeded,
+            mock_mode=mock_mode,
+        )
+
+        response_data = ParseResponse(
+            session_id=session_id,
+            confidence=extraction.confidence,
+            clarification_question=extraction.clarification_question,
+            intents=resolved_intent_groups,
+            total_price_inr=global_total_price,
+            budget_exceeded=global_budget_exceeded,
+            summary=summary,
+        )
+
+        session_data = {
+            "session_id": session_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "input_type": input_type,
+            "confidence": extraction.confidence,
+            "extracted_text_from_file": extracted_text,
+            "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
+            "total_price_inr": global_total_price,
+            "budget_inr": budget_int,
+            "budget_exceeded": global_budget_exceeded,
+            "summary": summary,
+            "status": "completed",
+        }
+        save_session(session_data, mock_mode=mock_mode)
+        store_cart_result(session_id, session_data, mock_mode=mock_mode)
+
+        return {
+            "extracted_text": extracted_text,
+            **response_data.model_dump(),
+        }
+
+    try:
+        return await asyncio.wait_for(
+            run_in_threadpool(run_pipeline), timeout=45.0
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"[{session_id}] Pipeline timed out after 45 seconds.")
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
+                "message": "Processing timed out. Please try again.",
+            },
+        )
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"[{session_id}] Pipeline failed: {error_str}")
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+            )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": ErrorCode.INTERNAL_ERROR.value,
+                "message": f"Processing failed: {error_str}",
+            },
+        )
+
+# ---------------------------------------------------------------------------
+# POST /api/ingest/image — Image OCR Pipeline
+# ---------------------------------------------------------------------------
+@app.post("/api/ingest/image")
+async def ingest_image(
     request: Request,
     image: UploadFile = File(...),
     budget_inr: float = None,
@@ -444,138 +594,140 @@ async def parse_image(
 
         logger.info(f"[{session_id}] Extracted from image: '{extracted_text[:200]}'")
 
-        # Run through the full pipeline by creating a parse request
-        def run_image_pipeline():
-            # Re-use the exact same pipeline as /api/parse with TEXT input
-            from app.pipeline.extractor import extract_items
-            from app.pipeline.resolver import resolve_cart
-            from app.pipeline.summarizer import generate_summary
-
-            extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
-
-            if extraction.error == "no_shoppable_content":
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "error_code": ErrorCode.NO_CONTENT.value,
-                        "message": "No shoppable items found in the extracted text from the image.",
-                    },
-                )
-
-            if extraction.error in ("extraction_failed", "bedrock_timeout"):
-                error_code = (
-                    ErrorCode.BEDROCK_TIMEOUT
-                    if extraction.error == "bedrock_timeout"
-                    else ErrorCode.EXTRACTION_FAILED
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "error_code": error_code.value,
-                        "message": "AI extraction failed. Please try again.",
-                    },
-                )
-
-            resolved_intent_groups = []
-            global_total_price = 0.0
-            global_budget_exceeded = False
-
-            budget_int = int(budget_inr) if budget_inr else None
-
-            for intent in extraction.intents:
-                cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
-                    items=intent.items,
-                    budget_inr=budget_int,
-                    session_id=session_id,
-                    mock_mode=mock_mode,
-                )
-                global_total_price += intent_total_price
-                global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
-
-                resolved_intent_groups.append(IntentGroup(
-                    intent_type=intent.intent_type,
-                    context_summary=intent.context_summary,
-                    cart=cart_items,
-                    unavailable_items=unavailable_items,
-                ))
-
-            summary = generate_summary(
-                intent_groups=resolved_intent_groups,
-                total_price=global_total_price,
-                budget_inr=budget_int,
-                budget_exceeded=global_budget_exceeded,
-                mock_mode=mock_mode,
-            )
-
-            response_data = ParseResponse(
-                session_id=session_id,
-                confidence=extraction.confidence,
-                clarification_question=extraction.clarification_question,
-                intents=resolved_intent_groups,
-                total_price_inr=global_total_price,
-                budget_exceeded=global_budget_exceeded,
-                summary=summary,
-            )
-
-            # Store session
-            session_data = {
-                "session_id": session_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "input_type": "image",
-                "confidence": extraction.confidence,
-                "extracted_text_from_image": extracted_text,
-                "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
-                "total_price_inr": global_total_price,
-                "budget_inr": budget_int,
-                "budget_exceeded": global_budget_exceeded,
-                "summary": summary,
-                "status": "completed",
-            }
-            save_session(session_data, mock_mode=mock_mode)
-            store_cart_result(session_id, session_data, mock_mode=mock_mode)
-
-            return {
-                "extracted_text": extracted_text,
-                **response_data.model_dump(),
-            }
-
-        return await asyncio.wait_for(
-            run_in_threadpool(run_image_pipeline), timeout=45.0
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="image",
+            budget_inr=budget_inr,
+            mock_mode=mock_mode,
         )
 
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
-        )
-    except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] Image pipeline timed out after 45 seconds.")
-        raise HTTPException(
-            status_code=504,
-            detail={
-                "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
-                "message": "Image processing timed out. Please try again.",
-            },
-        )
-    except Exception as e:
-        error_str = str(e)
-        logger.error(f"[{session_id}] Image pipeline failed: {error_str}")
+        raise HTTPException(status_code=400, detail={"message": str(e)})
 
-        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+# ---------------------------------------------------------------------------
+# POST /api/ingest/pdf — PDF Extraction
+# ---------------------------------------------------------------------------
+@app.post("/api/ingest/pdf")
+async def ingest_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    budget_inr: float = None,
+):
+    session_id = str(uuid.uuid4())
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    pdf_bytes = await file.read()
+    
+    if mock_mode:
+        return {
+            "extracted_text": "mock pdf text",
+            "session_id": session_id,
+            "hint": "Mocked response",
+        }
+
+    try:
+        from app.ingestion.pdf_input import extract_text_from_pdf
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+
+        if not extracted_text:
             raise HTTPException(
-                status_code=429,
-                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+                status_code=400,
+                detail={"message": "No food items found in the PDF."}
             )
 
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error_code": ErrorCode.INTERNAL_ERROR.value,
-                "message": f"Image processing failed: {error_str}",
-            },
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="pdf",
+            budget_inr=budget_inr,
+            mock_mode=mock_mode,
         )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"message": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# POST /api/ingest/prescription — Prescription Medical OCR
+# ---------------------------------------------------------------------------
+@app.post("/api/ingest/prescription")
+async def ingest_prescription(
+    request: Request,
+    file: UploadFile = File(...),
+    budget_inr: float = None,
+):
+    session_id = str(uuid.uuid4())
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    file_bytes = await file.read()
+    mime_type = file.content_type or "application/pdf"
+    
+    if mock_mode:
+        return {
+            "extracted_text": "Paracetamol 500mg [requires validation]",
+            "session_id": session_id,
+            "hint": "Mocked response",
+        }
+
+    try:
+        from app.ingestion.prescription_input import extract_text_from_prescription
+        extracted_text = extract_text_from_prescription(file_bytes, mime_type)
+
+        if not extracted_text:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": "No medicines found in the prescription."}
+            )
+
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="prescription",
+            budget_inr=budget_inr,
+            mock_mode=mock_mode,
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"message": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# POST /api/cart/{session_id}/reserve — Reserve Inventory
+# ---------------------------------------------------------------------------
+class ReserveRequest(BaseModel):
+    items: list[dict] = Field(..., description="List of items to reserve: [{'sku': '...', 'qty': 2}]")
+
+@app.post("/api/cart/{session_id}/reserve")
+async def reserve_cart(session_id: str, req: ReserveRequest, request: Request):
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    from app.inventory.reservations import reserve_items
+    success, failed_skus, res_id = reserve_items(session_id, req.items, mock_mode=mock_mode)
+    if not success:
+        raise HTTPException(
+            status_code=409, 
+            detail={"message": "Some items are out of stock", "failed_skus": failed_skus}
+        )
+    return {"success": True, "reservation_id": res_id}
+
+@app.post("/api/cart/{session_id}/release")
+async def release_cart(session_id: str, req: ReserveRequest, request: Request):
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    from app.inventory.reservations import release_reservation
+    release_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
+    return {"success": True}
+
+@app.post("/api/cart/{session_id}/commit")
+async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    from app.inventory.reservations import commit_reservation
+    commit_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
+    return {"success": True}
+
 
 
 # ---------------------------------------------------------------------------

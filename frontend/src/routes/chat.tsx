@@ -277,6 +277,8 @@ function ChatPage() {
   const [intentGroups, setIntentGroups] = useState<any[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadEndpoint, setUploadEndpoint] = useState<string>("");
 
   // Voice input via MediaRecorder + backend transcription
   const voice = useVoiceInput({
@@ -442,6 +444,99 @@ function ChatPage() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhase("thinking");
+    setErrorMsg(null);
+    setMessages((m) => [...m, { role: "user", text: `Uploaded file: ${file.name}` }]);
+
+    const formData = new FormData();
+    if (uploadEndpoint === "/api/ingest/image") {
+      formData.append("image", file);
+    } else {
+      formData.append("file", file);
+    }
+
+    const budgetFromField = budgetInput ? parseInt(budgetInput, 10) : undefined;
+    if (budgetFromField) {
+      formData.append("budget_inr", budgetFromField.toString());
+    }
+
+    try {
+      const res = await fetch(uploadEndpoint, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errDetail = `Server error (${res.status})`;
+        try {
+          const errData = await res.json();
+          errDetail = errData.message || errData.detail || errDetail;
+        } catch { /* ignore */ }
+        throw new Error(errDetail);
+      }
+
+      const data = await res.json();
+
+      const intents: any[] = data.intents ?? [];
+      const allCartItems = intents.flatMap((g: any) => g.cart ?? []);
+      const allUnavailable = intents.flatMap((g: any) => g.unavailable_items ?? []);
+      const intentType = intents.map((g: any) => g.intent_type).filter(Boolean).join(", ");
+      const contextSummary = intents.map((g: any) => g.context_summary).filter(Boolean).join(" · ");
+
+      if (data.confidence === "low" && data.clarification_question) {
+        setMessages((m) => [...m, { role: "assistant", text: data.clarification_question }]);
+        setPhase("idle");
+        return;
+      }
+
+      const normalized = {
+        ...data,
+        cart: allCartItems,
+        unavailable_items: allUnavailable,
+        intent_type: intentType || "upload",
+        context_summary: contextSummary,
+      };
+
+      setCartData(normalized);
+      setIntentGroups(data.intents ?? []);
+
+      const entry: CartHistoryEntry = {
+        session_id: data.session_id,
+        saved_at: new Date().toISOString(),
+        intent_type: intentType || "upload",
+        context_summary: contextSummary,
+        total_price_inr: data.total_price_inr,
+        item_count: allCartItems.length,
+        cart: allCartItems,
+        unavailable_items: allUnavailable,
+        summary: data.summary || "",
+        budget_inr: budgetFromField,
+      };
+      saveToHistory(entry);
+      window.dispatchEvent(new Event("cart-history-updated"));
+
+      const itemCount = allCartItems.length;
+      const unavailCount = allUnavailable.length;
+      let summaryText =
+        data.summary ||
+        `I found ${itemCount} items from your upload, totaling ₹${data.total_price_inr}.`;
+      if (unavailCount > 0)
+        summaryText += ` (${unavailCount} item${unavailCount > 1 ? "s" : ""} unavailable)`;
+
+      setMessages((m) => [...m, { role: "assistant", text: summaryText }]);
+      setPhase("cart");
+    } catch (e: any) {
+      const msg = e.message || "Something went wrong processing your file.";
+      setErrorMsg(msg);
+      setMessages((m) => [...m, { role: "assistant", text: `⚠️ ${msg}` }]);
+      setPhase("idle");
+    }
+  };
+
   const restoreFromHistory = (entry: CartHistoryEntry) => {
     const normalized = {
       session_id: entry.session_id,
@@ -559,15 +654,27 @@ function ChatPage() {
             </div>
 
             {/* Attachment chip strip */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: "none" }} 
+              onChange={handleFileChange} 
+            />
             <div className="mb-2 flex flex-wrap gap-1.5">
               {[
-                { i: LinkIcon, l: "Paste URL" },
-                { i: ImageIcon, l: "Image" },
-                { i: FileText, l: "PDF" },
-                { i: Paperclip, l: "WhatsApp" },
+                { i: ImageIcon, l: "Image", ep: "/api/ingest/image", acc: "image/*" },
+                { i: FileText, l: "PDF", ep: "/api/ingest/pdf", acc: "application/pdf" },
+                { i: Plus, l: "Prescription", ep: "/api/ingest/prescription", acc: "image/*,application/pdf" },
               ].map((c) => (
                 <button
                   key={c.l}
+                  onClick={() => {
+                    setUploadEndpoint(c.ep);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = c.acc;
+                      fileInputRef.current.click();
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
                 >
                   <c.i className="h-3.5 w-3.5" />

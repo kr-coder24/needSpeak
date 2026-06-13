@@ -50,6 +50,12 @@ class ParseRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=50000)
     servings_override: Optional[int] = Field(None, ge=1, le=50)
     budget_inr: Optional[int] = Field(None, ge=50)
+    # V2 preference params
+    dietary_pref: Optional[str] = Field(None, description="veg, vegan, jain, or None for any")
+    preferred_brands: Optional[list[str]] = Field(default=None, description="Brands to boost in ranking")
+    avoided_brands: Optional[list[str]] = Field(default=None, description="Brands to filter out")
+    budget_mode: Optional[str] = Field(default="balanced", description="value, balanced, or premium")
+    occasion: Optional[str] = Field(default=None, description="Occasion tag for relevance boosting")
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +69,7 @@ class ExtractedItem(BaseModel):
     category: str = Field(default="general")
     optional: bool = Field(default=False)
     notes: Optional[str] = None
+    requires_validation: bool = Field(default=False, description="True for prescription medicines")
 
 
 class ExtractedIntent(BaseModel):
@@ -105,6 +112,7 @@ class CartItem(BaseModel):
     reason_codes: list[str] = Field(default_factory=list)
     display_reason: str = ""
     stock_status: str = "available"
+    requires_validation: bool = Field(default=False)
 
 
 

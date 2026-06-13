@@ -602,9 +602,13 @@ function ChatPage() {
                   setPhase("thinking");
                   setMessages(m => [...m, { role: "user", text: `📷 Uploaded: ${file.name}` }]);
 
+                  const prefs = loadPreferences();
                   const formData = new FormData();
                   formData.append("image", file);
                   if (budgetInput) formData.append("budget_inr", budgetInput);
+                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
 
                   try {
                     const res = await fetch("/api/parse-image", { method: "POST", body: formData });
@@ -633,9 +637,13 @@ function ChatPage() {
                   setPhase("thinking");
                   setMessages(m => [...m, { role: "user", text: `📄 Uploaded PDF: ${file.name}` }]);
 
+                  const prefs = loadPreferences();
                   const formData = new FormData();
                   formData.append("pdf", file);
                   if (budgetInput) formData.append("budget_inr", budgetInput);
+                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
 
                   try {
                     const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });

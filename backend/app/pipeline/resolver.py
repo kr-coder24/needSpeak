@@ -46,17 +46,23 @@ STOP_WORDS = {
     "best", "good", "with", "and", "or", "of", "for", "in", "to", "a", "an", "the"
 }
 
-def _keyword_overlap_match(item_name: str, products: list[dict], category: Optional[str] = None) -> Optional[dict]:
+def _keyword_overlap_match(
+    item_name: str,
+    products: list[dict],
+    category: Optional[str] = None,
+    preferred_brands: Optional[list[str]] = None,
+    budget_style: Optional[str] = None,
+) -> Optional[dict]:
     """
     Find the product with the highest keyword overlap with the item name.
-    Requires a minimum matching threshold to avoid false positives.
+    Tie-breaks based on brand preference, budget style, and rating.
     """
     item_tokens = _tokenize(item_name) - STOP_WORDS
     if not item_tokens:
         item_tokens = _tokenize(item_name)  # fallback if all are stop words
         
     best_product = None
-    best_score = 0
+    best_score = 0.0
 
     for p in products:
         if not p.get("in_stock", True):
@@ -78,28 +84,45 @@ def _keyword_overlap_match(item_name: str, products: list[dict], category: Optio
         overlap_tokens = item_tokens & product_keywords
         overlap = len(overlap_tokens)
 
-        # Bonus: if categories match, boost the score slightly
-        category_boost = 0.0
-        if category and p.get("category", "").lower() == category.lower():
-            category_boost = 0.5
+        # Verify match percentage for multi-word requests to filter noise
+        if len(item_tokens) > 1:
+            ratio = overlap / len(item_tokens)
+            if overlap < 2 and ratio < 0.4:
+                continue
 
-        score = overlap + category_boost
+        if overlap > 0:
+            category_boost = 0.5 if category and p.get("category", "").lower() == category.lower() else 0.0
+            brand_boost = 1.0 if preferred_brands and p.get("brand", "").lower() in [b.lower() for b in preferred_brands] else 0.0
+            
+            budget_boost = 0.0
+            price = float(p.get("price_inr", 0))
+            if budget_style == "value":
+                budget_boost = 1.0 / (1.0 + price / 100.0)
+            elif budget_style == "premium":
+                budget_boost = price / (100.0 + price)
 
-        if overlap > 0 and score > best_score:
-            # Additionally verify match percentage for multi-word requests to filter noise
-            if len(item_tokens) > 1:
-                ratio = overlap / len(item_tokens)
-                if overlap < 2 and ratio < 0.4:
-                    continue
-            best_score = score
-            best_product = p
+            rating_boost = float(p.get("rating", 4.0)) / 10.0
+
+            # Scale base overlap score by 10.0 so token match is primary,
+            # while brand/budget style/rating acts as tie-breaker
+            base_score = float(overlap) + category_boost
+            score = base_score * 10.0 + brand_boost + budget_boost + rating_boost
+
+            if score > best_score:
+                best_score = score
+                best_product = p
 
     return best_product
 
 
 
-def _category_fallback(category: str, products: list[dict]) -> Optional[dict]:
-    """Pick the highest-rated in-stock product in the given category."""
+def _category_fallback(
+    category: str,
+    products: list[dict],
+    preferred_brands: Optional[list[str]] = None,
+    budget_style: Optional[str] = None,
+) -> Optional[dict]:
+    """Pick the best in-stock product in the category, tie-broken by preferences and ratings."""
     candidates = [
         p for p in products
         if p.get("category", "").lower() == category.lower()
@@ -107,15 +130,32 @@ def _category_fallback(category: str, products: list[dict]) -> Optional[dict]:
     ]
     if not candidates:
         return None
-    return max(candidates, key=lambda p: p.get("rating", 0))
+
+    def candidate_score(p):
+        brand_boost = 1.0 if preferred_brands and p.get("brand", "").lower() in [b.lower() for b in preferred_brands] else 0.0
+        budget_boost = 0.0
+        price = float(p.get("price_inr", 0))
+        if budget_style == "value":
+            budget_boost = 1.0 / (1.0 + price / 100.0)
+        elif budget_style == "premium":
+            budget_boost = price / (100.0 + price)
+        rating_boost = float(p.get("rating", 4.0)) / 10.0
+        return brand_boost + budget_boost + rating_boost
+
+    return max(candidates, key=candidate_score)
 
 
-def _match_product(item: ExtractedItem, products: list[dict]) -> Optional[dict]:
+def _match_product(
+    item: ExtractedItem,
+    products: list[dict],
+    preferred_brands: Optional[list[str]] = None,
+    budget_style: Optional[str] = None,
+) -> Optional[dict]:
     """
-    Three-tier matching strategy with safeguards:
+    Three-tier matching strategy with preferences support:
     1. Exact name match
-    2. Keyword overlap score
-    3. Category fallback (only if some token similarity or name association exists)
+    2. Keyword overlap score with preference tie-breaking
+    3. Category fallback with safety overlap guard and preference tie-breaking
     """
     # 1. Exact match
     match = _exact_match(item.name, products)
@@ -124,13 +164,13 @@ def _match_product(item: ExtractedItem, products: list[dict]) -> Optional[dict]:
         return match
 
     # 2. Keyword overlap
-    match = _keyword_overlap_match(item.name, products, item.category)
+    match = _keyword_overlap_match(item.name, products, item.category, preferred_brands, budget_style)
     if match:
         logger.debug(f"Keyword match: '{item.name}' -> {match['sku']} (keywords)")
         return match
 
     # 3. Category fallback with safety overlap guard
-    match = _category_fallback(item.category, products)
+    match = _category_fallback(item.category, products, preferred_brands, budget_style)
     if match:
         item_tokens = _tokenize(item.name)
         prod_tokens = _tokenize(match.get("name", "")) | set(match.get("keywords", []))
@@ -290,19 +330,32 @@ def resolve_cart(
     budget_inr: Optional[int] = None,
     session_id: str = "",
     mock_mode: bool = False,
+    dietary_pref: Optional[str] = None,
+    preferred_brands: Optional[list[str]] = None,
+    budget_style: Optional[str] = None,
 ) -> tuple[list[CartItem], list[UnavailableItem], float, bool]:
     """
     Resolve extracted items to real products in the catalog.
+    Applies dietary constraints and matches/tie-breaks using brand/budget preferences.
 
     Returns:
         (cart_items, unavailable_items, total_price, budget_exceeded)
     """
     products = get_all_products(mock_mode=mock_mode)
+
+    # Apply dietary filter to candidate products (Pillar 9.2)
+    if dietary_pref and dietary_pref.lower() not in ("any", "non-veg"):
+        pref_lower = dietary_pref.lower()
+        target_dietary = "vegetarian" if pref_lower == "veg" else pref_lower
+        
+        # We only match products that have the target dietary tag in their dietary array
+        products = [p for p in products if target_dietary in [d.lower() for d in p.get("dietary", [])]]
+
     cart_items: list[CartItem] = []
     unavailable_items: list[UnavailableItem] = []
 
     for item in items:
-        product = _match_product(item, products)
+        product = _match_product(item, products, preferred_brands, budget_style)
 
         if product is None:
             unavailable_items.append(UnavailableItem(

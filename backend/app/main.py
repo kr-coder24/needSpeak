@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 # Load .env before importing config
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -239,12 +239,29 @@ async def parse_content(req: ParseRequest, request: Request):
         global_total_price = 0.0
         global_budget_exceeded = False
         
+        # Apply preferences (Pillar 9)
+        from app.intelligence.preference_engine import apply_preferences, UserPreferences
+        dietary_list = []
+        if req.dietary_pref and req.dietary_pref.lower() not in ("any", "none"):
+            val = req.dietary_pref.lower()
+            dietary_list.append("vegetarian" if val == "veg" else val)
+        
+        prefs = UserPreferences(
+            dietary=dietary_list,
+            preferred_brands=req.preferred_brands or [],
+            budget_mode=req.budget_style or "balanced"
+        )
+        extraction = apply_preferences(extraction, prefs)
+
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
                 items=intent.items,
                 budget_inr=req.budget_inr,
                 session_id=session_id,
                 mock_mode=mock_mode,
+                dietary_pref=req.dietary_pref,
+                preferred_brands=req.preferred_brands,
+                budget_style=req.budget_style,
             )
             global_total_price += intent_total_price
             global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -402,7 +419,10 @@ async def transcribe_audio(request: Request, audio: UploadFile = File(...)):
 async def parse_image(
     request: Request,
     image: UploadFile = File(...),
-    budget_inr: float = None,
+    budget_inr: float = Form(None),
+    dietary_pref: Optional[str] = Form(None),
+    preferred_brands: Optional[str] = Form(None),
+    budget_style: Optional[str] = Form(None),
 ):
     """
     Accept an image, extract text via Gemini Vision, run through pipeline.
@@ -482,12 +502,39 @@ async def parse_image(
 
             budget_int = int(budget_inr) if budget_inr else None
 
+            # Apply preferences (Pillar 9)
+            from app.intelligence.preference_engine import apply_preferences, UserPreferences
+            import json
+            brands_list = []
+            if preferred_brands:
+                try:
+                    brands_list = json.loads(preferred_brands)
+                    if not isinstance(brands_list, list):
+                        brands_list = [brands_list]
+                except Exception:
+                    brands_list = [preferred_brands]
+
+            dietary_list = []
+            if dietary_pref and dietary_pref.lower() not in ("any", "none"):
+                val = dietary_pref.lower()
+                dietary_list.append("vegetarian" if val == "veg" else val)
+
+            prefs = UserPreferences(
+                dietary=dietary_list,
+                preferred_brands=brands_list,
+                budget_mode=budget_style or "balanced"
+            )
+            extraction = apply_preferences(extraction, prefs)
+
             for intent in extraction.intents:
                 cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
                     items=intent.items,
                     budget_inr=budget_int,
                     session_id=session_id,
                     mock_mode=mock_mode,
+                    dietary_pref=dietary_pref,
+                    preferred_brands=brands_list,
+                    budget_style=budget_style,
                 )
                 global_total_price += intent_total_price
                 global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -667,12 +714,39 @@ async def parse_pdf(
 
             budget_int = int(budget_inr) if budget_inr else None
 
+            # Apply preferences (Pillar 9)
+            from app.intelligence.preference_engine import apply_preferences, UserPreferences
+            import json
+            brands_list = []
+            if preferred_brands:
+                try:
+                    brands_list = json.loads(preferred_brands)
+                    if not isinstance(brands_list, list):
+                        brands_list = [brands_list]
+                except Exception:
+                    brands_list = [preferred_brands]
+
+            dietary_list = []
+            if dietary_pref and dietary_pref.lower() not in ("any", "none"):
+                val = dietary_pref.lower()
+                dietary_list.append("vegetarian" if val == "veg" else val)
+
+            prefs = UserPreferences(
+                dietary=dietary_list,
+                preferred_brands=brands_list,
+                budget_mode=budget_style or "balanced"
+            )
+            extraction = apply_preferences(extraction, prefs)
+
             for intent in extraction.intents:
                 cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
                     items=intent.items,
                     budget_inr=budget_int,
                     session_id=session_id,
                     mock_mode=mock_mode,
+                    dietary_pref=dietary_pref,
+                    preferred_brands=brands_list,
+                    budget_style=budget_style,
                 )
                 global_total_price += intent_total_price
                 global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded

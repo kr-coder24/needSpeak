@@ -50,6 +50,9 @@ class ParseRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=50000)
     servings_override: Optional[int] = Field(None, ge=1, le=50)
     budget_inr: Optional[int] = Field(None, ge=50)
+    dietary_pref: Optional[str] = None
+    preferred_brands: Optional[list[str]] = None
+    budget_style: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

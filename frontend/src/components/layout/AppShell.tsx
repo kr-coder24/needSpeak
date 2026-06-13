@@ -21,6 +21,9 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
   const [historyCount, setHistoryCount] = useState(0);
   const [auth, setAuth] = useState<{ token: string; user: any } | null>(null);
 
+  const isChat = pathname.startsWith("/chat");
+  const isAppLayout = isChat || noFooter;
+
   // Load auth from localStorage on client mount
   useEffect(() => {
     try {
@@ -51,7 +54,7 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className={`flex flex-col bg-background relative z-0 ${isAppLayout ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 shrink-0">
@@ -148,7 +151,7 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+      <main className={isAppLayout ? "min-h-0 flex-1 overflow-auto" : "flex-1"}>{children}</main>
 
       {!noFooter && !pathname.startsWith("/chat") && <Footer />}
     </div>

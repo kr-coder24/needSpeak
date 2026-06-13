@@ -13,9 +13,11 @@ from typing import Optional
 
 import boto3
 
+from app import config
 from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE
 from app.models import CartItem, UnavailableItem
 from app.pipeline.bedrock_client import get_bedrock_client
+from app.pipeline.gemini_client import get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,8 @@ def generate_summary(
     Returns a 2-3 sentence string.
     """
     is_mock = mock_mode if mock_mode is not None else MOCK_MODE
-    if is_mock:
+    # When using Gemini (or any non-Bedrock provider), use real LLM even in mock mode
+    if is_mock and config.LLM_PROVIDER == "bedrock":
         return _get_mock_summary(cart_items, unavailable_items, context_summary, total_price)
 
     # Build the context for Bedrock
@@ -74,28 +77,43 @@ def generate_summary(
     user_prompt = f"Summarize this shopping cart result:\n{json.dumps(cart_summary, indent=2)}"
 
     try:
-        client = get_bedrock_client()
-        request_body = {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 256,
-            "temperature": 0.4,
-            "system": SUMMARY_SYSTEM_PROMPT,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [{"type": "text", "text": user_prompt}],
-                }
-            ],
-        }
+        if config.LLM_PROVIDER == "gemini":
+            from google.genai import types
+            g_client = get_gemini_client()
+            response = g_client.models.generate_content(
+                model=config.GEMINI_MODEL_ID,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SUMMARY_SYSTEM_PROMPT,
+                    temperature=0.4,
+                    max_output_tokens=256,
+                )
+            )
+            summary = response.text.strip()
+        else:
+            client = get_bedrock_client()
+            request_body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 256,
+                "temperature": 0.4,
+                "system": SUMMARY_SYSTEM_PROMPT,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": user_prompt}],
+                    }
+                ],
+            }
 
-        response = client.invoke_model(
-            modelId=BEDROCK_MODEL_ID,
-            body=json.dumps(request_body),
-            contentType="application/json",
-        )
+            response = client.invoke_model(
+                modelId=BEDROCK_MODEL_ID,
+                body=json.dumps(request_body),
+                contentType="application/json",
+            )
 
-        response_body = json.loads(response["body"].read())
-        summary = response_body["content"][0]["text"].strip()
+            response_body = json.loads(response["body"].read())
+            summary = response_body["content"][0]["text"].strip()
+            
         logger.info(f"Summary generated: {summary[:80]}...")
         return summary
 

@@ -82,7 +82,11 @@ async def lifespan(app: FastAPI):
     logger.info("Context-to-Cart starting up...")
     logger.info(f"  Mock Mode: {'ON' if config.MOCK_MODE else 'OFF'}")
     logger.info(f"  Region:    {config.AWS_REGION}")
-    logger.info(f"  Model:     {config.BEDROCK_MODEL_ID}")
+    logger.info(f"  Provider:  {config.LLM_PROVIDER}")
+    if config.LLM_PROVIDER == "gemini":
+        logger.info(f"  Model:     {config.GEMINI_MODEL_ID}")
+    else:
+        logger.info(f"  Model:     {config.BEDROCK_MODEL_ID}")
     logger.info("=" * 50)
 
     products = load_all_products()
@@ -314,31 +318,39 @@ async def health_check(request: Request):
     dynamo_ok = check_dynamodb_health(mock_mode=mock_mode)
     s3_ok = check_s3_health(mock_mode=mock_mode)
 
-    # Bedrock health: try a minimal call (skip in mock mode)
-    bedrock_ok = True
+    # LLM health: try a minimal call (skip in mock mode)
+    llm_ok = True
     if not mock_mode:
         try:
-            import boto3
-            import json
-            client = boto3.client("bedrock-runtime", region_name=config.AWS_REGION)
-            test_body = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 10,
-                "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
-            }
-            client.invoke_model(
-                modelId=config.BEDROCK_MODEL_ID,
-                body=json.dumps(test_body),
-                contentType="application/json",
-            )
+            if config.LLM_PROVIDER == "gemini":
+                from app.pipeline.gemini_client import get_gemini_client
+                client = get_gemini_client()
+                client.models.generate_content(
+                    model=config.GEMINI_MODEL_ID,
+                    contents="hi"
+                )
+            else:
+                import boto3
+                import json
+                client = boto3.client("bedrock-runtime", region_name=config.AWS_REGION)
+                test_body = {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 10,
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
+                }
+                client.invoke_model(
+                    modelId=config.BEDROCK_MODEL_ID,
+                    body=json.dumps(test_body),
+                    contentType="application/json",
+                )
         except Exception as e:
-            logger.warning(f"Bedrock health check failed: {e}")
-            bedrock_ok = False
+            logger.warning(f"LLM ({config.LLM_PROVIDER}) health check failed: {e}")
+            llm_ok = False
 
-    status = "ok" if (dynamo_ok and bedrock_ok and s3_ok) else "degraded"
+    status = "ok" if (dynamo_ok and llm_ok and s3_ok) else "degraded"
     return HealthResponse(
         status=status,
-        bedrock="ok" if bedrock_ok else "error",
+        bedrock="ok" if llm_ok else "error",  # Keeping key as bedrock for backwards compatibility
         dynamodb="ok" if dynamo_ok else "error",
         s3="ok" if s3_ok else "error",
     )

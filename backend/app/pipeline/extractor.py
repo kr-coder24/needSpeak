@@ -14,9 +14,11 @@ from typing import Optional
 
 import boto3
 
+from app import config
 from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE
 from app.models import ExtractionResult, ExtractedItem, IntentType
 from app.pipeline.bedrock_client import get_bedrock_client
+from app.pipeline.gemini_client import get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ Your job is to extract every item that needs to be purchased.
 
 RULES:
 1. Output ONLY valid JSON. No prose, no markdown fences, no explanation, no preamble.
-2. If the input contains no shoppable items, return: {"items": [], "error": "no_shoppable_content"}
+2. If the input is completely unrelated to shopping, cooking, events, gatherings, or any activity that might need supplies (e.g. "what is the weather?"), return: {"items": [], "error": "no_shoppable_content"}
 3. Never invent quantities not implied by the text. If no quantity is stated, use reasonable defaults (e.g., 1 for countable items, 100g for small amounts).
 4. Normalize units to: g, ml, piece, pack, cup, tbsp, tsp, clove, bunch, kg, litre. Use the most natural unit for the item.
 5. For recipes, estimate quantities for the stated number of servings.
@@ -39,7 +41,9 @@ RULES:
 8. Understand Hindi, Hinglish, and Indian English — many inputs will use these.
 9. For budget-constrained requests, extract the budget but still list all items normally.
 10. If the text mentions servings/people, set the servings field accordingly.
-11. DEDUPLICATE: Combine identical or similar ingredients (e.g. "onions" and "sliced onions") into a single entry with their quantities combined/summed. Do NOT list the same item multiple times for different recipe steps."""
+11. DEDUPLICATE: Combine identical or similar ingredients (e.g. "onions" and "sliced onions") into a single entry with their quantities combined/summed. Do NOT list the same item multiple times for different recipe steps.
+12. IMPORTANT: For event, party, occasion, or gathering descriptions (e.g. "IPL watch party for 10 people", "birthday party", "movie night", "picnic for 5"), you MUST infer and suggest common items that would be needed (snacks, drinks, disposables, etc.) even if the user did not list specific items. Scale quantities to the number of people mentioned. These are valid shopping requests — do NOT return no_shoppable_content for them.
+13. For Indian events and occasions, suggest culturally appropriate items (e.g. chips, namkeen, cold drinks, popcorn, paper cups, paper plates for a cricket watch party)."""
 
 USER_PROMPT_TEMPLATE = """Extract the shopping list from this text.{servings_instruction}
 
@@ -100,6 +104,20 @@ def _sanitize_json_response(raw: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Core Extraction
 # ---------------------------------------------------------------------------
+def _call_gemini(system_prompt: str, user_prompt: str) -> str:
+    from google.genai import types
+    client = get_gemini_client()
+    response = client.models.generate_content(
+        model=config.GEMINI_MODEL_ID,
+        contents=user_prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.1,
+            max_output_tokens=4096,
+        )
+    )
+    return response.text
+
 def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
     """Invoke Bedrock with the given prompts, return raw text response."""
     client = get_bedrock_client()
@@ -126,6 +144,11 @@ def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
     response_body = json.loads(response["body"].read())
     return response_body["content"][0]["text"]
 
+def _call_llm(system_prompt: str, user_prompt: str) -> str:
+    if config.LLM_PROVIDER == "gemini":
+        return _call_gemini(system_prompt, user_prompt)
+    return _call_bedrock(system_prompt, user_prompt)
+
 
 def extract_items(
     text: str,
@@ -144,7 +167,9 @@ def extract_items(
         ExtractionResult with parsed items
     """
     is_mock = mock_mode if mock_mode is not None else MOCK_MODE
-    if is_mock:
+    # When using Gemini (or any non-Bedrock provider), use real LLM even in mock mode
+    # Mock mode only bypasses AWS services (DynamoDB, S3), not the LLM
+    if is_mock and config.LLM_PROVIDER == "bedrock":
         return _get_mock_extraction(text)
 
     # Build user prompt
@@ -158,11 +183,11 @@ def extract_items(
     )
 
     # First attempt
-    logger.info("Calling Bedrock for extraction (attempt 1)...")
+    logger.info(f"Calling {config.LLM_PROVIDER} for extraction (attempt 1)...")
     try:
-        raw_response = _call_bedrock(SYSTEM_PROMPT, user_prompt)
+        raw_response = _call_llm(SYSTEM_PROMPT, user_prompt)
     except Exception as e:
-        logger.error(f"Bedrock call failed: {e}")
+        logger.error(f"{config.LLM_PROVIDER} call failed: {e}")
         return ExtractionResult(error="bedrock_timeout")
 
     parsed = _sanitize_json_response(raw_response)
@@ -175,9 +200,9 @@ def extract_items(
             "No markdown fences. Just the raw JSON.\n\n" + user_prompt
         )
         try:
-            raw_response = _call_bedrock(SYSTEM_PROMPT, strict_prompt)
+            raw_response = _call_llm(SYSTEM_PROMPT, strict_prompt)
         except Exception as e:
-            logger.error(f"Bedrock retry failed: {e}")
+            logger.error(f"{config.LLM_PROVIDER} retry failed: {e}")
             return ExtractionResult(error="extraction_failed")
 
         parsed = _sanitize_json_response(raw_response)

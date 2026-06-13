@@ -23,6 +23,13 @@ BEDROCK_MODEL_ID = os.getenv(
 )
 
 # ---------------------------------------------------------------------------
+# Google Gemini / LLM Provider
+# ---------------------------------------------------------------------------
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "bedrock").lower()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
+
+# ---------------------------------------------------------------------------
 # Amazon DynamoDB
 # ---------------------------------------------------------------------------
 DYNAMODB_TABLE_PRODUCTS = os.getenv("DYNAMODB_TABLE_PRODUCTS", "ProductCatalog")

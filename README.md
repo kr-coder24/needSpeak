@@ -2,13 +2,16 @@
 
 > **Idea 1 Foundation** — Paste any recipe, shopping list, or URL. AI extracts what you need, maps to real products, builds your cart instantly.
 
-## Quick Start (Local Development)
+---
+
+## 🚀 Quick Start (Local Development)
 
 ### Prerequisites
 - Python 3.11+ (with pip/venv)
 - Node.js 18+ (or Bun)
 - A Google Gemini API key **or** AWS CLI configured with credentials (`aws configure`)
 
+> [!NOTE]
 > If using Gemini with `MOCK_AWS=1` you do **not** need any AWS account, DynamoDB tables, or S3 bucket.
 
 ### 1. Install Backend Dependencies
@@ -86,19 +89,21 @@ npm run dev
 ```
 The UI is live at `http://localhost:5173`. API calls are proxied to the backend.
 
-## Architecture
+---
+
+## 🏗️ Architecture
 
 ```
 User Input (text/URL) 
     |
     v
-[Ingestion Layer] -- text_input / url_fetcher / youtube_fetcher
+[Ingestion Layer] -- text_input / url_fetcher / youtube_fetcher / voice_input
     |
     v
 [Stage 1: AI Intent Extraction] -- Gemini 2.5 Flash / Claude Sonnet 4.6 -> structured JSON
     |
     v
-[Stage 2: SKU Resolution] -- pure code, zero AI, keyword matching
+[Stage 2: SKU Resolution] -- pure code, zero AI, keyword matching (with budget optimization)
     |
     v
 [Stage 3: AI Cart Summary] -- Gemini 2.5 Flash / Claude Sonnet 4.6 -> plain English
@@ -107,46 +112,76 @@ User Input (text/URL)
 Cart Response -> Frontend
 ```
 
-## API Endpoints
+---
 
+## 📊 Feature Status (13 Pillars Matrix)
+
+*Overall Project Completion: **~74% Done** (61/82 features completed), **~13% Partial** (11/82 features), and **~12% Not Started** (10/82 features) as cross-referenced in [f.md](file:///Users/amankashyap/Documents/needSpeak/f.md).*
+
+| Pillar | Features Implemented | Status | Highlights / Implementation Notes |
+|---|---|:---:|---|
+| **Pillar 1: Intent Engine** | 9 / 11 | 🟡 | NLP parsing, URL ingestion (BBC/AllRecipes), YouTube transcripts, Hindi/Hinglish understanding, budget auto-extraction, servings override. OCR/WhatsApp/PDF are partially implemented. |
+| **Pillar 2: OccasionCart** | 4 / 5 | ✅ | Homepage occasion tiles (9 cards), `/occasions` route, and occasion pre-fills via URL search params. |
+| **Pillar 3: RecipeCart** | 4 / 4 | ✅ | Recipe URL parser, ingredient-to-SKU matching, servings scaling, and YouTube recipe transcription to cart. |
+| **Pillar 4: Quantity Engine** | 4 / 5 | ✅ | Normalizes 70+ units (g, ml, cups, etc.), product units translation, UI quantity controls, and quantity deduplication. |
+| **Pillar 5: Multi-Intent** | 4 / 4 | ✅ | Decomposes single inputs to multiple intent groups, creates separate carts per intent, and groups items with subtotals in Live Cart. |
+| **Pillar 6: Collaborative Cart** | 1 / 6 | 🟡 | `/collab/$id` UI page shell is built. Sharing features and database socket sync are static/mocked. |
+| **Pillar 7: GoalCart** | 5 / 5 | ✅ | Dynamic budget optimization, custom item-swapping suggestions UI (cheaper alternatives), budget progress bar, and over/under indicator. |
+| **Pillar 8: CompareCart** | 1 / 5 | 🟡 | "What If" modal with budget slider exists in ReviewCart. Backed re-runs are cosmetic/mocked. |
+| **Pillar 9: Preferences** | 1 / 5 | 🟡 | `/preferences` UI page exists (Dietary tags: Veg/Vegan/Jain, preferred brands, budget styles). Not yet fully wired to resolver. |
+| **Pillar 10: Smart Alts** | 3 / 3 | ✅ | Alternate product suggestions with savings metrics (`pending_substitution` schema) and instant swap acceptance. |
+| **Pillar 11: Explainability** | 3 / 3 | ✅ | High visibility for item-matching rules (`matched_from`), substitution reasons, and missing/unavailable item reasoning. |
+| **Pillar 12: Confidence Layer** | 4 / 4 | ✅ | Evaluates input confidence (High/Med/Low), active clarification questions, and pauses cart generation until clarified. |
+| **Pillar 13: ReviewCart** | 4 / 5 | ✅ | `/cart/$id` review page, AI occasion summary generator, and interactive budget widgets. |
+
+---
+
+## 🔌 API Endpoints
+
+### Core Pipeline Endpoints
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/parse` | Main pipeline: text/URL -> resolved cart |
-| GET | `/api/session/{id}` | Reload a previous session |
-| GET | `/api/health` | Check Bedrock + DynamoDB connectivity |
+| POST | `/api/parse` | Main pipeline: parses raw text or URL content and returns the resolved cart. |
+| POST | `/api/transcribe` | Transcription endpoint: takes WebM/Opus audio recording and transcribes via Gemini. |
+| GET | `/api/session/{session_id}` | Reloads/retrieves a previous session's details and resolved cart. |
+| GET | `/api/health` | Diagnostic endpoint: verifies LLM (Gemini/Bedrock), S3, and DynamoDB health. |
 
-## Mock Mode
+### Authentication Endpoints (CSV-backed)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/signup` | Registers a new user account securely with bcrypt password hashing. |
+| POST | `/api/auth/login` | Validates credentials and returns a session bearer token. |
+| POST | `/api/auth/google` | Handshakes Google Identity services credentials to log in or register. |
+| GET | `/api/auth/me` | Validates the authorization bearer token and returns current user context. |
+| POST | `/api/auth/logout` | Revokes the active session token. |
+| POST | `/api/auth/check-email` | Fast verification to check if an email already exists. |
 
-There are two independent mock flags:
+---
+
+## ⚙️ Mock Mode
+
+There are two independent mock flags to ease local development and testing:
 
 | Flag | What it skips | When to use |
 |------|--------------|-------------|
-| `MOCK_AWS=1` | DynamoDB, S3, Bedrock health check | You don't have an AWS account. The backend uses an in-memory product catalog (~45 mock SKUs) and stores sessions in memory. |
-| `MOCK_MODE=1` | All LLM calls (Gemini **and** Bedrock) | Offline demos or pure UI work. Returns canned extraction/summary data without any network call. |
+| `MOCK_AWS=1` | DynamoDB, S3, Bedrock health checks | Useful if you don't have AWS configured. The backend defaults to a local mock catalog (~45 Indian grocery SKUs) and caches sessions in memory. |
+| `MOCK_MODE=1` | All LLM calls (Gemini and Bedrock) | Ideal for offline work or debugging UI flows. Returns pre-determined canned responses instantly without hitches. |
 
-Both flags are independent — you can use a live Gemini key while keeping AWS fully mocked.
+Both options are independent. For example, you can write real Gemini queries while bypassing AWS database configurations.
 
-> **Tip:** If `MOCK_AWS` is not set in `.env`, the backend auto-detects whether AWS credentials exist on the machine and mocks automatically if they don't.
+---
 
-## Bedrock Inference Profile Setup
-
-Claude Sonnet 4.6 requires an inference profile in AWS Bedrock:
-
-1. Go to **AWS Console > Amazon Bedrock > Inference profiles**
-2. Click **Create inference profile**
-3. Select `anthropic.claude-sonnet-4-6` as the model
-4. Name it (e.g., `context-to-cart-sonnet`)
-5. Copy the **Inference Profile ARN**
-6. Update `BEDROCK_MODEL_ID` in `backend/.env` with the ARN
-
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | FastAPI + Python 3.11 |
-| Frontend | React 18 + Vite 6 |
-| Styling | Tailwind CSS v4 |
-| Animations | Framer Motion |
-| AI | Google Gemini API (default) / Amazon Bedrock (Claude Sonnet 4.6) |
-| Database | Amazon DynamoDB (or local mock catalog) |
-| Storage | Amazon S3 (or local mock session storage) |
+| **Backend** | FastAPI (Python 3.11) |
+| **Frontend** | React 18 (Vite 6) |
+| **Styling** | Tailwind CSS v4 (Vanilla CSS Customizations) |
+| **Animations** | Framer Motion |
+| **AI / LLMs** | Google Gemini 2.5 Flash (Default) / Amazon Bedrock (Claude Sonnet 4.6) |
+| **Database** | Amazon DynamoDB (or local mock catalog) |
+| **Storage** | Amazon S3 (or local memory session store) |
+| **Auth** | Secure CSV-based storage using bcrypt password hashing |
+| **Audio** | Hybrid Web Speech API (Client-side translation) + MediaRecorder fallback |
+| **Export** | Custom `cart-export.ts` utility (supports formatting WhatsApp-friendly text or CSV download) |

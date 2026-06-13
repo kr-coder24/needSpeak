@@ -1,19 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ArrowLeftRight,
   Check,
-  ChevronDown,
   Download,
   Info,
   Share2,
   Sparkles,
-  TrendingDown,
   Wallet,
   Loader2,
+  Plus,
+  Minus,
+  ArrowRight,
+  Users,
+  Leaf,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
+import { diffCarts, hasDiffChanges, type CartDiff } from "@/lib/cart-diff";
 
 export const Route = createFileRoute("/cart/$id")({
   head: () => ({
@@ -38,7 +42,15 @@ function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [whatIfBudget, setWhatIfBudget] = useState(1500);
+  const [whatIfAttendees, setWhatIfAttendees] = useState<number>(10);
+  const [whatIfDietary, setWhatIfDietary] = useState<string>("any");
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // CompareCart states
+  const [comparing, setComparing] = useState(false);
+  const [diffResult, setDiffResult] = useState<CartDiff | null>(null);
+  const [newCartTotal, setNewCartTotal] = useState<number | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch session data from the backend
   useEffect(() => {
@@ -51,6 +63,10 @@ function CartPage() {
         const data = await res.json();
         setSession(data);
         if (data.budget_inr) setWhatIfBudget(data.budget_inr);
+        // Extract attendees from context if available
+        const contextText = data.context_summary || data.original_input || "";
+        const attendeeMatch = contextText.match(/(\d+)\s*(people|guests|attendees|persons?)/i);
+        if (attendeeMatch) setWhatIfAttendees(parseInt(attendeeMatch[1], 10));
       } catch (e: any) {
         setError(e.message || "Failed to load session");
       } finally {
@@ -60,8 +76,7 @@ function CartPage() {
     fetchSession();
   }, [id]);
 
-  // Session stores the resolved cart under `resolved_intents` (multi-intent shape).
-  // Flatten across intents; fall back to legacy flat fields for older sessions.
+  // Compute cart data from session
   const resolvedIntents: any[] = session?.resolved_intents ?? [];
   const cartItems =
     resolvedIntents.length > 0
@@ -84,6 +99,76 @@ function CartPage() {
     session?.total_price_inr ||
     cartItems.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
   const budgetPct = Math.min(100, (total / budget) * 100);
+
+  // Run CompareCart comparison with new parameters
+  const runCompare = useCallback(async (newBudget: number, attendees: number, dietary: string) => {
+    if (!session) return;
+
+    setComparing(true);
+
+    // Build the input text - use original input or context summary
+    let inputText = session.original_input || session.context_summary || intentSummary || "general groceries";
+
+    // Modify attendee count in the input text
+    const attendeePattern = /(\d+)\s*(people|guests|attendees|persons?)/gi;
+    if (attendeePattern.test(inputText)) {
+      inputText = inputText.replace(attendeePattern, `${attendees} people`);
+    } else {
+      inputText += ` for ${attendees} people`;
+    }
+
+    // Add dietary constraint if not "any"
+    if (dietary && dietary !== "any") {
+      inputText += ` (${dietary} only)`;
+    }
+
+    try {
+      const res = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: inputText,
+          input_type: "text",
+          budget_inr: newBudget,
+          dietary_pref: dietary !== "any" ? dietary : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Compare failed");
+      }
+
+      const data = await res.json();
+      const newCart = (data.intents ?? []).flatMap((g: any) => g.cart ?? []);
+      const newTotal = newCart.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
+      setNewCartTotal(newTotal);
+      setDiffResult(diffCarts(cartItems, newCart));
+    } catch (err) {
+      console.error("Compare error:", err);
+      setDiffResult(null);
+      setNewCartTotal(null);
+    } finally {
+      setComparing(false);
+    }
+  }, [session, intentSummary, cartItems]);
+
+  // Debounced compare on parameter change
+  const debouncedCompare = useCallback((budget: number, attendees: number, dietary: string) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      runCompare(budget, attendees, dietary);
+    }, 600);
+  }, [runCompare]);
+
+  // Reset diff when modal closes
+  useEffect(() => {
+    if (!compareOpen) {
+      setDiffResult(null);
+      setNewCartTotal(null);
+    }
+  }, [compareOpen]);
 
   if (loading) {
     return (
@@ -291,21 +376,25 @@ function CartPage() {
       {/* CompareCart modal */}
       {compareOpen && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
+          className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 overflow-y-auto"
           onClick={() => setCompareOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-pop"
+            className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-pop my-8"
           >
             <div className="text-lg font-semibold">CompareCart — What if?</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tweak inputs to see how your cart changes.
+              Adjust parameters to see how your cart would change.
             </p>
 
+            {/* Budget slider */}
             <div className="mt-5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Budget</span>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Wallet className="h-3.5 w-3.5" />
+                  Budget
+                </span>
                 <span className="font-medium">₹{whatIfBudget}</span>
               </div>
               <input
@@ -314,11 +403,79 @@ function CartPage() {
                 max={5000}
                 step={100}
                 value={whatIfBudget}
-                onChange={(e) => setWhatIfBudget(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setWhatIfBudget(val);
+                  debouncedCompare(val, whatIfAttendees, whatIfDietary);
+                }}
                 className="mt-2 w-full accent-[var(--color-brand)]"
               />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>₹500</span>
+                <span>₹5000</span>
+              </div>
             </div>
 
+            {/* Attendees input */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  Attendees
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const val = Math.max(1, whatIfAttendees - 1);
+                      setWhatIfAttendees(val);
+                      debouncedCompare(whatIfBudget, val, whatIfDietary);
+                    }}
+                    className="h-6 w-6 rounded border border-border flex items-center justify-center hover:bg-surface"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="font-medium w-8 text-center">{whatIfAttendees}</span>
+                  <button
+                    onClick={() => {
+                      const val = whatIfAttendees + 1;
+                      setWhatIfAttendees(val);
+                      debouncedCompare(whatIfBudget, val, whatIfDietary);
+                    }}
+                    className="h-6 w-6 rounded border border-border flex items-center justify-center hover:bg-surface"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Dietary preference */}
+            <div className="mt-4">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                <Leaf className="h-3.5 w-3.5" />
+                Dietary preference
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {["any", "veg", "vegan", "jain"].map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setWhatIfDietary(opt);
+                      debouncedCompare(whatIfBudget, whatIfAttendees, opt);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                      whatIfDietary === opt
+                        ? "bg-brand text-brand-foreground border-brand"
+                        : "border-border hover:bg-surface"
+                    }`}
+                  >
+                    {opt === "any" ? "Any" : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Comparison results */}
             <div className="mt-5 space-y-2 text-sm">
               <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
                 <span className="text-muted-foreground">Current total</span>
@@ -328,17 +485,99 @@ function CartPage() {
                 <span className="text-muted-foreground">New budget</span>
                 <span className="font-semibold">₹{whatIfBudget}</span>
               </div>
+              {newCartTotal !== null && (
+                <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
+                  <span className="text-muted-foreground">New cart total</span>
+                  <span className="font-semibold">₹{newCartTotal}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
                 <span className="text-muted-foreground">Status</span>
-                <span
-                  className={`font-semibold ${total > whatIfBudget ? "text-destructive" : "text-success"}`}
-                >
-                  {total > whatIfBudget
-                    ? `₹${total - whatIfBudget} over`
-                    : `₹${whatIfBudget - total} under`}
-                </span>
+                {comparing ? (
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Comparing...
+                  </span>
+                ) : (
+                  <span
+                    className={`font-semibold ${(newCartTotal ?? total) > whatIfBudget ? "text-destructive" : "text-success"}`}
+                  >
+                    {(newCartTotal ?? total) > whatIfBudget
+                      ? `₹${(newCartTotal ?? total) - whatIfBudget} over`
+                      : `₹${whatIfBudget - (newCartTotal ?? total)} under`}
+                  </span>
+                )}
               </div>
             </div>
+
+            {/* Diff view */}
+            {diffResult && hasDiffChanges(diffResult) && (
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="text-xs font-medium text-muted-foreground mb-3">Cart Changes</div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {/* Added items */}
+                  {diffResult.added.map((item) => (
+                    <div
+                      key={item.sku}
+                      className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-success" />
+                      <span className="flex-1 truncate text-success">{item.name}</span>
+                      <span className="text-success font-medium">+₹{item.total_price_inr}</span>
+                    </div>
+                  ))}
+
+                  {/* Removed items */}
+                  {diffResult.removed.map((item) => (
+                    <div
+                      key={item.sku}
+                      className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs"
+                    >
+                      <Minus className="h-3.5 w-3.5 text-destructive" />
+                      <span className="flex-1 truncate text-destructive">{item.name}</span>
+                      <span className="text-destructive font-medium">−₹{item.total_price_inr}</span>
+                    </div>
+                  ))}
+
+                  {/* Swapped items */}
+                  {diffResult.swapped.map((swap) => (
+                    <div
+                      key={swap.new.sku}
+                      className="flex items-center gap-2 rounded-lg bg-brand/10 px-3 py-2 text-xs"
+                    >
+                      <ArrowRight className="h-3.5 w-3.5 text-brand" />
+                      <span className="flex-1 truncate">
+                        <span className="text-muted-foreground line-through">{swap.old.name}</span>
+                        <span className="mx-1">→</span>
+                        <span className="text-brand">{swap.new.name}</span>
+                      </span>
+                      <span className={`font-medium ${swap.savings > 0 ? "text-success" : swap.savings < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {swap.savings > 0 ? `Save ₹${swap.savings}` : swap.savings < 0 ? `+₹${Math.abs(swap.savings)}` : "Same"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Summary */}
+                {diffResult.summary.difference !== 0 && (
+                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Total savings</span>
+                    <span className={`font-semibold ${diffResult.summary.difference > 0 ? "text-success" : "text-destructive"}`}>
+                      {diffResult.summary.difference > 0 
+                        ? `Save ₹${diffResult.summary.difference}` 
+                        : `Spend ₹${Math.abs(diffResult.summary.difference)} more`}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* No changes message */}
+            {diffResult && !hasDiffChanges(diffResult) && !comparing && (
+              <div className="mt-4 text-center text-xs text-muted-foreground py-3 border-t border-border">
+                No changes with these parameters
+              </div>
+            )}
 
             <div className="mt-6 flex justify-end gap-2">
               <button
@@ -348,10 +587,14 @@ function CartPage() {
                 Close
               </button>
               <button
-                onClick={() => setCompareOpen(false)}
-                className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
+                onClick={() => {
+                  // Trigger a fresh compare if needed
+                  runCompare(whatIfBudget, whatIfAttendees, whatIfDietary);
+                }}
+                disabled={comparing}
+                className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90 disabled:opacity-50"
               >
-                Apply changes
+                {comparing ? "Comparing..." : "Compare Now"}
               </button>
             </div>
           </div>

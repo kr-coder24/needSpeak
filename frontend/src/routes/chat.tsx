@@ -500,25 +500,21 @@ function ChatPage() {
         />
 
         {/* Left: conversation */}
-        <div className="flex min-h-0 flex-col border-r border-border">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-6 w-6 text-brand" />
-              <span className="font-display text-lg font-bold tracking-tight uppercase">CONTEXT-TO-CART</span>
-              <span className="text-sm text-muted-foreground mt-2">· Describe it, paste it, drop it</span>
-            </div>
+        {/* Left: conversation */}
+        <div className="relative flex min-h-0 flex-col border-r border-border">
+          <div className="absolute right-4 top-4 z-10">
             <button
               onClick={() => setHistoryOpen((o) => !o)}
               title="Cart history"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-xs text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-foreground hover:text-foreground"
             >
               <History className="h-3.5 w-3.5" />
               History
             </button>
           </div>
 
-          <Conversation className="flex-1">
-            <ConversationContent>
+          <Conversation className="flex-1 pb-32">
+            <ConversationContent className="mx-auto w-full max-w-3xl pt-14">
               {messages.map((m, i) => (
                 <Message key={i} from={m.role}>
                   {m.role === "assistant" ? (
@@ -555,51 +551,53 @@ function ChatPage() {
             </div>
           )}
 
-          <div className="border-t border-border bg-background p-3 sm:p-4">
+          <div className="absolute bottom-6 left-0 right-0 z-20 mx-auto w-full max-w-3xl px-4 pointer-events-none">
+            <div className="pointer-events-auto flex flex-col gap-2 rounded-3xl border border-border/60 bg-background/95 p-3 shadow-pop backdrop-blur-xl dark:bg-[#252422]/90">
             {/* Budget input */}
-            <div className="mb-2 flex items-center gap-2">
-              <label
-                htmlFor="budget-input"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                <IndianRupee className="h-3.5 w-3.5" />
-                Budget
-              </label>
-              <input
-                id="budget-input"
-                type="number"
-                min={50}
-                step={100}
-                placeholder="optional"
-                value={budgetInput}
-                onChange={(e) => setBudgetInput(e.target.value)}
-                className="h-7 w-28 rounded-md border border-border bg-surface px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
-              />
-              {budgetInput && (
-                <span className="text-xs text-muted-foreground">
-                  ₹{parseInt(budgetInput || "0", 10).toLocaleString("en-IN")} limit
-                </span>
-              )}
-            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-2">
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="budget-input"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                >
+                  <IndianRupee className="h-3.5 w-3.5" />
+                  Budget
+                </label>
+                <input
+                  id="budget-input"
+                  type="number"
+                  min={50}
+                  step={100}
+                  placeholder="optional"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  className="h-7 w-24 rounded-full border border-border/50 bg-surface px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+                />
+                {budgetInput && (
+                  <span className="text-xs text-muted-foreground">
+                    ₹{parseInt(budgetInput || "0", 10).toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
 
             {/* Attachment chip strip */}
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
-                <LinkIcon className="h-3.5 w-3.5" /> Paste URL
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                <LinkIcon className="mr-1.5 h-3.5 w-3.5" /> URL
               </button>
               
               <button 
                 onClick={() => imageInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                <ImageIcon className="h-3.5 w-3.5" /> Image
+                <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Image
               </button>
 
               <button 
                 onClick={() => pdfInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                <FileText className="h-3.5 w-3.5" /> PDF
+                <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF
               </button>
 
               <button 
@@ -610,9 +608,9 @@ function ChatPage() {
                     setInputType("whatsapp");
                   }
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                <Paperclip className="h-3.5 w-3.5" /> WhatsApp
+                <Paperclip className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
               </button>
               
               <input
@@ -685,8 +683,9 @@ function ChatPage() {
                 }}
               />
             </div>
+            </div>
 
-            <PromptInput onSubmit={onSubmit}>
+            <PromptInput onSubmit={onSubmit} className="border-0 bg-transparent shadow-none ring-0">
               <PromptInputTextarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -741,6 +740,7 @@ function ChatPage() {
                 <PromptInputSubmit status={phase === "thinking" ? "submitted" : undefined} />
               </div>
             </PromptInput>
+            </div>
           </div>
         </div>
 

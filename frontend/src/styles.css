@@ -163,8 +163,8 @@
   --destructive: oklch(0.62 0.16 27);
   --destructive-foreground: oklch(0.92 0.008 80);
 
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
+  --border: oklch(1 0 0 / 6%);
+  --input: oklch(1 0 0 / 8%);
   --ring: oklch(0.92 0.008 80);
 
   /* Cursor glow tint — warm ember in dark */

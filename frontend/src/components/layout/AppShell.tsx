@@ -5,6 +5,7 @@ import logo from "@/assets/needspeak-logo.png";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
 import { getStoredAuth } from "@/routes/login";
+import { Footer } from "./Footer";
 
 const nav = [
   { to: "/chat", label: "Chat" },
@@ -149,17 +150,7 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
 
       <main className="min-h-0 flex-1 overflow-auto">{children}</main>
 
-      {!noFooter && (
-        <footer className="shrink-0 border-t border-border/70 py-8">
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-sm text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2">
-              <img src={logo} alt="" className="h-5 w-5 opacity-70" />
-              <span>NeedSpeak — context becomes cart.</span>
-            </div>
-            <span>Built for the hackathon</span>
-          </div>
-        </footer>
-      )}
+      {!noFooter && !pathname.startsWith("/chat") && <Footer />}
     </div>
   );
 }

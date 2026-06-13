@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { CollabSession, CollabCartItem } from "../lib/collab-api";
+import { toast } from "sonner";
 
 interface UseCollabWebSocketReturn {
   session: CollabSession | null;
@@ -56,7 +57,9 @@ export function useCollabWebSocket(
           case "items_unavailable":
             if (msg.data.unavailable_items && msg.data.unavailable_items.length > 0) {
               const names = msg.data.unavailable_items.map((i: any) => i.name).join(", ");
-              alert(`Could not add items (not found in catalog or out of stock): ${names}`);
+              toast.error(`Could not add items`, {
+                description: `Not found in catalog or out of stock: ${names}`
+              });
             }
             break;
           default:

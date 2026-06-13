@@ -184,21 +184,43 @@ async def collab_websocket(websocket: WebSocket, session_id: str, contributor_id
                 from app.models import ExtractedItem
                 from app.pipeline.resolver import resolve_cart
                 from app.collab.models import CollabItemInput
+                from app.pipeline.extractor import extract_items
+                from app import config
                 
-                extracted_items = [
-                    ExtractedItem(
-                        name=item.get("name", ""),
-                        quantity=float(item.get("quantity", 1.0)),
-                        unit=item.get("unit", "piece"),
-                        category=item.get("category", "general"),
-                    )
-                    for item in data.get("items", [])
-                ]
+                raw_items = data.get("items", [])
+                if not raw_items:
+                    continue
+                    
+                text_to_extract = ", ".join([f"{it.get('quantity', 1)} {it.get('name', '')}" for it in raw_items])
+                extraction = extract_items(text_to_extract, None, mock_mode=config.MOCK_MODE)
+                
+                extracted_items = []
+                for intent in extraction.intents:
+                    extracted_items.extend(intent.items)
+                
+                if not extracted_items:
+                    # Fallback to direct mapping if AI extraction yields nothing
+                    extracted_items = [
+                        ExtractedItem(
+                            name=item.get("name", ""),
+                            quantity=float(item.get("quantity", 1.0)),
+                            unit=item.get("unit", "piece"),
+                            category=item.get("category", "general"),
+                        )
+                        for item in raw_items
+                    ]
+                
+                # Calculate remaining budget to properly trigger GoalCart substitutions
+                current_spent = sum([it.estimated_price_inr * it.quantity for it in session.items])
+                remaining_budget = session.total_budget_inr - current_spent
+                if remaining_budget < 0:
+                    remaining_budget = 0
                 
                 cart_items, unavailable_items, _, _ = resolve_cart(
                     items=extracted_items,
+                    budget_inr=remaining_budget,
                     session_id=session_id,
-                    mock_mode=False
+                    mock_mode=config.MOCK_MODE
                 )
                 
                 if unavailable_items:

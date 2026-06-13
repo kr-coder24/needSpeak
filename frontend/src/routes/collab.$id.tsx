@@ -193,24 +193,24 @@ function CollabPage() {
               </span>
               <span className="text-sm font-medium text-muted-foreground">Host: {session.host_name}</span>
             </div>
-            <h1 className="truncate text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground">{session.name}</h1>
+            <h1 className="truncate text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{session.name}</h1>
           </div>
           
           <div className="relative flex shrink-0 gap-3">
             <button
               onClick={handleCopyLink}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-surface px-4 font-medium transition-all hover:bg-surface/80 hover:scale-105"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface px-4 font-medium transition-all hover:bg-surface/80 hover:scale-105 text-sm"
             >
-              {copySuccess ? <Check className="h-5 w-5 text-success" /> : <Copy className="h-5 w-5" />}
+              {copySuccess ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
               <span className="hidden sm:inline">{copySuccess ? "Copied!" : "Share Link"}</span>
             </button>
             <button
               onClick={() => setShowQR((o) => !o)}
-              className={`inline-flex h-12 w-12 items-center justify-center rounded-xl transition-all hover:scale-105 ${
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all hover:scale-105 ${
                 showQR ? "bg-foreground text-background shadow-xl shadow-foreground/20" : "bg-brand text-white shadow-lg shadow-brand/20"
               }`}
             >
-              {showQR ? <X className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
+              {showQR ? <X className="h-4 w-4" /> : <QrCode className="h-4 w-4" />}
             </button>
 
             <AnimatePresence>
@@ -242,10 +242,10 @@ function CollabPage() {
           <div className="lg:col-span-5 flex flex-col gap-6">
             
             <motion.div initial="hidden" animate="show" variants={FADE_UP} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand/5 to-transparent p-6 shadow-sm border border-brand/10">
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold">Add to Cart</h2>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/10 text-brand">
-                  <Plus className="h-5 w-5" />
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold">Add to Cart</h2>
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
+                  <Plus className="h-4 w-4" />
                 </div>
               </div>
               
@@ -258,8 +258,7 @@ function CollabPage() {
                     disabled={!isConnected}
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
-                    className="flex h-12 w-full rounded-xl border border-input bg-background/80 px-4 py-2 transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
-                    placeholder="e.g. Nachos"
+                    className="flex h-10 w-full rounded-lg border border-input bg-background/80 px-3 py-1.5 text-sm transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
                   />
                 </div>
                 <div>
@@ -271,27 +270,27 @@ function CollabPage() {
                     disabled={!isConnected}
                     value={newItemQty}
                     onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
-                    className="flex h-12 w-full rounded-xl border border-input bg-background/80 px-4 py-2 transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
+                    className="flex h-10 w-full rounded-lg border border-input bg-background/80 px-3 py-1.5 text-sm transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={!isConnected || !newItemName.trim()}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-foreground px-6 font-semibold text-background transition-all hover:bg-foreground/90 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 mt-2"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-foreground px-4 text-sm font-semibold text-background transition-all hover:bg-foreground/90 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 mt-2"
                 >
                   Confirm Addition
                 </button>
               </form>
             </motion.div>
 
-            <motion.div initial="hidden" animate="show" variants={FADE_UP} className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-              <h2 className="mb-6 text-xl font-bold flex items-center gap-2">💰 Financials</h2>
+            <motion.div initial="hidden" animate="show" variants={FADE_UP} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-4 text-lg font-bold flex items-center gap-2">💰 Financials</h2>
               
               <div className="mb-6">
                 <div className="flex items-end justify-between mb-2">
                   <span className="text-sm font-medium text-muted-foreground">Shared Budget</span>
                   <div className="text-right">
-                    <span className={`text-2xl font-black ${isOverBudget ? "text-destructive" : "text-foreground"}`}>
+                    <span className={`text-xl font-black ${isOverBudget ? "text-destructive" : "text-foreground"}`}>
                       ₹{totalSpent.toFixed(0)}
                     </span>
                     <span className="text-sm font-medium text-muted-foreground"> / ₹{session.total_budget_inr}</span>
@@ -357,19 +356,19 @@ function CollabPage() {
           </div>
 
           <div className="lg:col-span-7">
-            <motion.div initial="hidden" animate="show" variants={FADE_UP} className="flex h-full flex-col rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between border-b border-border bg-surface/30 px-6 py-5">
-                <h2 className="text-xl font-bold">Live Cart Items</h2>
-                <div className="flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-sm font-medium">
+            <motion.div initial="hidden" animate="show" variants={FADE_UP} className="flex h-full flex-col rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border bg-surface/30 px-5 py-4">
+                <h2 className="text-lg font-bold">Live Cart Items</h2>
+                <div className="flex items-center gap-2 rounded-full bg-surface px-2.5 py-1 text-xs font-medium">
                   <span>{session.items.length} items</span>
                 </div>
               </div>
               
-              <div className="flex-1 bg-background/50 p-6 min-h-[400px]">
+              <div className="flex-1 bg-background/50 p-5 min-h-[400px]">
                 {session.items.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
-                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface">
-                      <span className="text-2xl opacity-50">🛍️</span>
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface">
+                      <span className="text-xl opacity-50">🛍️</span>
                     </div>
                     <p className="font-medium text-foreground">Your cart is empty</p>
                     <p className="text-sm">Start adding items from the left panel!</p>
@@ -398,21 +397,21 @@ function CollabPage() {
                               addedByYou ? "border-brand/30 bg-brand/5" : "border-border bg-card"
                             }`}
                           >
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${colorClass} text-xs font-bold uppercase text-white shadow-sm`}>
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${colorClass} text-[10px] font-bold uppercase text-white shadow-sm`}>
                               {it.added_by_name.slice(0, 2)}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline gap-2">
-                                <h3 className="truncate font-bold text-foreground text-lg">{it.name}</h3>
-                                <span className="rounded-md bg-surface px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">x{it.quantity}</span>
+                                <h3 className="truncate font-bold text-foreground text-base">{it.name}</h3>
+                                <span className="rounded-md bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">x{it.quantity}</span>
                               </div>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-xs text-muted-foreground">
                                 Added by <span className="font-medium text-foreground/80">{addedByYou ? "you" : it.added_by_name}</span>
                               </p>
                             </div>
                             <div className="flex items-center gap-4 pr-2">
                               <div className="text-right">
-                                <div className="text-lg font-black text-foreground">₹{(it.estimated_price_inr * it.quantity).toFixed(0)}</div>
+                                <div className="text-base font-bold text-foreground">₹{(it.estimated_price_inr * it.quantity).toFixed(0)}</div>
                               </div>
                               {isOwner && (
                                 <button

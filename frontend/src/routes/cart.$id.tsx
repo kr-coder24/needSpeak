@@ -4,13 +4,16 @@ import {
   ArrowLeftRight,
   Check,
   ChevronDown,
+  Download,
   Info,
+  Share2,
   Sparkles,
   TrendingDown,
   Wallet,
   Loader2,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
 
 export const Route = createFileRoute("/cart/$id")({
   head: () => ({
@@ -35,6 +38,7 @@ function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [whatIfBudget, setWhatIfBudget] = useState(1500);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Fetch session data from the backend
   useEffect(() => {
@@ -238,6 +242,47 @@ function CartPage() {
               <button className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-brand-foreground hover:bg-brand/90">
                 Proceed to checkout
               </button>
+            </div>
+
+            {/* Export */}
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <div className="text-sm font-medium">Export cart</div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={async () => {
+                    const exportData: ExportableCart = {
+                      context_summary: intentSummary || "My Cart",
+                      intent_type: intentTypeLabel || "general",
+                      cart: cartItems,
+                      total_price_inr: total,
+                    };
+                    const ok = await copyWhatsAppToClipboard(exportData);
+                    if (ok) {
+                      setCopySuccess(true);
+                      setTimeout(() => setCopySuccess(false), 2000);
+                    }
+                  }}
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-xs hover:bg-surface"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  {copySuccess ? "Copied!" : "WhatsApp"}
+                </button>
+                <button
+                  onClick={() => {
+                    const exportData: ExportableCart = {
+                      context_summary: intentSummary || "My Cart",
+                      intent_type: intentTypeLabel || "general",
+                      cart: cartItems,
+                      total_price_inr: total,
+                    };
+                    downloadCSV(exportData);
+                  }}
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-xs hover:bg-surface"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  CSV
+                </button>
+              </div>
             </div>
           </aside>
         </div>

@@ -193,6 +193,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1000, "rating": 4.5, "in_stock": True,
             "keywords": ["rice", "basmati", "biryani", "pulao", "chawal"],
             "tags": ["biryani", "everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-GRN-002", "name": "aashirvaad whole wheat atta", "category": "grains",
@@ -200,6 +201,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 5000, "rating": 4.6, "in_stock": True,
             "keywords": ["atta", "wheat", "flour", "roti", "chapati"],
             "tags": ["everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         
         # Spices
@@ -209,6 +211,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 100, "rating": 4.4, "in_stock": True,
             "keywords": ["turmeric", "haldi", "powder", "spice"],
             "tags": ["everyday", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SPC-002", "name": "mdh red chili powder", "category": "spices",
@@ -216,6 +219,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 100, "rating": 4.3, "in_stock": True,
             "keywords": ["red chili", "chili powder", "mirch", "spice"],
             "tags": ["everyday", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SPC-003", "name": "tata salt iodized", "category": "spices",
@@ -223,6 +227,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1000, "rating": 4.8, "in_stock": True,
             "keywords": ["salt", "namak", "tata salt"],
             "tags": ["everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SPC-004", "name": "everest garam masala powder", "category": "spices",
@@ -230,6 +235,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 100, "rating": 4.5, "in_stock": True,
             "keywords": ["garam masala", "masala powder", "everest", "spice"],
             "tags": ["cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SPC-005", "name": "everest biryani masala", "category": "spices",
@@ -237,6 +243,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 50, "rating": 4.6, "in_stock": True,
             "keywords": ["biryani masala", "masala", "biryani powder", "everest"],
             "tags": ["biryani", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SPC-006", "name": "catch black pepper powder", "category": "spices",
@@ -244,6 +251,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 50, "rating": 4.2, "in_stock": True,
             "keywords": ["black pepper", "kali mirch", "pepper powder"],
             "tags": ["cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         
         # Vegetables
@@ -253,6 +261,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1000, "rating": 4.0, "in_stock": True,
             "keywords": ["onion", "pyaaz", "vegetable"],
             "tags": ["everyday", "cooking"],
+            "dietary": ["veg", "vegan"],
         },
         {
             "sku": "MOCK-VEG-002", "name": "fresh tomato", "category": "vegetables",
@@ -260,6 +269,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1000, "rating": 4.1, "in_stock": True,
             "keywords": ["tomato", "tamatar", "vegetable"],
             "tags": ["everyday", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-VEG-010", "name": "fresh iceberg lettuce", "category": "vegetables",
@@ -267,6 +277,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.5, "in_stock": True,
             "keywords": ["lettuce", "leaf", "salad", "burger"],
             "tags": ["salad", "burger"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         
         # Burger/Fast Food Specific
@@ -276,6 +287,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.5, "in_stock": True,
             "keywords": ["bun", "burger bun", "bread"],
             "tags": ["burger", "snacks"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-BUN-002", "name": "harvest gold white bread", "category": "grains",
@@ -283,6 +295,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.6, "in_stock": True,
             "keywords": ["bread", "white bread", "sandwich bread", "slice"],
             "tags": ["sandwich", "breakfast"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-SNK-005", "name": "mccain aloo tikki", "category": "snacks",
@@ -290,6 +303,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.7, "in_stock": True,
             "keywords": ["aloo tikki", "patty", "frozen", "burger patty"],
             "tags": ["burger", "snacks"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DAI-005", "name": "amul cheese slices", "category": "dairy",
@@ -297,6 +311,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.8, "in_stock": True,
             "keywords": ["cheese", "slice", "amul", "cheese slice"],
             "tags": ["burger", "breakfast"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DAI-006", "name": "dr. oetker veg mayonnaise", "category": "dairy",
@@ -304,6 +319,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.6, "in_stock": True,
             "keywords": ["mayo", "mayonnaise", "veg mayo"],
             "tags": ["burger", "snacks"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-SPC-010", "name": "kissan fresh tomato ketchup", "category": "spices",
@@ -311,6 +327,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.5, "in_stock": True,
             "keywords": ["ketchup", "tomato ketchup", "sauce"],
             "tags": ["burger", "snacks"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-VEG-002", "name": "fresh tomato", "category": "vegetables",
@@ -318,6 +335,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1000, "rating": 4.1, "in_stock": True,
             "keywords": ["tomato", "tamatar", "vegetable"],
             "tags": ["everyday", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-VEG-003", "name": "fresh ginger adrak", "category": "vegetables",
@@ -325,6 +343,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 100, "rating": 4.2, "in_stock": True,
             "keywords": ["ginger", "adrak", "vegetable"],
             "tags": ["cooking"],
+            "dietary": ["veg", "vegan"],
         },
         {
             "sku": "MOCK-VEG-004", "name": "fresh garlic lahsun", "category": "vegetables",
@@ -332,6 +351,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 100, "rating": 4.3, "in_stock": True,
             "keywords": ["garlic", "lahsun", "vegetable"],
             "tags": ["cooking"],
+            "dietary": ["veg", "vegan"],
         },
         {
             "sku": "MOCK-VEG-005", "name": "fresh green chili hari mirch", "category": "vegetables",
@@ -339,6 +359,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 100, "rating": 4.1, "in_stock": True,
             "keywords": ["green chili", "hari mirch", "vegetable"],
             "tags": ["cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-VEG-006", "name": "fresh coriander leaves bunch", "category": "vegetables",
@@ -346,6 +367,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.4, "in_stock": True,
             "keywords": ["coriander", "dhania", "leaves", "bunch", "green herb"],
             "tags": ["everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-VEG-007", "name": "fresh mint leaves bunch pudina", "category": "vegetables",
@@ -353,6 +375,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.5, "in_stock": True,
             "keywords": ["mint", "pudina", "leaves", "bunch", "green herb"],
             "tags": ["cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-VEG-008", "name": "fresh lemon nimbu", "category": "vegetables",
@@ -360,6 +383,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 6, "rating": 4.6, "in_stock": True,
             "keywords": ["lemon", "nimbu", "vegetable"],
             "tags": ["everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Dairy
@@ -369,6 +393,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 500, "rating": 4.7, "in_stock": True,
             "keywords": ["butter", "amul", "dairy", "salted butter"],
             "tags": ["everyday"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DRY-002", "name": "amul fresh paneer", "category": "dairy",
@@ -376,6 +401,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 200, "rating": 4.6, "in_stock": True,
             "keywords": ["paneer", "cottage cheese", "amul paneer", "dairy"],
             "tags": ["cooking"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DRY-003", "name": "mother dairy curd dahi", "category": "dairy",
@@ -383,6 +409,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 400, "rating": 4.4, "in_stock": True,
             "keywords": ["curd", "yogurt", "dahi", "mother dairy"],
             "tags": ["everyday", "biryani"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DRY-004", "name": "amul pure ghee tin", "category": "dairy",
@@ -390,6 +417,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "ml", "unit_quantity": 1000, "rating": 4.8, "in_stock": True,
             "keywords": ["ghee", "pure ghee", "amul ghee", "clarified butter"],
             "tags": ["cooking", "biryani"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DRY-005", "name": "amul fresh cream", "category": "dairy",
@@ -397,6 +425,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "ml", "unit_quantity": 250, "rating": 4.5, "in_stock": True,
             "keywords": ["cream", "fresh cream", "amul cream"],
             "tags": ["cooking"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-DRY-006", "name": "amul taaza fresh milk", "category": "dairy",
@@ -404,6 +433,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "ml", "unit_quantity": 500, "rating": 4.7, "in_stock": True,
             "keywords": ["milk", "doodh", "amul milk", "taaza"],
             "tags": ["everyday"],
+            "dietary": ["veg"],
         },
 
         # Oils
@@ -413,6 +443,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "ml", "unit_quantity": 1000, "rating": 4.4, "in_stock": True,
             "keywords": ["oil", "cooking oil", "sunflower oil", "refined oil", "fortune"],
             "tags": ["everyday", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Beverages
@@ -422,6 +453,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "ml", "unit_quantity": 2000, "rating": 4.5, "in_stock": True,
             "keywords": ["coke", "cola", "soft drink", "coca cola", "soda", "cold drink", "cold drinks"],
             "tags": ["party"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-BEV-002", "name": "red label tea powder", "category": "beverages",
@@ -429,6 +461,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 500, "rating": 4.6, "in_stock": True,
             "keywords": ["tea", "chai", "tea powder", "red label"],
             "tags": ["everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-BEV-003", "name": "bisleri water bottle", "category": "beverages",
@@ -436,6 +469,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "ml", "unit_quantity": 1000, "rating": 4.5, "in_stock": True,
             "keywords": ["water", "water bottle", "pani", "mineral water", "bisleri"],
             "tags": ["everyday", "party"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-DSP-001", "name": "paper plates pack of 50", "category": "cleaning",
@@ -443,6 +477,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.0, "in_stock": True,
             "keywords": ["paper plates", "plates", "disposable plates", "party plates"],
             "tags": ["party", "disposable"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-DSP-002", "name": "paper cups pack of 50", "category": "cleaning",
@@ -450,6 +485,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.0, "in_stock": True,
             "keywords": ["paper cups", "cups", "disposable cups", "party cups"],
             "tags": ["party", "disposable"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-DSP-003", "name": "napkins tissue paper pack", "category": "cleaning",
@@ -457,6 +493,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.1, "in_stock": True,
             "keywords": ["napkins", "tissues", "tissue paper", "paper napkins"],
             "tags": ["party", "everyday"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Snacks
@@ -466,6 +503,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 50, "rating": 4.3, "in_stock": True,
             "keywords": ["lays", "chips", "potato chips", "snacks"],
             "tags": ["party", "snacks"],
+            "dietary": ["veg"],
         },
         {
             "sku": "MOCK-SNK-002", "name": "haldirams salted peanuts", "category": "snacks",
@@ -473,6 +511,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 200, "rating": 4.2, "in_stock": True,
             "keywords": ["peanuts", "singdana", "haldirams", "salted nuts", "snacks"],
             "tags": ["party", "snacks"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Stationery
@@ -482,6 +521,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.1, "in_stock": True,
             "keywords": ["pen", "pens", "ballpoint pen", "lexi", "writing"],
             "tags": ["school", "office"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-STN-002", "name": "classmate notebook single line", "category": "stationery",
@@ -489,6 +529,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.5, "in_stock": True,
             "keywords": ["notebook", "copy", "register", "classmate", "exercise book"],
             "tags": ["school", "office"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Tools & Hardware
@@ -498,6 +539,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.3, "in_stock": True,
             "keywords": ["screwdriver", "stanley", "tool set", "repair"],
             "tags": ["diy", "repair"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-TLS-002", "name": "generic adjustable wrench spanner", "category": "tools_hardware",
@@ -505,6 +547,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.0, "in_stock": True,
             "keywords": ["wrench", "spanner", "adjustable spanner", "plumbing"],
             "tags": ["diy", "repair"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-TLS-003", "name": "generic ptfe thread sealing tape roll", "category": "tools_hardware",
@@ -512,6 +555,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 3.8, "in_stock": True,
             "keywords": ["ptfe tape", "teflon tape", "plumbing tape", "leak sealing"],
             "tags": ["diy", "plumbing", "repair"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Medicines OTC
@@ -521,6 +565,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.7, "in_stock": True,
             "keywords": ["paracetamol", "crocin", "fever medicine", "cold flu", "tablet"],
             "tags": ["health"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Meat & Poultry
@@ -530,6 +575,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1000, "rating": 4.3, "in_stock": True,
             "keywords": ["chicken", "murgh", "poultry", "whole chicken", "meat"],
             "tags": ["cooking", "biryani"],
+            "dietary": ["non-veg"],
         },
 
         # More Snacks
@@ -539,6 +585,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 70, "rating": 4.2, "in_stock": True,
             "keywords": ["popcorn", "act ii", "snacks", "movie snack"],
             "tags": ["party", "snacks"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SNK-004", "name": "haldirams navratan mixture namkeen", "category": "snacks",
@@ -546,6 +593,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 200, "rating": 4.4, "in_stock": True,
             "keywords": ["namkeen", "mixture", "haldirams", "navratan", "snacks"],
             "tags": ["party", "snacks"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # More Stationery
@@ -555,6 +603,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.3, "in_stock": True,
             "keywords": ["pencil", "pencils", "apsara", "drawing pencils", "writing"],
             "tags": ["school", "office"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-STN-004", "name": "apsara eraser pack", "category": "stationery",
@@ -562,6 +611,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 5, "rating": 4.0, "in_stock": True,
             "keywords": ["eraser", "rubber", "apsara"],
             "tags": ["school", "office"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-STN-005", "name": "nataraj sharpener metal", "category": "stationery",
@@ -569,6 +619,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.1, "in_stock": True,
             "keywords": ["sharpener", "nataraj", "pencil sharpener"],
             "tags": ["school"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-STN-006", "name": "faber castell geometry box", "category": "stationery",
@@ -576,6 +627,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "piece", "unit_quantity": 1, "rating": 4.5, "in_stock": True,
             "keywords": ["geometry box", "compass", "protractor", "faber castell"],
             "tags": ["school"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-STN-007", "name": "camlin colored pencils set of 12", "category": "stationery",
@@ -583,6 +635,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.4, "in_stock": True,
             "keywords": ["colored pencils", "colour pencils", "crayons", "camlin", "art"],
             "tags": ["school", "art"],
+            "dietary": ["veg", "vegan", "jain"],
         },
 
         # Premium spices for biryani
@@ -592,6 +645,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "g", "unit_quantity": 1, "rating": 4.9, "in_stock": True,
             "keywords": ["saffron", "kesar", "zafran", "kashmir saffron"],
             "tags": ["biryani", "premium"],
+            "dietary": ["veg", "vegan", "jain"],
         },
         {
             "sku": "MOCK-SPC-008", "name": "whole spices combo bay cardamom cloves cinnamon", "category": "spices",
@@ -599,6 +653,7 @@ def _get_mock_products() -> list[dict]:
             "unit": "pack", "unit_quantity": 1, "rating": 4.4, "in_stock": True,
             "keywords": ["bay leaves", "cardamom", "cloves", "cinnamon", "whole spices", "tej patta", "elaichi", "laung", "dalchini"],
             "tags": ["biryani", "cooking"],
+            "dietary": ["veg", "vegan", "jain"],
         },
     ]
 

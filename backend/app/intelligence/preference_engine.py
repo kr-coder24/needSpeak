@@ -1,0 +1,160 @@
+"""
+Preference Engine — Apply user dietary/brand/budget preferences to extraction results.
+
+Runs as a post-processing step after LLM extraction and before SKU resolution.
+Filters items based on dietary restrictions, replaces brands with preferred ones,
+and adjusts budget mode.
+
+Person C owns this file.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+from app.models import ExtractionResult, ExtractedItem, ExtractedIntent
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Preference Models
+# ---------------------------------------------------------------------------
+class UserPreferences(BaseModel):
+    """User-controlled shopping preferences."""
+    dietary: list[str] = Field(
+        default_factory=list,
+        description="Dietary restrictions: vegetarian, vegan, jain, gluten_free, etc."
+    )
+    preferred_brands: list[str] = Field(
+        default_factory=list,
+        description="Preferred brand names, e.g. ['Amul', 'Tata', 'Fortune']"
+    )
+    avoided_brands: list[str] = Field(
+        default_factory=list,
+        description="Brands to avoid, e.g. ['Patanjali']"
+    )
+    budget_mode: str = Field(
+        default="balanced",
+        description="Budget style: value, balanced, premium"
+    )
+    allergies: list[str] = Field(
+        default_factory=list,
+        description="Allergens to avoid: nuts, gluten, dairy, soy, etc."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Non-vegetarian items (used for dietary filtering)
+# ---------------------------------------------------------------------------
+NON_VEG_KEYWORDS = {
+    "chicken", "mutton", "lamb", "beef", "pork", "fish", "prawn", "shrimp",
+    "crab", "lobster", "squid", "egg", "eggs", "meat", "bacon", "sausage",
+    "salami", "ham", "turkey", "duck", "goat", "keema", "kebab", "tikka",
+    "tandoori chicken", "butter chicken", "fish fry", "egg curry",
+}
+
+NON_VEGAN_KEYWORDS = NON_VEG_KEYWORDS | {
+    "milk", "cream", "cheese", "paneer", "butter", "ghee", "curd", "yogurt",
+    "dahi", "whey", "casein", "honey", "gelatin",
+}
+
+JAIN_EXCLUDED_KEYWORDS = NON_VEG_KEYWORDS | {
+    "onion", "onions", "garlic", "potato", "potatoes", "carrot", "carrots",
+    "beetroot", "radish", "turnip", "ginger", "mushroom", "mushrooms",
+}
+
+ALLERGY_KEYWORDS = {
+    "nuts": {"almond", "almonds", "cashew", "cashews", "peanut", "peanuts", "walnut", "walnuts", "pistachio", "pistachios", "hazelnut", "hazelnuts", "mixed nuts", "dry fruits"},
+    "gluten": {"wheat", "atta", "maida", "bread", "roti", "naan", "pasta", "noodles", "semolina", "suji", "sooji", "barley", "rye", "oats"},
+    "dairy": {"milk", "cream", "cheese", "paneer", "butter", "ghee", "curd", "yogurt", "dahi", "whey"},
+    "soy": {"soy", "soya", "tofu", "soy sauce", "soy milk", "edamame"},
+}
+
+
+# ---------------------------------------------------------------------------
+# Core Functions
+# ---------------------------------------------------------------------------
+def apply_preferences(
+    extraction: ExtractionResult,
+    preferences: UserPreferences,
+) -> ExtractionResult:
+    """
+    Apply user preferences to the extraction result.
+
+    - Filters items based on dietary restrictions
+    - Adds preference notes for the resolver to use
+    - Marks filtered items with notes
+
+    Returns the modified ExtractionResult.
+    """
+    if not preferences:
+        return extraction
+
+    for intent in extraction.intents:
+        filtered_items = []
+        for item in intent.items:
+            # Check dietary restrictions
+            if _should_exclude(item, preferences):
+                logger.info(f"Excluded '{item.name}' due to dietary preference: {preferences.dietary}")
+                continue
+
+            # Add brand preference notes
+            if preferences.preferred_brands:
+                brands_str = ", ".join(preferences.preferred_brands)
+                existing_notes = item.notes or ""
+                item.notes = f"{existing_notes} [Preferred brands: {brands_str}]".strip()
+
+            filtered_items.append(item)
+
+        intent.items = filtered_items
+
+    return extraction
+
+
+def _should_exclude(item: ExtractedItem, prefs: UserPreferences) -> bool:
+    """Check if an item should be excluded based on dietary restrictions."""
+    name_lower = item.name.lower().strip()
+    name_words = set(name_lower.split())
+
+    for restriction in prefs.dietary:
+        restriction = restriction.lower().strip()
+
+        if restriction == "vegetarian":
+            if name_words & NON_VEG_KEYWORDS or name_lower in NON_VEG_KEYWORDS:
+                return True
+
+        elif restriction == "vegan":
+            if name_words & NON_VEGAN_KEYWORDS or name_lower in NON_VEGAN_KEYWORDS:
+                return True
+
+        elif restriction == "jain":
+            if name_words & JAIN_EXCLUDED_KEYWORDS or name_lower in JAIN_EXCLUDED_KEYWORDS:
+                return True
+
+    # Check allergies
+    for allergy in prefs.allergies:
+        allergy_lower = allergy.lower().strip()
+        if allergy_lower in ALLERGY_KEYWORDS:
+            if name_words & ALLERGY_KEYWORDS[allergy_lower] or name_lower in ALLERGY_KEYWORDS[allergy_lower]:
+                return True
+
+    return False
+
+
+def get_budget_multiplier(budget_mode: str) -> float:
+    """
+    Return a price preference multiplier for the resolver.
+    - value: prefer cheapest options (0.7x weight on price)
+    - balanced: default (1.0x)
+    - premium: prefer quality/premium brands (1.5x weight on price tolerance)
+    """
+    multipliers = {
+        "value": 0.7,
+        "balanced": 1.0,
+        "premium": 1.5,
+    }
+    return multipliers.get(budget_mode.lower(), 1.0)

@@ -36,7 +36,7 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <img src={logo} alt="NeedSpeak" className="h-8 w-8" />
-            <span className="font-display text-xl font-semibold tracking-tight">NeedSpeak</span>
+            <span className="font-display text-2xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -89,6 +89,51 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
                 </span>
               )}
             </Link>
+
+            {/* User Auth */}
+            {(() => {
+              try {
+                const raw = localStorage.getItem("needspeak-auth");
+                if (raw) {
+                  const auth = JSON.parse(raw);
+                  if (auth && auth.user) {
+                    return (
+                      <div className="flex items-center gap-3 ml-2 border-l border-border pl-4">
+                        <div className="flex items-center gap-2">
+                          {auth.user.avatar_url ? (
+                            <img src={auth.user.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-medium text-brand-foreground">
+                              {auth.user.name?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-sm font-medium hidden md:inline-block">{auth.user.name}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem("needspeak-auth");
+                            window.location.reload();
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    );
+                  }
+                }
+              } catch (e) {}
+              return (
+                <div className="ml-2 border-l border-border pl-4">
+                  <Link
+                    to="/login"
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-surface"
+                  >
+                    Sign in
+                  </Link>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </header>

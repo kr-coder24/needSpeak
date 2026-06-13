@@ -44,3 +44,22 @@ export function saveToHistory(entry: CartHistoryEntry): void {
 export function clearHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
+
+/**
+ * Find a past cart with a similar intent type for "re-order" suggestions.
+ * Skips the most recent entry (which is likely the current cart).
+ */
+export function findSimilarCart(intentType: string): CartHistoryEntry | null {
+  const history = loadHistory();
+  if (history.length < 2) return null; // nothing to suggest if only 1 entry
+
+  // Skip the current/latest, search older entries
+  const past = history.slice(1);
+  return (
+    past.find(
+      (entry) =>
+        entry.intent_type?.toLowerCase().includes(intentType?.toLowerCase()) ||
+        intentType?.toLowerCase().includes(entry.intent_type?.toLowerCase())
+    ) ?? null
+  );
+}

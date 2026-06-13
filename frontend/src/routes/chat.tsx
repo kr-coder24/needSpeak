@@ -40,7 +40,7 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 
 export const Route = createFileRoute("/chat")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { prompt?: string } => ({
     prompt: typeof search.prompt === "string" ? search.prompt : undefined,
   }),
   head: () => ({
@@ -342,11 +342,25 @@ function ChatPage() {
       }, 0)
     : 0;
 
-  const onSubmit = async (overrideText?: string, overrideType?: "text" | "whatsapp") => {
-    if ((!overrideText && !text.trim()) || phase === "thinking") return;
+  const onSubmit = async (
+    override?: string | { text: string },
+    overrideType?: any
+  ) => {
+    if (phase === "thinking") return;
 
-    const inputText = (overrideText || text).trim();
-    const currentInputType = overrideType || inputType;
+    let inputText = "";
+    if (typeof override === "string") {
+      inputText = override;
+    } else if (override && typeof override === "object" && "text" in override) {
+      inputText = override.text;
+    } else {
+      inputText = text;
+    }
+
+    inputText = inputText.trim();
+    if (!inputText) return;
+
+    const currentInputType = (typeof overrideType === "string" ? overrideType : null) || inputType;
     setMessages((m) => [...m, { role: "user", text: inputText }]);
     setPhase("thinking");
     setText("");

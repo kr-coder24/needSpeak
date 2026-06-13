@@ -33,7 +33,7 @@ function OccasionsPage() {
             <Link
               key={o.id}
               to="/chat"
-              search={{ prompt: o.prompt }}
+              search={{ prompt: o.prompt, occasion: o.id || o.occasion }}
               className="group rounded-2xl border border-border bg-card p-6 transition-all hover:border-foreground hover:shadow-soft"
             >
               <div className="text-4xl">{o.emoji}</div>

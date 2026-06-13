@@ -40,8 +40,9 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 
 export const Route = createFileRoute("/chat")({
-  validateSearch: (search: Record<string, unknown>): { prompt?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { prompt?: string, occasion?: string } => ({
     prompt: typeof search.prompt === "string" ? search.prompt : undefined,
+    occasion: typeof search.occasion === "string" ? search.occasion : undefined,
   }),
   head: () => ({
     meta: [
@@ -247,7 +248,7 @@ function HistoryPanel({
 // ─── ChatPage ─────────────────────────────────────────────────────────────────
 
 function ChatPage() {
-  const { prompt: prefillPrompt } = Route.useSearch();
+  const { prompt: prefillPrompt, occasion: prefillOccasion } = Route.useSearch();
   const [phase, setPhase] = useState<Phase>("idle");
   const [text, setText] = useState(samplePrompts[0]);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
@@ -387,6 +388,7 @@ function ChatPage() {
       if (prefs.dietary !== "any") body.dietary_pref = prefs.dietary;
       if (prefs.preferredBrands.length) body.preferred_brands = prefs.preferredBrands;
       if (prefs.budgetStyle !== "balanced") body.budget_style = prefs.budgetStyle;
+      if (prefillOccasion) body.occasion = prefillOccasion;
 
       const res = await fetch("/api/parse", {
         method: "POST",

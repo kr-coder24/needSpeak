@@ -200,7 +200,7 @@ async def parse_content(req: ParseRequest, request: Request):
         logger.info(f"[{session_id}] Extracting items from text ({len(raw_text)} chars)...")
         extraction = extract_items(raw_text, req.servings_override, mock_mode=mock_mode)
 
-        if extraction.error == "no_shoppable_content":
+        if extraction.error == "no_shoppable_content" and not req.occasion:
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -218,6 +218,33 @@ async def parse_content(req: ParseRequest, request: Request):
                     "message": "AI extraction failed. Please try again.",
                 },
             )
+
+        # Feature 2.4: OccasionCart Backend Blueprint Mapping
+        # If an occasion is provided, fetch its blueprint and merge with extraction
+        if req.occasion:
+            from app.intelligence.occasion_templates import get_template_by_id
+            from app.models import ExtractedItem, ExtractedIntent, IntentType
+            template = get_template_by_id(req.occasion)
+            if template and template.blueprint:
+                logger.info(f"[{session_id}] Merging hardcoded blueprint for occasion: {template.id}")
+                blueprint_items = [ExtractedItem(**b_item) for b_item in template.blueprint]
+                
+                # If extraction was empty, create a new intent
+                if not extraction.intents:
+                    extraction.intents = [
+                        ExtractedIntent(
+                            intent_type=IntentType.GENERAL,
+                            context_summary=f"{template.name} Essentials",
+                            items=blueprint_items
+                        )
+                    ]
+                    extraction.error = None # Clear any errors since we have blueprint items
+                else:
+                    # Merge into the first intent
+                    existing_names = {item.name.lower() for item in extraction.intents[0].items}
+                    for b_item in blueprint_items:
+                        if b_item.name.lower() not in existing_names:
+                            extraction.intents[0].items.append(b_item)
 
         if not extraction.intents and extraction.confidence != "low":
             raise HTTPException(

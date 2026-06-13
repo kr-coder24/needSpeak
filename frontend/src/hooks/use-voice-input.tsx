@@ -67,7 +67,11 @@ export function useVoiceInput(options: UseVoiceInputOptions = {}) {
   // Check basic support
   useEffect(() => {
     const hasWebSpeech = !!getSpeechRecognitionCtor();
-    const hasMediaRecorder = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+    const hasMediaRecorder = !!(
+      typeof navigator !== "undefined" &&
+      typeof (navigator as Navigator).mediaDevices !== "undefined" &&
+      typeof window.MediaRecorder !== "undefined"
+    );
     if (!hasWebSpeech && !hasMediaRecorder) {
       setSupported(false);
     }

@@ -47,9 +47,8 @@ export function downloadCSV(data: ExportableCart, filename = "cart.csv") {
 }
 
 export async function copyWhatsAppToClipboard(data: ExportableCart): Promise<boolean> {
-  const text = exportAsWhatsApp(data)
   try {
-    await navigator.clipboard.writeText(text)
+    await navigator.clipboard.writeText(exportAsWhatsApp(data))
     return true
   } catch {
     return false

@@ -112,6 +112,9 @@
   --input: oklch(0.87 0.012 78);
   --ring: oklch(0.15 0.005 60); /* ring = ink color, not brand (Anthropic style) */
 
+  /* Cursor glow tint — warm clay/orange from brand family */
+  --glow: oklch(0.88 0.095 55);
+
   --chart-1: oklch(0.55 0.1 40);
   --chart-2: oklch(0.5 0.08 220);
   --chart-3: oklch(0.58 0.12 145);
@@ -163,6 +166,9 @@
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.92 0.008 80);
+
+  /* Cursor glow tint — warm ember in dark */
+  --glow: oklch(0.62 0.11 50);
 }
 
 @layer base {
@@ -216,4 +222,14 @@
     background: oklch(from var(--foreground) l c h / 0.32);
     background-clip: content-box;
   }
+}
+
+/* Slow-drifting hero aurora; honors reduced motion. */
+@keyframes ns-aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  50%  { transform: translate3d(-2%, 1%, 0) scale(1.05); opacity: 0.85; }
+  100% { transform: translate3d(2%, -1%, 0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="ns-aurora"] { animation: none !important; }
 }

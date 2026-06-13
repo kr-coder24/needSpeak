@@ -1,82 +1,70 @@
-# NeedSpeak — Fresh UI Rebuild (Clean Light Commerce)
 
-Scope: UI only. No backend, no real intent parsing — every feature is wired with realistic mock data so the screens demo end-to-end. You can plug in your existing logic from the GitHub repo afterwards.
+## Goal
 
-## Visual System
+Replace the blank Lovable scaffold with your actual needSpeak codebase from the uploaded ZIP, then enhance only the **homepage UX** with:
+1. A subtle cursor-following ambient light (no bright colors — stays inside the warm beige/ink palette).
+2. More content broken into small, modular components.
+3. A lightweight engaging visual on the hero (no heavy 3D — keeps bundle small and on-brand).
 
-- Palette: white `#FFFFFF` background, soft surface `#F5F5F5`, ink `#131A22`, action orange `#FF9900` (Amazon-style trust + energy).
-- Type: Inter for body, a tighter display weight for headings. Generous whitespace, 12–14px radius, soft shadows.
-- All tokens defined in `src/styles.css` via `@theme` + semantic CSS vars (no hardcoded colors in components).
-- Dark mode kept but secondary; light is primary.
+Everything else (AppShell, routes, mock data, backend wiring) stays untouched.
 
-## Information Architecture (TanStack routes)
+---
+
+## Step 1 — Import the project
+
+- Extract `needspeak-src.zip` into `/dev-server/`, overwriting the scaffold. Skip `.git`, `node_modules`, `.tanstack`, `.lovable` cache.
+- Run `bun install` so the lockfile resolves.
+
+## Step 2 — Cursor-follow ambient lighting (global, very subtle)
+
+Add a tiny hook + provider that tracks the cursor and writes `--cursor-x` / `--cursor-y` CSS variables on `<body>`. Use it to drive a fixed radial gradient layer behind the app:
 
 ```
-/                      Landing — hero "Context → Cart", quick-start prompts, feature grid
-/chat                  Context-to-Cart workspace (main app)
-/occasions             OccasionCart templates gallery
-/recipe                RecipeCart — paste URL, see ingredient → cart flow
-/cart/:id              ReviewCart — final cart with explanations, alternatives, compare
-/collab/:id            SplitCart — shared cart with contributors + QR
-/preferences           Preference Constraints settings
+background: radial-gradient(
+  600px circle at var(--cursor-x) var(--cursor-y),
+  oklch(0.93 0.02 75 / 0.55), transparent 60%
+);
 ```
 
-## Screens & Feature Mapping
+- Uses existing `--surface` / `--accent` tones only — no neon, no purples.
+- Layer sits behind content with `pointer-events: none`, `z-index: -1`.
+- Throttled with `requestAnimationFrame`; disabled on touch devices and when `prefers-reduced-motion`.
+- Each interactive card on the homepage also gets a localized "spotlight" border tint via `onMouseMove` updating its own `--mx/--my`. Keeps the effect feeling alive without being loud.
 
-1. **Landing (`/`)** — Hero with prompt input ("IPL finals, 10 people, ₹1500"), 4 input-type chips (Text · Recipe URL · Image · WhatsApp · PDF), trust strip, feature bento grid covering all 14 features.
+Files:
+- `src/hooks/use-cursor-glow.ts` (new) — global tracker.
+- `src/components/effects/CursorGlow.tsx` (new) — fixed background layer.
+- `src/components/effects/SpotlightCard.tsx` (new) — wrapper for hover-tinted cards.
+- Mount `<CursorGlow />` once inside `AppShell` (only file touched outside the homepage).
 
-2. **Chat / Context-to-Cart (`/chat`)** — Two-pane workspace:
-   - Left: conversation thread (AI Elements: Conversation, Message, PromptInput, Shimmer). Supports text, URL paste, image upload, file upload tabs.
-   - Right: live cart preview that fills in as intent is "extracted".
-   - Inline **Intent Extraction** card showing structured JSON (occasion, attendees, budget).
-   - **Confidence Layer**: ambiguous prompt triggers a clarifying chip-question card.
-   - **Multi-Intent Decomposition**: when prompt has 2 goals, right pane shows tabbed carts.
+## Step 3 — Modular homepage sections
 
-3. **OccasionCart (`/occasions`)** — Grid of templates (IPL Watch Party, Birthday, Weekly Grocery, Hostel Restock, Travel, Festival). Click → seeds `/chat` with that template.
+Break `src/routes/index.tsx` into small section components under `src/components/home/`:
 
-4. **RecipeCart (`/recipe`)** — URL input → animated 3-step pipeline (Extract → Quantity → Cart) → resulting cart.
+- `HeroPrompt.tsx` — existing hero + prompt box, now wrapped in a soft animated gradient mesh (pure CSS, slow drifting blobs in beige/clay tones, ~5% opacity).
+- `OccasionsStrip.tsx` — existing occasions grid, now using `SpotlightCard`.
+- `HowItWorks.tsx` (new) — 3 steps: Describe → Review → Checkout. Numbered, editorial, serif headings.
+- `InputTypesGrid.tsx` (new) — promotes the 5 input types (text, recipe, image, WhatsApp, PDF) as their own bento section with mini examples.
+- `LiveExamples.tsx` (new) — "prompt → cart preview" cards using items from `lib/mock/needspeak.ts` so it stays in sync with backend data shape. Pure presentation, no new API calls.
+- `Stats.tsx` (new) — small editorial stat row (avg cart time, items matched, ₹ saved) sourced from mock constants.
+- `FaqTeaser.tsx` (new) — 3 collapsible FAQs using existing `accordion` shadcn component.
+- `FinalCta.tsx` — existing dark CTA, unchanged styling.
 
-5. **ReviewCart (`/cart/:id`)** — Full cart with:
-   - **Explainable Shopping**: each line item has a "Why?" tooltip ("Added because 10 attendees detected").
-   - **Smart Alternatives**: each item has an "Alternatives" drawer (Amul ₹50 → Vadilal ₹35, Save ₹15).
-   - **Quantity Engine**: qty shown with reasoning chip ("2kg = 200g × 10").
-   - **GoalCart** panel: budget bar + savings suggestions list.
-   - **CompareCart** dialog: "What if?" sliders (budget, attendees, dietary) showing added/removed/replaced diff.
-   - Final Review checklist (assumptions, qty, budget, alternatives) before Checkout CTA.
+`index.tsx` just composes these in order. No backend calls added or changed.
 
-6. **SplitCart (`/collab/:id`)** — Shared cart, contributor avatars, per-person additions, shared budget bar, QR/share link button, rebalance indicator.
+## Step 4 — Visual polish (still subtle)
 
-7. **Preferences (`/preferences`)** — Toggles for Veg/Vegan/Jain, Value/Balanced/Premium mode, preferred brands chips.
+- Hero gets one slow CSS-animated "aurora" layer (two large blurred radial gradients in `--surface` and `--accent` drifting over 30s). No WebGL, no Spline runtime — keeps the page fast and consistent with the editorial Anthropic-style aesthetic you already established. If you specifically want a Spline scene later, I can swap the aurora for a `@splinetool/react-spline` embed in one section; I'm leaving it out by default because it adds ~300KB and clashes slightly with the calm beige look.
+- All new colors pulled from existing tokens (`--surface`, `--accent`, `--brand` at low alpha). Zero hardcoded hex.
 
-## Components to Build
+## Out of scope
 
-- `src/components/layout/AppShell.tsx` — top nav (logo, links, preferences, cart badge).
-- `src/components/landing/*` — Hero, PromptHero, FeatureBento, OccasionStrip, TrustStrip, Footer.
-- `src/components/chat/*` — built on AI Elements (Conversation, Message, MessageResponse, PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputSubmit, Shimmer, Tool).
-- `src/components/cart/*` — CartItem, CartItemExplain, AlternativesDrawer, BudgetBar, GoalSavingsList, CompareDialog, ReviewChecklist.
-- `src/components/cart/IntentCard.tsx` — structured JSON pretty-display.
-- `src/components/cart/ConfidenceCard.tsx` — clarifying chips.
-- `src/components/collab/SplitCartHeader.tsx` — contributors + QR.
-- `src/components/ui/*` — already present (shadcn).
-- `src/lib/mock/needspeak.ts` — mock prompts, occasions, recipes, products, alternatives. Single source of demo data.
+- No backend / API / auth changes.
+- No edits to other routes (`/chat`, `/occasions`, etc.) beyond the single `AppShell` line that mounts `<CursorGlow />`.
+- No new dependencies unless you approve adding Spline.
 
-## Implementation Steps
+## Technical notes
 
-1. Install AI Elements primitives: `bunx ai-elements@latest add conversation message prompt-input shimmer tool`.
-2. Add `motion` (framer-motion) for hero + cart fill animations.
-3. Define design tokens in `src/styles.css` (light-commerce palette, semantic mappings, brand orange accent, radii, shadows).
-4. Replace `src/routes/index.tsx` placeholder with the new Landing page.
-5. Create the 6 new route files listed above with proper `head()` SEO per route.
-6. Build the layout shell + Landing first, then Chat workspace, then Cart screens, then Occasions/Recipe/Collab/Preferences.
-7. Wire all interactions to mock data in `src/lib/mock/needspeak.ts` so every feature demos clickably.
-8. Generate a NeedSpeak logo (premium quality, small) for the nav + empty states — no generic Sparkles icon.
-9. Verify in preview at desktop + mobile; check tag balance + typecheck.
-
-## Out of Scope (will not change)
-
-- No real AI/LLM calls, no Lovable Cloud, no Supabase, no auth.
-- No payment integration.
-- AccessibilityCart, Subscription Drift, Smart Reordering (roadmap, not MVP).
-- Your GitHub repo's existing backend/logic — you'll port it over after.
-
-After approval I'll build this in one pass.
+- All cursor tracking uses `pointermove` + `requestAnimationFrame` coalescing; no re-renders.
+- `prefers-reduced-motion: reduce` disables both the cursor glow and the hero aurora.
+- New section components are pure presentational and tree-shake cleanly.

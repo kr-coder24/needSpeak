@@ -220,7 +220,7 @@ def extract_items(
     # Build user prompt
     servings_instruction = ""
     if servings_override:
-        servings_instruction = f"\n\nIMPORTANT: Scale all quantities to {servings_override} servings."
+        servings_instruction = f"\n\nIMPORTANT: Only scale quantities to {servings_override} servings if simple linear scaling would produce unrealistic results. Otherwise, extract base quantities and report the base servings."
 
     user_prompt = USER_PROMPT_TEMPLATE.format(
         servings_instruction=servings_instruction,

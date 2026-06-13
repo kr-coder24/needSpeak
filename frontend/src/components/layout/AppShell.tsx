@@ -8,6 +8,7 @@ import { getStoredAuth } from "@/routes/login";
 import { createCollabSession } from "@/lib/collab-api";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { CreateCollabCard } from "@/components/collab/CreateCollabCard";
+import { Footer } from "./Footer";
 
 const nav = [
   { to: "/chat", label: "Chat" },
@@ -21,6 +22,9 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
   const { theme, toggle } = useTheme();
   const [historyCount, setHistoryCount] = useState(0);
   const [auth, setAuth] = useState<{ token: string; user: any } | null>(null);
+
+  const isChat = pathname.startsWith("/chat");
+  const isAppLayout = isChat || noFooter;
 
   // Load auth from localStorage on client mount
   useEffect(() => {
@@ -70,7 +74,7 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className={`flex flex-col bg-background relative z-0 ${isAppLayout ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 shrink-0">
@@ -182,19 +186,9 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+      <main className={isAppLayout ? "min-h-0 flex-1 overflow-auto" : "flex-1"}>{children}</main>
 
-      {!noFooter && (
-        <footer className="shrink-0 border-t border-border/70 py-8">
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-sm text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2">
-              <img src={logo} alt="" className="h-5 w-5 opacity-70" />
-              <span>NeedSpeak — context becomes cart.</span>
-            </div>
-            <span>Built for the hackathon</span>
-          </div>
-        </footer>
-      )}
+      {!noFooter && !pathname.startsWith("/chat") && <Footer />}
     </div>
   );
 }

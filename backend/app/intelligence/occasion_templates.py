@@ -27,6 +27,7 @@ class OccasionTemplate(BaseModel):
     default_budget_inr: int = 2000
     categories: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    blueprint: list[dict] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +44,14 @@ OCCASION_TEMPLATES: list[OccasionTemplate] = [
         default_budget_inr=2000,
         categories=["snacks", "beverages", "disposables"],
         tags=["sports", "party", "cricket"],
+        blueprint=[
+            {"name": "Potato Chips", "quantity": 4, "unit": "pack", "category": "snacks", "optional": False},
+            {"name": "Cola", "quantity": 2, "unit": "bottle", "category": "beverages", "optional": False},
+            {"name": "Paper Cups", "quantity": 1, "unit": "pack", "category": "disposables", "optional": False},
+            {"name": "Paper Plates", "quantity": 1, "unit": "pack", "category": "disposables", "optional": False},
+            {"name": "Popcorn", "quantity": 2, "unit": "pack", "category": "snacks", "optional": False},
+            {"name": "Namkeen Mix", "quantity": 2, "unit": "pack", "category": "snacks", "optional": False},
+        ]
     ),
     OccasionTemplate(
         id="birthday_party",
@@ -54,6 +63,15 @@ OCCASION_TEMPLATES: list[OccasionTemplate] = [
         default_budget_inr=3000,
         categories=["snacks", "beverages", "bakery", "decorations", "disposables"],
         tags=["celebration", "kids", "party"],
+        blueprint=[
+            {"name": "Chocolate Cake", "quantity": 1, "unit": "piece", "category": "bakery", "optional": False},
+            {"name": "Birthday Candles", "quantity": 1, "unit": "pack", "category": "decorations", "optional": False},
+            {"name": "Balloons", "quantity": 2, "unit": "pack", "category": "decorations", "optional": False},
+            {"name": "Party Hats", "quantity": 2, "unit": "pack", "category": "decorations", "optional": False},
+            {"name": "Juice Boxes", "quantity": 3, "unit": "pack", "category": "beverages", "optional": False},
+            {"name": "Potato Chips", "quantity": 3, "unit": "pack", "category": "snacks", "optional": False},
+            {"name": "Paper Plates", "quantity": 2, "unit": "pack", "category": "disposables", "optional": False},
+        ]
     ),
     OccasionTemplate(
         id="weekly_grocery",
@@ -65,6 +83,19 @@ OCCASION_TEMPLATES: list[OccasionTemplate] = [
         default_budget_inr=2500,
         categories=["grains", "dairy", "vegetables", "spices", "oils"],
         tags=["weekly", "family", "essentials"],
+        blueprint=[
+            {"name": "Basmati Rice", "quantity": 5, "unit": "kg", "category": "grains", "optional": False},
+            {"name": "Toor Dal", "quantity": 1, "unit": "kg", "category": "grains", "optional": False},
+            {"name": "Whole Wheat Atta", "quantity": 5, "unit": "kg", "category": "grains", "optional": False},
+            {"name": "Sunflower Oil", "quantity": 1, "unit": "L", "category": "oils", "optional": False},
+            {"name": "Milk", "quantity": 2, "unit": "L", "category": "dairy", "optional": False},
+            {"name": "Eggs", "quantity": 1, "unit": "pack", "category": "dairy", "optional": False},
+            {"name": "Onions", "quantity": 2, "unit": "kg", "category": "vegetables", "optional": False},
+            {"name": "Tomatoes", "quantity": 1, "unit": "kg", "category": "vegetables", "optional": False},
+            {"name": "Potatoes", "quantity": 2, "unit": "kg", "category": "vegetables", "optional": False},
+            {"name": "Tea Powder", "quantity": 1, "unit": "pack", "category": "spices", "optional": False},
+            {"name": "Sugar", "quantity": 1, "unit": "kg", "category": "spices", "optional": False},
+        ]
     ),
     OccasionTemplate(
         id="hostel_restock",

@@ -1,12 +1,16 @@
 """
-SKU Resolution — Pure deterministic code, ZERO Bedrock calls.
+SKU Resolution — Retrieval + Ranking Engine
 
-Matches extracted items to real products in the catalog using:
-1. Exact name match (case-insensitive)
-2. Keyword overlap score
-3. Category fallback (highest rated in category)
+V2 Architecture:
+1. Extract item from LLM output
+2. Build ProductQuery from extracted item
+3. Retrieve top N candidates via LocalRetriever (BM25 scoring)
+4. Rank candidates using weighted scoring (relevance, price, rating, preferences)
+5. Select top-ranked product + alternatives
+6. Calculate quantities via unit normalization
+7. Handle budget optimization with pending substitutions
 
-Then calculates quantities via unit normalization and handles budget optimization.
+This replaces the legacy keyword-only matching with a proper retrieval+ranking pipeline.
 """
 
 from __future__ import annotations
@@ -19,175 +23,88 @@ from app.models import ExtractedItem, CartItem, UnavailableItem, UnavailableReas
 from app.unit_conversions import normalize_to_base_unit
 from app.db.dynamo import get_all_products
 from app.db.s3 import store_failed_match_log
+import os
+
+# New V2 imports
+from app.catalog.models import ProductQuery, RankedProduct
+from app.search.local_retrieval import LocalRetriever
+from app.search.ranker import rank_candidates, RankingContext
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# SKU Matching
-# ---------------------------------------------------------------------------
-def _tokenize(text: str) -> set[str]:
-    """Split text into lowercase word tokens for matching."""
-    return set(text.lower().replace("-", " ").replace("_", " ").split())
+# Singleton retriever instance (lazy-loaded)
+from app.search.retrieval import ProductRetriever
+_retriever: Optional[ProductRetriever] = None
 
 
-def _exact_match(item_name: str, products: list[dict]) -> Optional[dict]:
-    """Try exact case-insensitive match on product name."""
-    name_lower = item_name.lower().strip()
-    for p in products:
-        if p["name"].lower() == name_lower:
-            if p.get("in_stock", True):
-                return p
-    return None
-
-
-STOP_WORDS = {
-    "fresh", "organic", "large", "small", "medium", "raw", "whole", "pure", "natural", 
-    "best", "good", "with", "and", "or", "of", "for", "in", "to", "a", "an", "the"
-}
-
-def _keyword_overlap_match(
-    item_name: str,
-    products: list[dict],
-    category: Optional[str] = None,
-    preferred_brands: Optional[list[str]] = None,
-    budget_style: Optional[str] = None,
-) -> Optional[dict]:
-    """
-    Find the product with the highest keyword overlap with the item name.
-    Tie-breaks based on brand preference, budget style, and rating.
-    """
-    item_tokens = _tokenize(item_name) - STOP_WORDS
-    if not item_tokens:
-        item_tokens = _tokenize(item_name)  # fallback if all are stop words
-        
-    best_product = None
-    best_score = 0.0
-
-    for p in products:
-        if not p.get("in_stock", True):
-            continue
-
-        # Build keyword set
-        product_keywords = set()
-        kw_raw = p.get("keywords", [])
-        if isinstance(kw_raw, (set, list)):
-            for kw in kw_raw:
-                product_keywords.update(_tokenize(str(kw)))
-        elif isinstance(kw_raw, str):
-            product_keywords.update(_tokenize(kw_raw))
-
-        product_keywords.update(_tokenize(p.get("name", "")))
-        product_keywords = product_keywords - STOP_WORDS
-
-        # Count overlapping words
-        overlap_tokens = item_tokens & product_keywords
-        overlap = len(overlap_tokens)
-
-        # Verify match percentage for multi-word requests to filter noise
-        if len(item_tokens) > 1:
-            ratio = overlap / len(item_tokens)
-            if overlap < 2 and ratio < 0.4:
-                continue
-
-        if overlap > 0:
-            category_boost = 0.5 if category and p.get("category", "").lower() == category.lower() else 0.0
-            brand_boost = 1.0 if preferred_brands and p.get("brand", "").lower() in [b.lower() for b in preferred_brands] else 0.0
-            
-            budget_boost = 0.0
-            price = float(p.get("price_inr", 0))
-            if budget_style == "value":
-                budget_boost = 1.0 / (1.0 + price / 100.0)
-            elif budget_style == "premium":
-                budget_boost = price / (100.0 + price)
-
-            rating_boost = float(p.get("rating", 4.0)) / 10.0
-
-            # Scale base overlap score by 10.0 so token match is primary,
-            # while brand/budget style/rating acts as tie-breaker
-            base_score = float(overlap) + category_boost
-            score = base_score * 10.0 + brand_boost + budget_boost + rating_boost
-
-            if score > best_score:
-                best_score = score
-                best_product = p
-
-    return best_product
-
-
-
-def _category_fallback(
-    category: str,
-    products: list[dict],
-    preferred_brands: Optional[list[str]] = None,
-    budget_style: Optional[str] = None,
-) -> Optional[dict]:
-    """Pick the best in-stock product in the category, tie-broken by preferences and ratings."""
-    candidates = [
-        p for p in products
-        if p.get("category", "").lower() == category.lower()
-        and p.get("in_stock", True)
-    ]
-    if not candidates:
-        return None
-
-    def candidate_score(p):
-        brand_boost = 1.0 if preferred_brands and p.get("brand", "").lower() in [b.lower() for b in preferred_brands] else 0.0
-        budget_boost = 0.0
-        price = float(p.get("price_inr", 0))
-        if budget_style == "value":
-            budget_boost = 1.0 / (1.0 + price / 100.0)
-        elif budget_style == "premium":
-            budget_boost = price / (100.0 + price)
-        rating_boost = float(p.get("rating", 4.0)) / 10.0
-        return brand_boost + budget_boost + rating_boost
-
-    return max(candidates, key=candidate_score)
-
-
-def _match_product(
-    item: ExtractedItem,
-    products: list[dict],
-    preferred_brands: Optional[list[str]] = None,
-    budget_style: Optional[str] = None,
-) -> Optional[dict]:
-    """
-    Three-tier matching strategy with preferences support:
-    1. Exact name match
-    2. Keyword overlap score with preference tie-breaking
-    3. Category fallback with safety overlap guard and preference tie-breaking
-    """
-    # 1. Exact match
-    match = _exact_match(item.name, products)
-    if match:
-        logger.debug(f"Exact match: '{item.name}' -> {match['sku']}")
-        return match
-
-    # 2. Keyword overlap
-    match = _keyword_overlap_match(item.name, products, item.category, preferred_brands, budget_style)
-    if match:
-        logger.debug(f"Keyword match: '{item.name}' -> {match['sku']} (keywords)")
-        return match
-
-    # 3. Category fallback with safety overlap guard
-    match = _category_fallback(item.category, products, preferred_brands, budget_style)
-    if match:
-        item_tokens = _tokenize(item.name)
-        prod_tokens = _tokenize(match.get("name", "")) | set(match.get("keywords", []))
-        # Only allow fallback if there is at least 1 matching token or category keyword is in the name
-        if (item_tokens & prod_tokens) or (item.category.lower() in item.name.lower()):
-            logger.debug(f"Category fallback: '{item.name}' -> {match['sku']} (category: {item.category})")
-            return match
+def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
+    """Get or create the retriever singleton."""
+    global _retriever
+    if _retriever is None:
+        provider = os.getenv("SEARCH_PROVIDER", "local").strip().lower()
+        if provider == "opensearch":
+            from app.search.opensearch_retrieval import OpenSearchRetriever
+            host = os.getenv("OPENSEARCH_HOST", "")
+            _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
         else:
-            logger.warning(f"Category fallback for '{item.name}' to '{match['name']}' rejected due to zero token overlap.")
-
-    logger.warning(f"No match found for: '{item.name}' (category: {item.category})")
-    return None
-
+            _retriever = LocalRetriever(mock_mode=mock_mode)
+    return _retriever
 
 
 # ---------------------------------------------------------------------------
-# Quantity Calculation
+# V2 Retrieval + Ranking
+# ---------------------------------------------------------------------------
+def _match_product_v2(
+    item: ExtractedItem,
+    context: RankingContext,
+    mock_mode: bool = False,
+) -> tuple[Optional[RankedProduct], list[RankedProduct]]:
+    """
+    V2 matching using retrieval + ranking pipeline.
+    
+    Returns:
+        (best_match, alternatives) - best_match is None if no candidates found
+    """
+    retriever = _get_retriever(mock_mode=mock_mode)
+    
+    # Build query from extracted item
+    query = ProductQuery(
+        query_text=item.name,
+        category=item.category if item.category != "general" else None,
+        dietary_filter=context.dietary_pref,
+        max_price=context.remaining_budget,
+        preferred_brands=context.preferred_brands,
+        avoided_brands=context.avoided_brands,
+    )
+    
+    # Retrieve candidates (top 20 for ranking)
+    candidates = retriever.retrieve(query, limit=20)
+    
+    if not candidates:
+        logger.warning(f"No candidates found for: '{item.name}' (category: {item.category})")
+        return None, []
+    
+    # Rank candidates
+    ranked = rank_candidates(candidates, context)
+    
+    if not ranked:
+        logger.warning(f"Ranking returned empty for: '{item.name}'")
+        return None, []
+    
+    # Best match is top-ranked, alternatives are next 3
+    best = ranked[0]
+    alternatives = ranked[1:4] if len(ranked) > 1 else []
+    
+    logger.debug(
+        f"V2 match: '{item.name}' -> {best.title} ({best.brand}) "
+        f"score={best.score:.3f} reasons={best.reason_codes}"
+    )
+    
+    return best, alternatives
+
+
+# ---------------------------------------------------------------------------
+# Quantity Calculation (unchanged from V1)
 # ---------------------------------------------------------------------------
 def _calculate_quantity_units(
     recipe_quantity: float,
@@ -215,7 +132,6 @@ def _calculate_quantity_units(
         return max(1, math.ceil(recipe_base_amount / product_unit_quantity))
 
     # Handle ml <-> g cross-conversion (approximately 1:1 for most food items)
-    # e.g., "1 cup yogurt" -> 240ml, but product is sold in grams
     if (recipe_base_unit == "ml" and product_base_unit == "g") or \
        (recipe_base_unit == "g" and product_base_unit == "ml"):
         return max(1, math.ceil(recipe_base_amount / product_unit_quantity))
@@ -233,18 +149,83 @@ def _calculate_quantity_units(
 
 
 # ---------------------------------------------------------------------------
-# Budget Optimization
+# Build CartItem from RankedProduct
+# ---------------------------------------------------------------------------
+def _build_cart_item(
+    item: ExtractedItem,
+    product: RankedProduct,
+    alternatives: list[RankedProduct],
+) -> CartItem:
+    """Convert a RankedProduct to a CartItem with quantity calculation."""
+    
+    quantity_units = _calculate_quantity_units(
+        recipe_quantity=item.quantity,
+        recipe_unit=item.unit,
+        product_unit=product.unit,
+        product_unit_quantity=product.unit_quantity,
+        item_name=item.name,
+    )
+    
+    price_per_unit = product.price_inr
+    total_price = price_per_unit * quantity_units
+    
+    # Build alternatives list for frontend
+    alt_list = []
+    for alt in alternatives:
+        alt_qty = _calculate_quantity_units(
+            recipe_quantity=item.quantity,
+            recipe_unit=item.unit,
+            product_unit=alt.unit,
+            product_unit_quantity=alt.unit_quantity,
+            item_name=item.name,
+        )
+        alt_total = alt.price_inr * alt_qty
+        savings = total_price - alt_total
+        
+        alt_list.append({
+            "sku": alt.sku,
+            "name": alt.title,
+            "brand": alt.brand,
+            "price_per_unit_inr": alt.price_inr,
+            "quantity_units": alt_qty,
+            "total_price_inr": alt_total,
+            "rating": alt.rating,
+            "reason": f"Save ₹{savings:.0f}" if savings > 0 else (
+                f"Higher rated ({alt.rating}★)" if alt.rating > product.rating else "Alternative"
+            ),
+        })
+    
+    return CartItem(
+        sku=product.sku,
+        name=product.title,
+        brand=product.brand,
+        quantity_units=quantity_units,
+        unit=product.unit,
+        unit_quantity=product.unit_quantity,
+        price_per_unit_inr=price_per_unit,
+        total_price_inr=total_price,
+        optional=item.optional,
+        substituted=False,
+        substitution_reason=None,
+        matched_from=[f"{item.name} ({item.quantity} {item.unit})"],
+        # V2 additions
+        alternatives=alt_list,
+        reason_codes=product.reason_codes,
+        display_reason=product.display_reason,
+        stock_status="available" if product.in_stock else "low_stock",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Budget Optimization (updated to use V2 alternatives)
 # ---------------------------------------------------------------------------
 def _optimize_for_budget(
     cart_items: list[CartItem],
-    products: list[dict],
     budget_inr: int,
 ) -> tuple[list[CartItem], bool]:
     """
-    Greedy budget optimization:
-    1. Check if total exceeds budget
-    2. For each item over its category average price, find cheaper alternative
-    3. If still over budget, flag most expensive non-essential items
+    Budget optimization using V2 alternatives.
+    If cart exceeds budget, suggest cheaper alternatives as pending_substitution.
     """
     total = sum(item.total_price_inr for item in cart_items)
     if total <= budget_inr:
@@ -252,67 +233,41 @@ def _optimize_for_budget(
 
     logger.info(f"Cart total Rs.{total} exceeds budget Rs.{budget_inr}. Optimizing...")
 
-    # Group products by category for alternative lookup
-    category_products: dict[str, list[dict]] = {}
-    for p in products:
-        cat = p.get("category", "")
-        if cat not in category_products:
-            category_products[cat] = []
-        category_products[cat].append(p)
-
     optimized = []
     for item in cart_items:
         if item.optional:
             optimized.append(item)
             continue
 
-        # Find the product this item was matched to
-        current_product = None
-        for p in products:
-            if p["sku"] == item.sku:
-                current_product = p
-                break
-
-        if not current_product:
-            optimized.append(item)
-            continue
-
-        category = current_product.get("category", "")
-        alternatives = [
-            p for p in category_products.get(category, [])
-            if p["sku"] != item.sku
-            and p.get("in_stock", True)
-            and p.get("price_inr", float("inf")) < current_product.get("price_inr", 0)
+        # Check if any alternative is cheaper
+        cheaper_alts = [
+            alt for alt in item.alternatives
+            if alt.get("total_price_inr", float("inf")) < item.total_price_inr
         ]
-
-        if alternatives:
-            cheapest = min(alternatives, key=lambda p: p.get("price_inr", float("inf")))
-            new_price = cheapest["price_inr"]
-
-            # Recalculate quantity units based on the substitute's packaging size
-            needed_amount = item.quantity_units * item.unit_quantity
-            cheapest_unit_qty = float(cheapest.get("unit_quantity", 1))
-            new_quantity_units = max(1, math.ceil(needed_amount / cheapest_unit_qty))
-            new_total = new_price * new_quantity_units
-
-            # Attach as a pending suggestion instead of auto-swapping
-            savings = item.total_price_inr - float(new_total)
+        
+        if cheaper_alts:
+            # Pick the cheapest alternative
+            cheapest = min(cheaper_alts, key=lambda a: a.get("total_price_inr", float("inf")))
+            savings = item.total_price_inr - cheapest["total_price_inr"]
+            
             updated_item = item.model_copy(update={
                 "pending_substitution": {
                     "name": cheapest["name"],
                     "sku": cheapest["sku"],
-                    "brand": cheapest.get("brand", ""),
-                    "price_per_unit_inr": float(new_price),
-                    "quantity_units": new_quantity_units,
-                    "unit": cheapest.get("unit", item.unit),
-                    "unit_quantity": cheapest_unit_qty,
-                    "total_price_inr": float(new_total),
+                    "brand": cheapest["brand"],
+                    "price_per_unit_inr": cheapest["price_per_unit_inr"],
+                    "quantity_units": cheapest["quantity_units"],
+                    "unit": item.unit,
+                    "unit_quantity": item.unit_quantity,
+                    "total_price_inr": cheapest["total_price_inr"],
                     "reason": f"Save ₹{savings:.0f}",
                 },
-                "substituted": False,  # don't auto-swap anymore
             })
             optimized.append(updated_item)
-            logger.info(f"Pending substitution for '{item.name}' -> '{cheapest['name']}' (potential saving ₹{savings:.0f})")
+            logger.info(
+                f"Pending substitution for '{item.name}' -> '{cheapest['name']}' "
+                f"(potential saving ₹{savings:.0f})"
+            )
         else:
             optimized.append(item)
 
@@ -323,41 +278,55 @@ def _optimize_for_budget(
 
 
 # ---------------------------------------------------------------------------
-# Main Resolution Entry Point
+# Main Resolution Entry Point (V2)
 # ---------------------------------------------------------------------------
 def resolve_cart(
     items: list[ExtractedItem],
     budget_inr: Optional[int] = None,
     session_id: str = "",
     mock_mode: bool = False,
+    # V2 preference params
     dietary_pref: Optional[str] = None,
     preferred_brands: Optional[list[str]] = None,
-    budget_style: Optional[str] = None,
+    avoided_brands: Optional[list[str]] = None,
+    budget_mode: str = "balanced",
+    occasion: Optional[str] = None,
 ) -> tuple[list[CartItem], list[UnavailableItem], float, bool]:
     """
-    Resolve extracted items to real products in the catalog.
-    Applies dietary constraints and matches/tie-breaks using brand/budget preferences.
+    Resolve extracted items to real products using retrieval + ranking.
+
+    V2 adds:
+    - dietary_pref: "veg", "vegan", "jain", or None for any
+    - preferred_brands: list of brand names to boost
+    - avoided_brands: list of brand names to filter out
+    - budget_mode: "value", "balanced", or "premium"
+    - occasion: occasion tag for relevance boosting
 
     Returns:
         (cart_items, unavailable_items, total_price, budget_exceeded)
     """
-    products = get_all_products(mock_mode=mock_mode)
-
-    # Apply dietary filter to candidate products (Pillar 9.2)
-    if dietary_pref and dietary_pref.lower() not in ("any", "non-veg"):
-        pref_lower = dietary_pref.lower()
-        target_dietary = "vegetarian" if pref_lower == "veg" else pref_lower
-        
-        # We only match products that have the target dietary tag in their dietary array
-        products = [p for p in products if target_dietary in [d.lower() for d in p.get("dietary", [])]]
-
     cart_items: list[CartItem] = []
     unavailable_items: list[UnavailableItem] = []
+    
+    # Track remaining budget for progressive allocation
+    remaining_budget = float(budget_inr) if budget_inr else None
+    
+    # Build ranking context
+    context = RankingContext(
+        budget_inr=float(budget_inr) if budget_inr else None,
+        budget_mode=budget_mode,
+        dietary_pref=dietary_pref,
+        preferred_brands=preferred_brands or [],
+        avoided_brands=avoided_brands or [],
+        occasion=occasion,
+        remaining_budget=remaining_budget,
+    )
 
     for item in items:
-        product = _match_product(item, products, preferred_brands, budget_style)
+        # Use V2 retrieval + ranking
+        best_match, alternatives = _match_product_v2(item, context, mock_mode=mock_mode)
 
-        if product is None:
+        if best_match is None:
             unavailable_items.append(UnavailableItem(
                 name=item.name,
                 reason=UnavailableReason.NOT_IN_CATALOG,
@@ -366,51 +335,45 @@ def resolve_cart(
             store_failed_match_log(item.name, session_id)
             continue
 
-        if not product.get("in_stock", True):
-            unavailable_items.append(UnavailableItem(
-                name=item.name,
-                reason=UnavailableReason.OUT_OF_STOCK,
-            ))
-            continue
+        if not best_match.in_stock:
+            # Try first alternative that's in stock
+            in_stock_alt = next((a for a in alternatives if a.in_stock), None)
+            if in_stock_alt:
+                best_match = in_stock_alt
+                alternatives = [a for a in alternatives if a.sku != in_stock_alt.sku]
+            else:
+                unavailable_items.append(UnavailableItem(
+                    name=item.name,
+                    reason=UnavailableReason.OUT_OF_STOCK,
+                ))
+                continue
 
-        # Calculate how many product units needed
-        quantity_units = _calculate_quantity_units(
-            recipe_quantity=item.quantity,
-            recipe_unit=item.unit,
-            product_unit=product.get("unit", "piece"),
-            product_unit_quantity=float(product.get("unit_quantity", 1)),
-            item_name=item.name,
-        )
+        # Build cart item with alternatives
+        cart_item = _build_cart_item(item, best_match, alternatives)
+        cart_items.append(cart_item)
+        
+        # Update remaining budget
+        if remaining_budget is not None:
+            remaining_budget = max(0, remaining_budget - cart_item.total_price_inr)
+            context.remaining_budget = remaining_budget
 
-        price_per_unit = float(product.get("price_inr", 0))
-        total_price = price_per_unit * quantity_units
-
-        cart_items.append(CartItem(
-            sku=product["sku"],
-            name=product["name"],
-            brand=product.get("brand", ""),
-            quantity_units=quantity_units,
-            unit=product.get("unit", "piece"),
-            unit_quantity=float(product.get("unit_quantity", 1)),
-            price_per_unit_inr=price_per_unit,
-            total_price_inr=total_price,
-            optional=item.optional,
-            substituted=False,
-            substitution_reason=None,
-            matched_from=[f"{item.name} ({item.quantity} {item.unit})"],
-        ))
-
-    # Fix 1: SKU Deduplication & Quantity Merging
+    # SKU Deduplication & Quantity Merging
     merged_items: dict[str, CartItem] = {}
     for item in cart_items:
         if item.sku in merged_items:
             existing = merged_items[item.sku]
             merged_qty = existing.quantity_units + item.quantity_units
+            # Merge alternatives (deduplicate by SKU)
+            existing_alt_skus = {a["sku"] for a in existing.alternatives}
+            new_alts = [a for a in item.alternatives if a["sku"] not in existing_alt_skus]
+            merged_alts = existing.alternatives + new_alts
+            
             merged_items[item.sku] = existing.model_copy(update={
                 "quantity_units": merged_qty,
                 "total_price_inr": existing.price_per_unit_inr * merged_qty,
-                "optional": existing.optional and item.optional,  # required if either is required
-                "matched_from": existing.matched_from + item.matched_from
+                "optional": existing.optional and item.optional,
+                "matched_from": existing.matched_from + item.matched_from,
+                "alternatives": merged_alts[:5],  # Keep top 5 alternatives
             })
         else:
             merged_items[item.sku] = item
@@ -419,7 +382,7 @@ def resolve_cart(
     # Budget optimization
     budget_exceeded = False
     if budget_inr and cart_items:
-        cart_items, budget_exceeded = _optimize_for_budget(cart_items, products, budget_inr)
+        cart_items, budget_exceeded = _optimize_for_budget(cart_items, budget_inr)
 
     total_price = sum(item.total_price_inr for item in cart_items)
 
@@ -429,3 +392,83 @@ def resolve_cart(
     )
 
     return cart_items, unavailable_items, total_price, budget_exceeded
+
+
+# ---------------------------------------------------------------------------
+# Legacy V1 Functions (kept for backward compatibility / fallback)
+# ---------------------------------------------------------------------------
+def _tokenize(text: str) -> set[str]:
+    """Split text into lowercase word tokens for matching."""
+    return set(text.lower().replace("-", " ").replace("_", " ").split())
+
+
+STOP_WORDS = {
+    "fresh", "organic", "large", "small", "medium", "raw", "whole", "pure", "natural", 
+    "best", "good", "with", "and", "or", "of", "for", "in", "to", "a", "an", "the"
+}
+
+
+def _exact_match(item_name: str, products: list[dict]) -> Optional[dict]:
+    """Try exact case-insensitive match on product name."""
+    name_lower = item_name.lower().strip()
+    for p in products:
+        if p["name"].lower() == name_lower:
+            if p.get("in_stock", True):
+                return p
+    return None
+
+
+def _keyword_overlap_match(item_name: str, products: list[dict], category: Optional[str] = None) -> Optional[dict]:
+    """Legacy keyword overlap matching."""
+    item_tokens = _tokenize(item_name) - STOP_WORDS
+    if not item_tokens:
+        item_tokens = _tokenize(item_name)
+        
+    best_product = None
+    best_score = 0
+
+    for p in products:
+        if not p.get("in_stock", True):
+            continue
+
+        product_keywords = set()
+        kw_raw = p.get("keywords", [])
+        if isinstance(kw_raw, (set, list)):
+            for kw in kw_raw:
+                product_keywords.update(_tokenize(str(kw)))
+        elif isinstance(kw_raw, str):
+            product_keywords.update(_tokenize(kw_raw))
+
+        product_keywords.update(_tokenize(p.get("name", "")))
+        product_keywords = product_keywords - STOP_WORDS
+
+        overlap_tokens = item_tokens & product_keywords
+        overlap = len(overlap_tokens)
+
+        category_boost = 0.0
+        if category and p.get("category", "").lower() == category.lower():
+            category_boost = 0.5
+
+        score = overlap + category_boost
+
+        if overlap > 0 and score > best_score:
+            if len(item_tokens) > 1:
+                ratio = overlap / len(item_tokens)
+                if overlap < 2 and ratio < 0.4:
+                    continue
+            best_score = score
+            best_product = p
+
+    return best_product
+
+
+def _category_fallback(category: str, products: list[dict]) -> Optional[dict]:
+    """Pick the highest-rated in-stock product in the given category."""
+    candidates = [
+        p for p in products
+        if p.get("category", "").lower() == category.lower()
+        and p.get("in_stock", True)
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.get("rating", 0))

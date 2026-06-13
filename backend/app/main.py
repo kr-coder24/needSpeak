@@ -32,6 +32,7 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from app import config
 from app.models import (
@@ -57,7 +58,10 @@ from app.db.dynamo import (
     save_session,
     get_session,
     check_dynamodb_health,
+    get_user_preferences,
+    save_user_preferences,
 )
+from app.intelligence.event_logger import log_event
 from app.db.s3 import store_raw_input, store_cart_result, check_s3_health
 from app.auth.auth_routes import router as auth_router
 from app.collab.collab_routes import router as collab_router
@@ -200,7 +204,7 @@ async def parse_content(req: ParseRequest, request: Request):
         logger.info(f"[{session_id}] Extracting items from text ({len(raw_text)} chars)...")
         extraction = extract_items(raw_text, req.servings_override, mock_mode=mock_mode)
 
-        if extraction.error == "no_shoppable_content":
+        if extraction.error == "no_shoppable_content" and not req.occasion:
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -219,6 +223,33 @@ async def parse_content(req: ParseRequest, request: Request):
                 },
             )
 
+        # Feature 2.4: OccasionCart Backend Blueprint Mapping
+        # If an occasion is provided, fetch its blueprint and merge with extraction
+        if req.occasion:
+            from app.intelligence.occasion_templates import get_template_by_id
+            from app.models import ExtractedItem, ExtractedIntent, IntentType
+            template = get_template_by_id(req.occasion)
+            if template and template.blueprint:
+                logger.info(f"[{session_id}] Merging hardcoded blueprint for occasion: {template.id}")
+                blueprint_items = [ExtractedItem(**b_item) for b_item in template.blueprint]
+                
+                # If extraction was empty, create a new intent
+                if not extraction.intents:
+                    extraction.intents = [
+                        ExtractedIntent(
+                            intent_type=IntentType.GENERAL,
+                            context_summary=f"{template.name} Essentials",
+                            items=blueprint_items
+                        )
+                    ]
+                    extraction.error = None # Clear any errors since we have blueprint items
+                else:
+                    # Merge into the first intent
+                    existing_names = {item.name.lower() for item in extraction.intents[0].items}
+                    for b_item in blueprint_items:
+                        if b_item.name.lower() not in existing_names:
+                            extraction.intents[0].items.append(b_item)
+
         if not extraction.intents and extraction.confidence != "low":
             raise HTTPException(
                 status_code=400,
@@ -229,6 +260,29 @@ async def parse_content(req: ParseRequest, request: Request):
             )
 
         logger.info(f"[{session_id}] Extracted {len(extraction.intents)} intents")
+
+        # Feature 4.3: Deterministic Quantity Engine Scaling
+        if req.servings_override:
+            from app.intelligence.quantity_scaler import scale_quantities
+            # Determine base_servings, fallback to 4 if the LLM didn't extract any
+            base_servings = extraction.servings or 4
+            
+            # If an occasion template was used, and extraction didn't specify servings, use the occasion's default
+            if req.occasion and not extraction.servings:
+                from app.intelligence.occasion_templates import get_template_by_id
+                template = get_template_by_id(req.occasion)
+                if template:
+                    base_servings = template.default_attendees
+                    
+            logger.info(f"[{session_id}] Applying deterministic quantity scaling: {base_servings} -> {req.servings_override}")
+            for intent in extraction.intents:
+                intent.items = scale_quantities(
+                    items=intent.items, 
+                    target_attendees=req.servings_override, 
+                    base_servings=base_servings
+                )
+            # Update extraction servings to reflect the scaled amount
+            extraction.servings = req.servings_override
 
         # ── Step 3: Resolve ─────────────────────────────────────────────
         logger.info(f"[{session_id}] Resolving SKUs per intent...")
@@ -247,7 +301,7 @@ async def parse_content(req: ParseRequest, request: Request):
         prefs = UserPreferences(
             dietary=dietary_list,
             preferred_brands=req.preferred_brands or [],
-            budget_mode=req.budget_style or "balanced"
+            budget_mode=req.budget_mode or "balanced"
         )
         extraction = apply_preferences(extraction, prefs)
 
@@ -257,9 +311,12 @@ async def parse_content(req: ParseRequest, request: Request):
                 budget_inr=req.budget_inr,
                 session_id=session_id,
                 mock_mode=mock_mode,
+                # V2 preference params
                 dietary_pref=req.dietary_pref,
                 preferred_brands=req.preferred_brands,
-                budget_style=req.budget_style,
+                avoided_brands=req.avoided_brands,
+                budget_mode=req.budget_mode or "balanced",
+                occasion=req.occasion,
             )
             global_total_price += intent_total_price
             global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -411,10 +468,154 @@ async def transcribe_audio(request: Request, audio: UploadFile = File(...)):
 
 
 # ---------------------------------------------------------------------------
-# POST /api/parse-image — Image OCR Pipeline (Member 2, Feature 1)
+# Multimodal Pipeline Helper
+# ---------------------------------------------------------------------------
+async def _run_multimodal_pipeline(
+    session_id: str,
+    extracted_text: str,
+    input_type: str,
+    budget_inr: float = None,
+    mock_mode: bool = False,
+):
+    from app.pipeline.extractor import extract_items
+    from app.pipeline.resolver import resolve_cart
+    from app.pipeline.summarizer import generate_summary
+
+    def run_pipeline():
+        extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
+
+        if extraction.error == "no_shoppable_content":
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": ErrorCode.NO_CONTENT.value,
+                    "message": "No shoppable items found in the extracted text from the document.",
+                },
+            )
+
+        if extraction.error in ("extraction_failed", "bedrock_timeout"):
+            error_code = (
+                ErrorCode.BEDROCK_TIMEOUT
+                if extraction.error == "bedrock_timeout"
+                else ErrorCode.EXTRACTION_FAILED
+            )
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error_code": error_code.value,
+                    "message": "AI extraction failed. Please try again.",
+                },
+            )
+
+        resolved_intent_groups = []
+        global_total_price = 0.0
+        global_budget_exceeded = False
+
+        budget_int = int(budget_inr) if budget_inr else None
+
+        for intent in extraction.intents:
+            cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
+                items=intent.items,
+                budget_inr=budget_int,
+                session_id=session_id,
+                mock_mode=mock_mode,
+                dietary_pref=None,
+                preferred_brands=None,
+                avoided_brands=None,
+                budget_mode="balanced",
+                occasion=None,
+            )
+            global_total_price += intent_total_price
+            global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
+
+            resolved_intent_groups.append(IntentGroup(
+                intent_type=intent.intent_type,
+                context_summary=intent.context_summary,
+                cart=cart_items,
+                unavailable_items=unavailable_items,
+            ))
+
+        summary = generate_summary(
+            intent_groups=resolved_intent_groups,
+            total_price=global_total_price,
+            budget_inr=budget_int,
+            budget_exceeded=global_budget_exceeded,
+            mock_mode=mock_mode,
+        )
+
+        response_data = ParseResponse(
+            session_id=session_id,
+            confidence=extraction.confidence,
+            clarification_question=extraction.clarification_question,
+            intents=resolved_intent_groups,
+            total_price_inr=global_total_price,
+            budget_exceeded=global_budget_exceeded,
+            summary=summary,
+        )
+
+        session_data = {
+            "session_id": session_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "input_type": input_type,
+            "confidence": extraction.confidence,
+            "extracted_text_from_file": extracted_text,
+            "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
+            "total_price_inr": global_total_price,
+            "budget_inr": budget_int,
+            "budget_exceeded": global_budget_exceeded,
+            "summary": summary,
+            "status": "completed",
+        }
+        save_session(session_data, mock_mode=mock_mode)
+        store_cart_result(session_id, session_data, mock_mode=mock_mode)
+
+        return {
+            "extracted_text": extracted_text,
+            **response_data.model_dump(),
+        }
+
+    try:
+        return await asyncio.wait_for(
+            run_in_threadpool(run_pipeline), timeout=45.0
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"[{session_id}] Pipeline timed out after 45 seconds.")
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
+                "message": "Processing timed out. Please try again.",
+            },
+        )
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"[{session_id}] Pipeline failed: {error_str}")
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+            )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": ErrorCode.INTERNAL_ERROR.value,
+                "message": f"Processing failed: {error_str}",
+            },
+        )
+
+# ---------------------------------------------------------------------------
+# POST /api/ingest/image — Image OCR Pipeline
 # ---------------------------------------------------------------------------
 @app.post("/api/parse-image")
-async def parse_image(
+@app.post("/api/ingest/image")
+async def ingest_image(
     request: Request,
     image: UploadFile = File(...),
     budget_inr: float = Form(None),
@@ -462,165 +663,140 @@ async def parse_image(
 
         logger.info(f"[{session_id}] Extracted from image: '{extracted_text[:200]}'")
 
-        # Run through the full pipeline by creating a parse request
-        def run_image_pipeline():
-            # Re-use the exact same pipeline as /api/parse with TEXT input
-            from app.pipeline.extractor import extract_items
-            from app.pipeline.resolver import resolve_cart
-            from app.pipeline.summarizer import generate_summary
-
-            extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
-
-            if extraction.error == "no_shoppable_content":
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "error_code": ErrorCode.NO_CONTENT.value,
-                        "message": "No shoppable items found in the extracted text from the image.",
-                    },
-                )
-
-            if extraction.error in ("extraction_failed", "bedrock_timeout"):
-                error_code = (
-                    ErrorCode.BEDROCK_TIMEOUT
-                    if extraction.error == "bedrock_timeout"
-                    else ErrorCode.EXTRACTION_FAILED
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "error_code": error_code.value,
-                        "message": "AI extraction failed. Please try again.",
-                    },
-                )
-
-            resolved_intent_groups = []
-            global_total_price = 0.0
-            global_budget_exceeded = False
-
-            budget_int = int(budget_inr) if budget_inr else None
-
-            # Apply preferences (Pillar 9)
-            from app.intelligence.preference_engine import apply_preferences, UserPreferences
-            import json
-            brands_list = []
-            if preferred_brands:
-                try:
-                    brands_list = json.loads(preferred_brands)
-                    if not isinstance(brands_list, list):
-                        brands_list = [brands_list]
-                except Exception:
-                    brands_list = [preferred_brands]
-
-            dietary_list = []
-            if dietary_pref and dietary_pref.lower() not in ("any", "none"):
-                val = dietary_pref.lower()
-                dietary_list.append("vegetarian" if val == "veg" else val)
-
-            prefs = UserPreferences(
-                dietary=dietary_list,
-                preferred_brands=brands_list,
-                budget_mode=budget_style or "balanced"
-            )
-            extraction = apply_preferences(extraction, prefs)
-
-            for intent in extraction.intents:
-                cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
-                    items=intent.items,
-                    budget_inr=budget_int,
-                    session_id=session_id,
-                    mock_mode=mock_mode,
-                    dietary_pref=dietary_pref,
-                    preferred_brands=brands_list,
-                    budget_style=budget_style,
-                )
-                global_total_price += intent_total_price
-                global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
-
-                resolved_intent_groups.append(IntentGroup(
-                    intent_type=intent.intent_type,
-                    context_summary=intent.context_summary,
-                    cart=cart_items,
-                    unavailable_items=unavailable_items,
-                ))
-
-            summary = generate_summary(
-                intent_groups=resolved_intent_groups,
-                total_price=global_total_price,
-                budget_inr=budget_int,
-                budget_exceeded=global_budget_exceeded,
-                mock_mode=mock_mode,
-            )
-
-            response_data = ParseResponse(
-                session_id=session_id,
-                confidence=extraction.confidence,
-                clarification_question=extraction.clarification_question,
-                intents=resolved_intent_groups,
-                total_price_inr=global_total_price,
-                budget_exceeded=global_budget_exceeded,
-                summary=summary,
-            )
-
-            # Store session
-            session_data = {
-                "session_id": session_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "input_type": "image",
-                "confidence": extraction.confidence,
-                "extracted_text_from_image": extracted_text,
-                "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
-                "total_price_inr": global_total_price,
-                "budget_inr": budget_int,
-                "budget_exceeded": global_budget_exceeded,
-                "summary": summary,
-                "status": "completed",
-            }
-            save_session(session_data, mock_mode=mock_mode)
-            store_cart_result(session_id, session_data, mock_mode=mock_mode)
-
-            return {
-                "extracted_text": extracted_text,
-                **response_data.model_dump(),
-            }
-
-        return await asyncio.wait_for(
-            run_in_threadpool(run_image_pipeline), timeout=45.0
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="image",
+            budget_inr=budget_inr,
+            mock_mode=mock_mode,
         )
 
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
-        )
-    except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] Image pipeline timed out after 45 seconds.")
-        raise HTTPException(
-            status_code=504,
-            detail={
-                "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
-                "message": "Image processing timed out. Please try again.",
-            },
-        )
-    except Exception as e:
-        error_str = str(e)
-        logger.error(f"[{session_id}] Image pipeline failed: {error_str}")
+        raise HTTPException(status_code=400, detail={"message": str(e)})
 
-        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+# ---------------------------------------------------------------------------
+# POST /api/ingest/pdf — PDF Extraction
+# ---------------------------------------------------------------------------
+@app.post("/api/ingest/pdf")
+async def ingest_pdf(
+    request: Request,
+    file: UploadFile = File(...),
+    budget_inr: float = None,
+):
+    session_id = str(uuid.uuid4())
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    pdf_bytes = await file.read()
+    
+    if mock_mode:
+        return {
+            "extracted_text": "mock pdf text",
+            "session_id": session_id,
+            "hint": "Mocked response",
+        }
+
+    try:
+        from app.ingestion.pdf_input import extract_text_from_pdf
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+
+        if not extracted_text:
             raise HTTPException(
-                status_code=429,
-                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+                status_code=400,
+                detail={"message": "No food items found in the PDF."}
             )
 
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error_code": ErrorCode.INTERNAL_ERROR.value,
-                "message": f"Image processing failed: {error_str}",
-            },
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="pdf",
+            budget_inr=budget_inr,
+            mock_mode=mock_mode,
         )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"message": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# POST /api/ingest/prescription — Prescription Medical OCR
+# ---------------------------------------------------------------------------
+@app.post("/api/ingest/prescription")
+async def ingest_prescription(
+    request: Request,
+    file: UploadFile = File(...),
+    budget_inr: float = None,
+):
+    session_id = str(uuid.uuid4())
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    file_bytes = await file.read()
+    mime_type = file.content_type or "application/pdf"
+    
+    if mock_mode:
+        return {
+            "extracted_text": "Paracetamol 500mg [requires validation]",
+            "session_id": session_id,
+            "hint": "Mocked response",
+        }
+
+    try:
+        from app.ingestion.prescription_input import extract_text_from_prescription
+        extracted_text = extract_text_from_prescription(file_bytes, mime_type)
+
+        if not extracted_text:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": "No medicines found in the prescription."}
+            )
+
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="prescription",
+            budget_inr=budget_inr,
+            mock_mode=mock_mode,
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"message": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# POST /api/cart/{session_id}/reserve — Reserve Inventory
+# ---------------------------------------------------------------------------
+class ReserveRequest(BaseModel):
+    items: list[dict] = Field(..., description="List of items to reserve: [{'sku': '...', 'qty': 2}]")
+
+@app.post("/api/cart/{session_id}/reserve")
+async def reserve_cart(session_id: str, req: ReserveRequest, request: Request):
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    from app.inventory.reservations import reserve_items
+    success, failed_skus, res_id = reserve_items(session_id, req.items, mock_mode=mock_mode)
+    if not success:
+        raise HTTPException(
+            status_code=409, 
+            detail={"message": "Some items are out of stock", "failed_skus": failed_skus}
+        )
+    return {"success": True, "reservation_id": res_id}
+
+@app.post("/api/cart/{session_id}/release")
+async def release_cart(session_id: str, req: ReserveRequest, request: Request):
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    from app.inventory.reservations import release_reservation
+    release_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
+    return {"success": True}
+
+@app.post("/api/cart/{session_id}/commit")
+async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    from app.inventory.reservations import commit_reservation
+    commit_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
+    return {"success": True}
+
 
 
 
@@ -631,7 +807,10 @@ async def parse_image(
 async def parse_pdf(
     request: Request,
     pdf: UploadFile = File(...),
-    budget_inr: float = None,
+    budget_inr: float = Form(None),
+    dietary_pref: Optional[str] = Form(None),
+    preferred_brands: Optional[str] = Form(None),
+    budget_style: Optional[str] = Form(None),
 ):
     """
     Accept a PDF file, extract text via pypdf, and run through the pipeline.
@@ -834,6 +1013,112 @@ async def parse_pdf(
         )
 
 # ---------------------------------------------------------------------------
+# POST /api/recompare — Re-resolve with new params (no LLM call)
+# ---------------------------------------------------------------------------
+class RecompareRequest(BaseModel):
+    """POST /api/recompare — re-resolve existing items with new parameters."""
+    session_id: str
+    budget_inr: int | None = Field(None, ge=50)
+    servings_override: int | None = Field(None, ge=1, le=50)
+    original_servings: int | None = Field(None, ge=1, le=50)
+    dietary_pref: str | None = None
+    preferred_brands: list[str] | None = None
+    avoided_brands: list[str] | None = None
+    budget_mode: str | None = "balanced"
+    occasion: str | None = None
+
+
+@app.post("/api/recompare")
+async def recompare_cart(req: RecompareRequest, request: Request):
+    """
+    Re-resolve an existing session's extracted items with new parameters.
+    Skips the LLM extraction step entirely — just re-runs retrieval + ranking.
+    This is the backend for CompareCart "What If" feature.
+    """
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    # Load the existing session
+    session = get_session(req.session_id, mock_mode=mock_mode)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Get extracted intents from the session
+    extracted_intents_raw = session.get("extracted_intents", [])
+    if not extracted_intents_raw:
+        raise HTTPException(
+            status_code=400,
+            detail="No extracted items found in session. Cannot recompare.",
+        )
+
+    logger.info(f"[recompare] Session {req.session_id}: re-resolving with budget={req.budget_inr}, dietary={req.dietary_pref}")
+
+    def run_recompare():
+        from app.models import ExtractedItem, IntentType
+
+        resolved_intent_groups = []
+        global_total_price = 0.0
+        global_budget_exceeded = False
+
+        for intent_data in extracted_intents_raw:
+            items_raw = intent_data.get("items", [])
+            items: list[ExtractedItem] = []
+            for item_raw in items_raw:
+                # Scale quantities if servings changed
+                quantity = item_raw.get("quantity", 1.0)
+                if req.servings_override and req.original_servings and req.original_servings > 0:
+                    scale_factor = req.servings_override / req.original_servings
+                    quantity = quantity * scale_factor
+
+                items.append(ExtractedItem(
+                    name=item_raw.get("name", "unknown"),
+                    quantity=quantity,
+                    unit=item_raw.get("unit", "piece"),
+                    category=item_raw.get("category", "general"),
+                    optional=item_raw.get("optional", False),
+                    notes=item_raw.get("notes"),
+                ))
+
+            # Re-resolve with new params
+            cart_items, unavailable_items, intent_total, intent_budget_exceeded = resolve_cart(
+                items=items,
+                budget_inr=req.budget_inr,
+                session_id=req.session_id,
+                mock_mode=mock_mode,
+                dietary_pref=req.dietary_pref,
+                preferred_brands=req.preferred_brands,
+                avoided_brands=req.avoided_brands,
+                budget_mode=req.budget_mode or "balanced",
+                occasion=req.occasion,
+            )
+
+            global_total_price += intent_total
+            global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
+
+            resolved_intent_groups.append(IntentGroup(
+                intent_type=IntentType(intent_data.get("intent_type", "general")),
+                context_summary=intent_data.get("context_summary", ""),
+                cart=cart_items,
+                unavailable_items=unavailable_items,
+            ))
+
+        return {
+            "session_id": req.session_id,
+            "intents": [g.model_dump() for g in resolved_intent_groups],
+            "total_price_inr": global_total_price,
+            "budget_exceeded": global_budget_exceeded,
+            "budget_inr": req.budget_inr,
+        }
+
+    try:
+        return await asyncio.wait_for(run_in_threadpool(run_recompare), timeout=15.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail={"error_code": "timeout", "message": "Recompare timed out."},
+        )
+
+
+# ---------------------------------------------------------------------------
 # GET /api/session/{session_id} — Reload Session
 # ---------------------------------------------------------------------------
 @app.get("/api/session/{session_id}")
@@ -911,3 +1196,58 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"error_code": "internal_error", "message": str(detail)},
     )
+
+# ---------------------------------------------------------------------------
+# Preferences & Events Endpoints (Phase 6)
+# ---------------------------------------------------------------------------
+class PreferenceRequest(BaseModel):
+    user_id: str
+    dietary: list[str] = Field(default_factory=list)
+    preferred_brands: list[str] = Field(default_factory=list)
+    avoided_brands: list[str] = Field(default_factory=list)
+    allergies: list[str] = Field(default_factory=list)
+    budget_mode: str = "balanced"
+
+@app.post("/api/preferences")
+async def update_preferences(req: PreferenceRequest, request: Request):
+    """Save user preferences."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    save_user_preferences(req.user_id, req.model_dump(exclude={"user_id"}), mock_mode=mock_mode)
+    return {"status": "success"}
+
+@app.get("/api/preferences/{user_id}")
+async def fetch_preferences(user_id: str, request: Request):
+    """Load user preferences."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    prefs = get_user_preferences(user_id, mock_mode=mock_mode)
+    return prefs or {}
+
+class EventRequest(BaseModel):
+    user_id: str
+    event_type: str
+    sku: str = ""
+    session_id: str = ""
+    intent_type: str = ""
+    query_text: str = ""
+    rank_position: int = -1
+    price_inr: float = 0.0
+    category: str = ""
+    context: str = ""
+
+@app.post("/api/events")
+async def capture_event(req: EventRequest):
+    """Log an interaction event for the preference engine."""
+    log_event(
+        user_id=req.user_id,
+        event_type=req.event_type,
+        sku=req.sku,
+        session_id=req.session_id,
+        intent_type=req.intent_type,
+        query_text=req.query_text,
+        rank_position=req.rank_position,
+        price_inr=req.price_inr,
+        category=req.category,
+        context=req.context
+    )
+    return {"status": "logged"}
+

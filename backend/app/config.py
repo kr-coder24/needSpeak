@@ -35,6 +35,11 @@ GEMINI_MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
 # ---------------------------------------------------------------------------
 DYNAMODB_TABLE_PRODUCTS = os.getenv("DYNAMODB_TABLE_PRODUCTS", "ProductCatalog")
 DYNAMODB_TABLE_SESSIONS = os.getenv("DYNAMODB_TABLE_SESSIONS", "CartSessions")
+DYNAMODB_TABLE_USERS = os.getenv("DYNAMODB_TABLE_USERS", "NeedSpeakUsers")
+DYNAMODB_TABLE_EMAIL_LOCKS = os.getenv("DYNAMODB_TABLE_EMAIL_LOCKS", "NeedSpeakEmailLocks")
+DYNAMODB_TABLE_AUTH_SESSIONS = os.getenv("DYNAMODB_TABLE_AUTH_SESSIONS", "NeedSpeakAuthSessions")
+DYNAMODB_TABLE_PREFERENCES = os.getenv("DYNAMODB_TABLE_PREFERENCES", "NeedSpeakUserPreferences")
+DYNAMODB_TABLE_EVENTS = os.getenv("DYNAMODB_TABLE_EVENTS", "NeedSpeakUserEvents")
 
 # ---------------------------------------------------------------------------
 # Amazon S3

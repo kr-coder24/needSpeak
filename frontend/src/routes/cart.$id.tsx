@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ArrowLeftRight,
@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Users,
   Leaf,
+  AlertTriangle,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/cart/$id")({
 
 function CartPage() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,9 @@ function CartPage() {
   const [whatIfAttendees, setWhatIfAttendees] = useState<number>(10);
   const [whatIfDietary, setWhatIfDietary] = useState<string>("any");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [reserving, setReserving] = useState(false);
+  const [reservationStatus, setReservationStatus] = useState<"idle" | "success" | "error">("idle");
+  const [reservationMessage, setReservationMessage] = useState<string>("");
 
   // CompareCart states
   const [comparing, setComparing] = useState(false);
@@ -100,37 +105,28 @@ function CartPage() {
     cartItems.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
   const budgetPct = Math.min(100, (total / budget) * 100);
 
-  // Run CompareCart comparison with new parameters
+  // Run CompareCart — calls /api/recompare to re-resolve same items with new params (no LLM)
   const runCompare = useCallback(async (newBudget: number, attendees: number, dietary: string) => {
     if (!session) return;
 
     setComparing(true);
 
-    // Build the input text - use original input or context summary
-    let inputText = session.original_input || session.context_summary || intentSummary || "general groceries";
-
-    // Modify attendee count in the input text
-    const attendeePattern = /(\d+)\s*(people|guests|attendees|persons?)/gi;
-    if (attendeePattern.test(inputText)) {
-      inputText = inputText.replace(attendeePattern, `${attendees} people`);
-    } else {
-      inputText += ` for ${attendees} people`;
-    }
-
-    // Add dietary constraint if not "any"
-    if (dietary && dietary !== "any") {
-      inputText += ` (${dietary} only)`;
-    }
+    // Determine original servings from session context
+    const contextText = session.context_summary || session.original_input || "";
+    const attendeeMatch = contextText.match(/(\d+)\s*(people|guests|attendees|persons?)/i);
+    const originalServings = attendeeMatch ? parseInt(attendeeMatch[1], 10) : undefined;
 
     try {
-      const res = await fetch("/api/parse", {
+      const res = await fetch("/api/recompare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: inputText,
-          input_type: "text",
+          session_id: session.session_id,
           budget_inr: newBudget,
-          dietary_pref: dietary !== "any" ? dietary : undefined,
+          servings_override: attendees,
+          original_servings: originalServings,
+          dietary_pref: dietary !== "any" ? dietary : null,
+          budget_mode: "balanced",
         }),
       });
 
@@ -150,7 +146,7 @@ function CartPage() {
     } finally {
       setComparing(false);
     }
-  }, [session, intentSummary, cartItems]);
+  }, [session, cartItems]);
 
   // Debounced compare on parameter change
   const debouncedCompare = useCallback((budget: number, attendees: number, dietary: string) => {
@@ -169,6 +165,60 @@ function CartPage() {
       setNewCartTotal(null);
     }
   }, [compareOpen]);
+
+  const handleReserve = async () => {
+    if (!session || reserving) return;
+    setReserving(true);
+    setReservationStatus("idle");
+
+    try {
+      // Map cartItems to {sku, qty}
+      const itemsToReserve = cartItems.filter((i: any) => i.sku).map((i: any) => ({
+        sku: i.sku,
+        qty: i.quantity_units
+      }));
+
+      const res = await fetch(`/api/cart/${session.session_id}/reserve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: itemsToReserve })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to reserve items");
+      }
+
+      setReservationStatus("success");
+      setReservationMessage("Items reserved successfully! Redirecting to checkout...");
+
+      // Phase 6: Log purchase event
+      try {
+        await fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: "demo_user", // Fixed for now
+            session_id: session.session_id,
+            event_type: "purchase",
+            intent_type: session.intent_type,
+            context: "Completed checkout from cart review"
+          })
+        });
+      } catch (err) {
+        console.error("Telemetry error:", err);
+      }
+      
+      // Redirect to checkout page
+      setTimeout(() => navigate({ to: "/checkout/$id", params: { id: data.reservation_id } }), 1500);
+
+    } catch (e: any) {
+      setReservationStatus("error");
+      setReservationMessage(e.message || "Something went wrong.");
+    } finally {
+      setReserving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -324,8 +374,30 @@ function CartPage() {
                   </li>
                 ))}
               </ul>
-              <button className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-brand-foreground hover:bg-brand/90">
-                Proceed to checkout
+              {reservationStatus === "error" && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {reservationMessage}
+                </div>
+              )}
+              {reservationStatus === "success" && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-xs text-success">
+                  <Check className="h-3.5 w-3.5" />
+                  {reservationMessage}
+                </div>
+              )}
+              <button 
+                onClick={handleReserve}
+                disabled={reserving || reservationStatus === "success"}
+                className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-50"
+              >
+                {reserving ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reserving...</>
+                ) : reservationStatus === "success" ? (
+                  <><Check className="mr-2 h-4 w-4" /> Reserved</>
+                ) : (
+                  "Proceed to checkout"
+                )}
               </button>
             </div>
 

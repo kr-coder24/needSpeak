@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
+import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
 import { Route as CollabJoinCodeRouteImport } from './routes/collab.join.$code'
 
@@ -54,6 +55,11 @@ const CollabIdRoute = CollabIdRouteImport.update({
   path: '/collab/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckoutIdRoute = CheckoutIdRouteImport.update({
+  id: '/checkout/$id',
+  path: '/checkout/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CartIdRoute = CartIdRouteImport.update({
   id: '/cart/$id',
   path: '/cart/$id',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
+  '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
+  '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
+  '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
+    | '/checkout/$id'
     | '/collab/$id'
     | '/collab/join/$code'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
+    | '/checkout/$id'
     | '/collab/$id'
     | '/collab/join/$code'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
+    | '/checkout/$id'
     | '/collab/$id'
     | '/collab/join/$code'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   PreferencesRoute: typeof PreferencesRoute
   RecipeRoute: typeof RecipeRoute
   CartIdRoute: typeof CartIdRoute
+  CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
   CollabJoinCodeRoute: typeof CollabJoinCodeRoute
 }
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CollabIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkout/$id': {
+      id: '/checkout/$id'
+      path: '/checkout/$id'
+      fullPath: '/checkout/$id'
+      preLoaderRoute: typeof CheckoutIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cart/$id': {
       id: '/cart/$id'
       path: '/cart/$id'
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   PreferencesRoute: PreferencesRoute,
   RecipeRoute: RecipeRoute,
   CartIdRoute: CartIdRoute,
+  CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,
   CollabJoinCodeRoute: CollabJoinCodeRoute,
 }

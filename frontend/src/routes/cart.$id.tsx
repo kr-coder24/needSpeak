@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ArrowLeftRight,
@@ -38,6 +38,7 @@ export const Route = createFileRoute("/cart/$id")({
 
 function CartPage() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,8 +209,8 @@ function CartPage() {
         console.error("Telemetry error:", err);
       }
       
-      // We could redirect to a checkout page here, but for now we just show success
-      // setTimeout(() => router.navigate({ to: "/checkout", params: { id: data.reservation_id } }), 1500);
+      // Redirect to checkout page
+      setTimeout(() => navigate({ to: "/checkout/$id", params: { id: data.reservation_id } }), 1500);
 
     } catch (e: any) {
       setReservationStatus("error");

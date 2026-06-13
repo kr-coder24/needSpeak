@@ -170,6 +170,61 @@ function CartPage() {
     }
   };
 
+  const handleSwap = (currentSku: string, alt: any) => {
+    setSession((prev: any) => {
+      if (!prev) return prev;
+      const newSession = JSON.parse(JSON.stringify(prev)); // deep copy
+      let newTotal = prev.total_price_inr;
+      let found = false;
+
+      if (newSession.resolved_intents) {
+        for (const group of newSession.resolved_intents) {
+          if (!group.cart) continue;
+          const itemIdx = group.cart.findIndex((i: any) => i.sku === currentSku);
+          if (itemIdx !== -1) {
+            const oldItem = group.cart[itemIdx];
+            newTotal = newTotal - (oldItem.total_price_inr || 0) + (alt.total_price_inr || 0);
+            group.cart[itemIdx] = {
+              ...oldItem,
+              sku: alt.sku,
+              name: alt.name,
+              brand: alt.brand,
+              price_per_unit_inr: alt.price_per_unit_inr,
+              total_price_inr: alt.total_price_inr,
+              rating: alt.rating,
+              substituted: true,
+              substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`
+            };
+            found = true;
+            break;
+          }
+        }
+      }
+
+      if (!found && newSession.cart_items) {
+        const itemIdx = newSession.cart_items.findIndex((i: any) => i.sku === currentSku);
+        if (itemIdx !== -1) {
+          const oldItem = newSession.cart_items[itemIdx];
+          newTotal = newTotal - (oldItem.total_price_inr || 0) + (alt.total_price_inr || 0);
+          newSession.cart_items[itemIdx] = {
+            ...oldItem,
+            sku: alt.sku,
+            name: alt.name,
+            brand: alt.brand,
+            price_per_unit_inr: alt.price_per_unit_inr,
+            total_price_inr: alt.total_price_inr,
+            rating: alt.rating,
+            substituted: true,
+            substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`
+          };
+        }
+      }
+
+      newSession.total_price_inr = newTotal;
+      return newSession;
+    });
+  };
+
   const handleReserve = async () => {
     if (!session || reserving) return;
     setReserving(true);
@@ -338,6 +393,49 @@ function CartPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Alternatives */}
+                {it.alternatives && it.alternatives.length > 0 && (
+                  <div className="border-t border-border/30 bg-surface/30 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Alternatives
+                      </span>
+                      <div className="h-px flex-1 bg-border/40" />
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {it.alternatives.map((alt: any, altIdx: number) => (
+                        <div
+                          key={altIdx}
+                          onClick={() => handleSwap(it.sku, alt)}
+                          className="group relative flex cursor-pointer flex-col gap-1.5 rounded-xl border border-border/40 bg-background/50 p-3 shadow-sm transition-all hover:border-brand/40 hover:bg-brand/5 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="truncate text-sm font-semibold text-foreground group-hover:text-brand transition-colors">
+                              {alt.name}
+                            </span>
+                            <span className="shrink-0 text-sm font-bold text-foreground">
+                              ₹{alt.total_price_inr}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/50">
+                              {alt.brand}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand">
+                              Swap →
+                            </span>
+                          </div>
+                          {alt.reason && (
+                            <div className="mt-1 text-[10px] font-medium text-muted-foreground line-clamp-1">
+                              {alt.reason}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 

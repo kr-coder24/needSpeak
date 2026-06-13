@@ -43,6 +43,8 @@ from app.models import (
     InputType,
     ErrorCode,
     IntentGroup,
+    PreferenceExtractRequest,
+    PreferenceExtractResponse,
 )
 from app.pipeline.extractor import extract_items
 from app.pipeline.resolver import resolve_cart
@@ -288,7 +290,9 @@ async def parse_content(req: ParseRequest, request: Request):
         global_budget_exceeded = False
         
         # Apply preferences (Pillar 9)
-        from app.intelligence.preference_engine import apply_preferences, UserPreferences
+        from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
+        from app.db.dynamo import get_user_events
+        
         dietary_list = []
         if req.dietary_pref and req.dietary_pref.lower() not in ("any", "none"):
             val = req.dietary_pref.lower()
@@ -299,7 +303,13 @@ async def parse_content(req: ParseRequest, request: Request):
             preferred_brands=req.preferred_brands or [],
             budget_mode=req.budget_mode or "balanced"
         )
-        extraction = apply_preferences(extraction, prefs)
+        
+        implicit_prefs = None
+        if req.user_id:
+            user_events = get_user_events(req.user_id, event_type="purchase", mock_mode=mock_mode)
+            implicit_prefs = build_implicit_preferences(user_events)
+            
+        extraction = apply_preferences(extraction, prefs, implicit_prefs)
 
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
@@ -888,8 +898,10 @@ async def parse_pdf(
             budget_int = int(budget_inr) if budget_inr else None
 
             # Apply preferences (Pillar 9)
-            from app.intelligence.preference_engine import apply_preferences, UserPreferences
+            from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
+            from app.db.dynamo import get_user_events
             import json
+            
             brands_list = []
             if preferred_brands:
                 try:
@@ -909,7 +921,13 @@ async def parse_pdf(
                 preferred_brands=brands_list,
                 budget_mode=budget_style or "balanced"
             )
-            extraction = apply_preferences(extraction, prefs)
+            
+            implicit_prefs = None
+            if req.user_id:
+                user_events = get_user_events(req.user_id, event_type="purchase", mock_mode=mock_mode)
+                implicit_prefs = build_implicit_preferences(user_events)
+                
+            extraction = apply_preferences(extraction, prefs, implicit_prefs)
 
             for intent in extraction.intents:
                 cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
@@ -1022,7 +1040,7 @@ class RecompareRequest(BaseModel):
     avoided_brands: list[str] | None = None
     budget_mode: str | None = "balanced"
     occasion: str | None = None
-
+    user_id: str | None = "demo_user"
 
 @app.post("/api/recompare")
 async def recompare_cart(req: RecompareRequest, request: Request):
@@ -1217,6 +1235,54 @@ async def fetch_preferences(user_id: str, request: Request):
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
     prefs = get_user_preferences(user_id, mock_mode=mock_mode)
     return prefs or {}
+
+@app.post("/api/preferences/extract", response_model=PreferenceExtractResponse)
+async def extract_preferences(req: PreferenceExtractRequest):
+    """Use lightweight LLM to extract preferences from natural language."""
+    from google import genai
+    from google.genai import types
+    import os
+    import json
+    
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not set")
+        
+    client = genai.Client(api_key=api_key)
+    
+    prompt = f"""
+    You are a shopping preference extractor. Analyze the user's text and extract:
+    - dietary: "veg", "vegan", "jain", or "any" (default)
+    - budget_mode: "value", "balanced" (default), or "premium"
+    - preferred_brands: list of brand names they like
+    
+    Text: "{req.text}"
+    
+    Return ONLY valid JSON matching this schema:
+    {{
+        "dietary": "...",
+        "budget_mode": "...",
+        "preferred_brands": [...]
+    }}
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        data = json.loads(response.text)
+        return PreferenceExtractResponse(
+            dietary=data.get("dietary", "any"),
+            budget_mode=data.get("budget_mode", "balanced"),
+            preferred_brands=data.get("preferred_brands", [])
+        )
+    except Exception as e:
+        logger.error(f"Failed to extract preferences: {e}")
+        raise HTTPException(status_code=500, detail="Failed to extract preferences")
 
 class EventRequest(BaseModel):
     user_id: str

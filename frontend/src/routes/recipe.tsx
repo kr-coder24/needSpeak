@@ -35,6 +35,14 @@ const SUGGESTED_RECIPES = [
     name: "Easy Butter Chicken (BBC Good Food)",
     url: "https://www.bbcgoodfood.com/recipes/easy-butter-chicken",
   },
+  {
+    name: "Paneer Butter Masala (Hebbars Kitchen)",
+    url: "https://hebbarskitchen.com/paneer-butter-masala-recipe/",
+  },
+  {
+    name: "Dal Tadka (Indian Healthy Recipes)",
+    url: "https://www.indianhealthyrecipes.com/dal-tadka-recipe/",
+  },
 ];
 
 function RecipePage() {
@@ -153,7 +161,7 @@ function RecipePage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="h-11 flex-1 rounded-lg border border-border bg-background px-4 text-sm outline-none focus:border-foreground"
-              placeholder="Paste recipe URL (AllRecipes or BBCGoodFood)..."
+              placeholder="Paste any recipe URL (AllRecipes, BBCGoodFood, Hebbars, IndianHealthyRecipes…)"
               disabled={loading}
             />
             <button

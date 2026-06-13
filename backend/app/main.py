@@ -49,9 +49,7 @@ from app.pipeline.summarizer import generate_summary
 from app.ingestion.text_input import process_text_input
 from app.ingestion.url_fetcher import (
     fetch_url_content,
-    is_supported_url,
     is_youtube_url,
-    get_unsupported_url_message,
 )
 from app.ingestion.youtube_fetcher import fetch_youtube_transcript
 from app.db.dynamo import (
@@ -164,17 +162,13 @@ async def parse_content(req: ParseRequest, request: Request):
             elif req.input_type == InputType.URL:
                 url = req.content.strip()
 
-                # Check if it's a YouTube URL
+                # Check if it's a YouTube URL first, then try any recipe URL
                 if is_youtube_url(url):
                     raw_text = fetch_youtube_transcript(url)
-                elif is_supported_url(url):
-                    raw_text = fetch_url_content(url)
                 else:
-                    error_msg = get_unsupported_url_message(url)
-                    raise HTTPException(
-                        status_code=400,
-                        detail={"error_code": ErrorCode.UNSUPPORTED_URL.value, "message": error_msg},
-                    )
+                    # fetch_url_content handles all HTTP(S) URLs via JSON-LD + body fallback
+                    # and raises ValueError for known JS-only sites (Instagram, Zomato, Swiggy)
+                    raw_text = fetch_url_content(url)
             else:
                 raise HTTPException(
                     status_code=400,

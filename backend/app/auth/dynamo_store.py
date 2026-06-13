@@ -70,9 +70,17 @@ def verify_password(password: str, password_hash: str) -> bool:
 # DynamoDB CRUD Operations
 # ---------------------------------------------------------------------------
 
+def _normalize_mock_user(user: Optional[dict]) -> Optional[dict]:
+    if user is None:
+        return None
+    normalized = dict(user)
+    if "id" in normalized:
+        normalized["user_id"] = normalized["id"]
+    return normalized
+
 def find_user_by_email(email: str) -> Optional[dict]:
     if MOCK_AWS:
-        return csv_find_user_by_email(email)
+        return _normalize_mock_user(csv_find_user_by_email(email))
 
     # Use EmailLocks table to quickly get user_id, or query GSI on Users table
     table = _get_email_locks_table()
@@ -105,7 +113,7 @@ def find_user_by_email(email: str) -> Optional[dict]:
 
 def find_user_by_id(user_id: str) -> Optional[dict]:
     if MOCK_AWS:
-        return csv_find_user_by_id(user_id)
+        return _normalize_mock_user(csv_find_user_by_id(user_id))
 
     table = _get_users_table()
     try:
@@ -123,7 +131,8 @@ def create_user(
     avatar_url: str = "",
 ) -> dict:
     if MOCK_AWS:
-        return csv_create_user(email, name, password, provider, avatar_url)
+        user = csv_create_user(email, name, password, provider, avatar_url)
+        return _normalize_mock_user(user)  # type: ignore
 
     email_norm = email.lower().strip()
     user_id = str(uuid.uuid4())
@@ -196,7 +205,7 @@ def create_user(
 
 def authenticate_user(email: str, password: str) -> Optional[dict]:
     if MOCK_AWS:
-        return csv_authenticate_user(email, password)
+        return _normalize_mock_user(csv_authenticate_user(email, password))
 
     user = find_user_by_email(email)
     if not user:
@@ -216,7 +225,8 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
 
 def upsert_google_user(email: str, name: str, avatar_url: str = "") -> dict:
     if MOCK_AWS:
-        return csv_upsert_google_user(email, name, avatar_url)
+        user = csv_upsert_google_user(email, name, avatar_url)
+        return _normalize_mock_user(user)  # type: ignore
 
     existing = find_user_by_email(email)
     

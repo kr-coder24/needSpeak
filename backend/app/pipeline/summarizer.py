@@ -113,11 +113,22 @@ def generate_summary(
                 )
             )
             summary = response.text.strip() if response.text else ""
-        logger.info(f"Summary generated: {summary[:80]}...")
+        
+        # Validate summary is complete and not truncated
+        if not summary:
+            logger.warning("Summary generation returned empty string, using fallback")
+            return _generate_fallback_summary(intent_groups, total_price)
+        
+        # Check if summary looks incomplete (ends mid-sentence without punctuation)
+        if summary and summary[-1] not in '.!?':
+            logger.warning(f"Summary appears incomplete (no ending punctuation): {summary[:100]}")
+            summary += "."  # Add period to complete it
+            
+        logger.info(f"Summary generated: {summary[:100]}...")
         return summary
 
     except Exception as e:
-        logger.error(f"Summary generation failed: {e}")
+        logger.error(f"Summary generation failed: {e}", exc_info=True)
         # Fallback: generate a basic summary without Bedrock
         return _generate_fallback_summary(intent_groups, total_price)
 
@@ -128,11 +139,15 @@ def _generate_fallback_summary(
 ) -> str:
     """Generate a basic summary without Bedrock (fallback)."""
     total_items = sum(len(g.cart) for g in intent_groups)
-    parts = [f"Found {total_items} items for your cart, totaling Rs.{total_price:.0f}."]
+    
+    if not intent_groups or total_items == 0:
+        return "No items were found for your request."
+    
+    parts = [f"Found {total_items} item{'s' if total_items != 1 else ''} totaling ₹{total_price:.0f}."]
 
     sub_count = sum(1 for g in intent_groups for i in g.cart if i.substituted)
     if sub_count:
-        parts.append(f"{sub_count} item(s) were substituted with budget-friendly alternatives.")
+        parts.append(f"{sub_count} item{'s were' if sub_count != 1 else ' was'} substituted with budget-friendly alternatives.")
 
     all_unavailable = [i for g in intent_groups for i in g.unavailable_items]
     if all_unavailable:
@@ -153,18 +168,22 @@ def _get_mock_summary(
 ) -> str:
     """Generate a realistic mock summary."""
     total_items = sum(len(g.cart) for g in intent_groups)
-    contexts = [g.context_summary.lower() for g in intent_groups if g.context_summary]
-    context_str = " and ".join(contexts) if contexts else "your requests"
     
-    parts = [f"I found {total_items} of the items you need for {context_str}, totaling Rs.{total_price:.0f}."]
+    if not intent_groups or total_items == 0:
+        return "No items were found for your request."
+        
+    contexts = [g.context_summary.lower() for g in intent_groups if g.context_summary]
+    context_str = " and ".join(contexts) if contexts else "your request"
+    
+    parts = [f"I found {total_items} item{'s' if total_items != 1 else ''} for {context_str}, totaling ₹{total_price:.0f}."]
 
     sub_count = sum(1 for g in intent_groups for i in g.cart if i.substituted)
     if sub_count:
-        parts.append(f"{sub_count} item(s) were swapped for more affordable alternatives to help with your budget.")
+        parts.append(f"{sub_count} item{'s were' if sub_count != 1 else ' was'} swapped for more affordable alternatives.")
 
     all_unavailable = [i for g in intent_groups for i in g.unavailable_items]
     if all_unavailable:
         names = ", ".join(i.name for i in all_unavailable[:2])
-        parts.append(f"{names} {'is' if len(all_unavailable) == 1 else 'are'} not currently available in our catalog.")
+        parts.append(f"{names} {'are' if len(all_unavailable) > 1 else 'is'} not currently available.")
 
     return " ".join(parts)

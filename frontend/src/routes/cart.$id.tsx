@@ -79,8 +79,16 @@ function CartPage() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [whatIfBudget, setWhatIfBudget] = useState(1500);
+  const [whatIfAttendees, setWhatIfAttendees] = useState<number>(10);
+  const [whatIfDietary, setWhatIfDietary] = useState<string>("any");
+  const [copySuccess, setCopySuccess] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [optimizationSummary, setOptimizationSummary] = useState<string | null>(null);
+  const [reserving, setReserving] = useState(false);
+  const [reservationStatus, setReservationStatus] = useState<"idle" | "success" | "error">("idle");
+  const [reservationMessage, setReservationMessage] = useState<string>("");
 
   // Fetch session data from the backend
   useEffect(() => {
@@ -310,7 +318,7 @@ function CartPage() {
             <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand/15 to-brand/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-brand shadow-sm shadow-brand/10 border border-brand/20">
               <Sparkles className="h-3 w-3 animate-pulse" /> ReviewCart
             </div>
-            <h1 className="mt-4 truncate bg-gradient-to-br from-foreground via-foreground/90 to-foreground/60 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl">
+            <h1 className="mt-4 truncate bg-gradient-to-br from-foreground via-foreground/90 to-foreground/60 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
               {intentSummary || intentTypeLabel || "Your Cart"}
             </h1>
             <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">

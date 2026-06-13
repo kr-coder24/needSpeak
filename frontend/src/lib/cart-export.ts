@@ -45,3 +45,30 @@ export function downloadCSV(data: ExportableCart, filename = "cart.csv") {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/**
+ * Copy WhatsApp-formatted cart text to clipboard.
+ * Returns true if successful, false otherwise.
+ */
+export async function copyWhatsAppToClipboard(data: ExportableCart): Promise<boolean> {
+  const text = exportAsWhatsApp(data)
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    // Fallback for older browsers
+    try {
+      const textarea = document.createElement("textarea")
+      textarea.value = text
+      textarea.style.position = "fixed"
+      textarea.style.left = "-9999px"
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+      return true
+    } catch {
+      return false
+    }
+  }
+}

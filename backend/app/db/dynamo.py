@@ -184,7 +184,32 @@ def check_dynamodb_health(mock_mode: Optional[bool] = None) -> bool:
 # Mock Data (for MOCK_MODE)
 # ---------------------------------------------------------------------------
 def _get_mock_products() -> list[dict]:
-    """Return a comprehensive set of mock products for demo mode."""
+    """Return product catalog for demo mode. Uses V2 catalog if available, else legacy data."""
+    try:
+        from seed_catalog_v2 import get_all_v2_products
+        products = get_all_v2_products()
+        # Convert Decimal to float/int for compatibility with resolver
+        normalized = []
+        for p in products:
+            item = {}
+            for k, v in p.items():
+                from decimal import Decimal
+                if isinstance(v, Decimal):
+                    item[k] = float(v) if v != int(v) else int(v)
+                elif isinstance(v, set):
+                    item[k] = list(v)
+                else:
+                    item[k] = v
+            normalized.append(item)
+        logger.info(f"[MOCK] Loaded V2 catalog: {len(normalized)} products")
+        return normalized
+    except Exception as e:
+        logger.warning(f"[MOCK] V2 catalog unavailable ({e}), using legacy mock data")
+        return _get_legacy_mock_products()
+
+
+def _get_legacy_mock_products() -> list[dict]:
+    """Return the original set of mock products (legacy fallback)."""
     return [
         # Grains
         {

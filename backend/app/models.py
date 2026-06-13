@@ -100,6 +100,11 @@ class CartItem(BaseModel):
     pending_substitution: Optional[dict] = None
     # Shape: {"name": str, "sku": str, "price_per_unit_inr": float, "reason": str}
     matched_from: list[str] = Field(default_factory=list)
+    # V2 additions: explainable ranking
+    alternatives: list[dict] = Field(default_factory=list)
+    reason_codes: list[str] = Field(default_factory=list)
+    display_reason: str = ""
+    stock_status: str = "available"
 
 
 

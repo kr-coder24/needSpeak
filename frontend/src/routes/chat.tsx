@@ -76,6 +76,22 @@ function extractBudgetFromText(text: string): number | undefined {
   return undefined;
 }
 
+/**
+ * Detect if the user input is a URL (YouTube, recipe site, etc.) or plain text.
+ */
+function detectInputType(text: string): "text" | "url" {
+  const trimmed = text.trim();
+  try {
+    const url = new URL(trimmed);
+    if (["http:", "https:"].includes(url.protocol)) {
+      return "url";
+    }
+  } catch {
+    // Not a valid URL — treat as text
+  }
+  return "text";
+}
+
 // ─── QuantityControl ─────────────────────────────────────────────────────────
 
 function QuantityControl({
@@ -347,7 +363,7 @@ function ChatPage() {
     const budget = budgetFromField && budgetFromField >= 50 ? budgetFromField : budgetFromText;
 
     try {
-      const body: any = { content: inputText, input_type: "text" };
+      const body: any = { content: inputText, input_type: detectInputType(inputText) };
       if (budget) body.budget_inr = budget;
 
       const res = await fetch("/api/parse", {

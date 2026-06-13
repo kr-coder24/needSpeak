@@ -38,7 +38,38 @@ function ChatPage() {
   ]);
   const [cartData, setCartData] = useState<any>(null);
   const [budget, setBudget] = useState(1500);
+  const [useBudget, setUseBudget] = useState(true);
   const [servings, setServings] = useState("");
+
+  const updateItemQuantity = (intentIdx: number, sku: string, delta: number) => {
+    if (!cartData) return;
+    const newCartData = JSON.parse(JSON.stringify(cartData));
+    const intentGroup = newCartData.intents[intentIdx];
+    if (!intentGroup) return;
+    
+    const itemIdx = intentGroup.cart.findIndex((it: any) => it.sku === sku);
+    if (itemIdx === -1) return;
+    
+    const item = intentGroup.cart[itemIdx];
+    const newQty = item.quantity_units + delta;
+    
+    if (newQty <= 0) {
+      intentGroup.cart.splice(itemIdx, 1);
+    } else {
+      item.quantity_units = newQty;
+      item.total_price_inr = newQty * item.price_per_unit_inr;
+    }
+    
+    let newTotal = 0;
+    newCartData.intents.forEach((group: any) => {
+      group.cart.forEach((it: any) => {
+        newTotal += it.total_price_inr;
+      });
+    });
+    newCartData.total_price_inr = newTotal;
+    
+    setCartData(newCartData);
+  };
 
   const onSubmit = async () => {
     if (!text.trim()) return;
@@ -54,7 +85,7 @@ function ChatPage() {
         body: JSON.stringify({ 
           content: inputText, 
           input_type: "text", 
-          budget_inr: budget,
+          ...(useBudget ? { budget_inr: budget } : {}),
           ...(servings ? { servings_override: parseInt(servings, 10) } : {})
         }),
       });
@@ -151,12 +182,20 @@ function ChatPage() {
             </div>
             
             <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <label htmlFor="budget">Budget (₹):</label>
+              <div className="flex items-center gap-2">
+                <input 
+                  id="useBudget" 
+                  type="checkbox" 
+                  checked={useBudget}
+                  onChange={(e) => setUseBudget(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border accent-brand cursor-pointer"
+                />
+                <label htmlFor="budget" className="select-none cursor-pointer">Budget (₹):</label>
                 <input 
                   id="budget" 
                   type="number" 
-                  className="w-20 rounded border border-border bg-surface px-2 py-1 text-foreground" 
+                  disabled={!useBudget}
+                  className="w-20 rounded border border-border bg-surface px-2 py-1 text-foreground disabled:opacity-40 disabled:cursor-not-allowed" 
                   value={budget} 
                   onChange={e => setBudget(Number(e.target.value))} 
                 />
@@ -208,12 +247,31 @@ function ChatPage() {
                         {intentGroup.intent_type.toUpperCase()}
                       </div>
                       {intentGroup.cart?.map((it: any) => (
-                        <div key={it.id || it.sku} className="rounded-xl border border-border bg-background p-3">
+                        <div key={it.id || it.sku} className="rounded-xl border border-border bg-background p-3 hover:border-border/80 transition-colors">
                           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                             <div className="min-w-0">
                               <div className="truncate text-sm font-medium">{it.name}</div>
-                              <div className="mt-0.5 text-xs text-muted-foreground">Qty: {it.quantity_units} · {it.brand}</div>
-                              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[10px] text-muted-foreground">
+                              
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <div className="flex items-center rounded-lg border border-border bg-surface text-xs font-semibold overflow-hidden">
+                                  <button 
+                                    onClick={() => updateItemQuantity(idx, it.sku, -1)}
+                                    className="px-2 py-0.5 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer select-none"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="px-2 font-mono text-[11px] min-w-[12px] text-center select-none">{it.quantity_units}</span>
+                                  <button 
+                                    onClick={() => updateItemQuantity(idx, it.sku, 1)}
+                                    className="px-2 py-0.5 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer select-none"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground">· {it.brand}</span>
+                              </div>
+                              
+                              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[10px] text-muted-foreground">
                                 <Check className="h-3 w-3 text-brand" />
                                 {it.substituted ? (it.substitution_reason || "Substituted") : (it.matched_from?.join(", ") || "Matched")}
                               </div>

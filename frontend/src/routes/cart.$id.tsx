@@ -45,6 +45,37 @@ function CartPage() {
     return <AppShell><div className="flex items-center justify-center p-20 text-muted-foreground">Cart not found</div></AppShell>;
   }
 
+  const updateItemQuantity = (intentIdx: number, sku: string, delta: number) => {
+    if (!session) return;
+    const newSession = JSON.parse(JSON.stringify(session));
+    const intentGroup = newSession.resolved_intents[intentIdx];
+    if (!intentGroup) return;
+    
+    const itemIdx = intentGroup.cart.findIndex((it: any) => it.sku === sku);
+    if (itemIdx === -1) return;
+    
+    const item = intentGroup.cart[itemIdx];
+    const newQty = item.quantity_units + delta;
+    
+    if (newQty <= 0) {
+      intentGroup.cart.splice(itemIdx, 1);
+    } else {
+      item.quantity_units = newQty;
+      item.total_price_inr = newQty * item.price_per_unit_inr;
+    }
+    
+    // Recompute total price for the session
+    let newTotal = 0;
+    newSession.resolved_intents.forEach((group: any) => {
+      group.cart.forEach((it: any) => {
+        newTotal += it.total_price_inr;
+      });
+    });
+    newSession.total_price_inr = newTotal;
+    
+    setSession(newSession);
+  };
+
   const budget = session.budget_inr || 1500;
   const allItems = session.resolved_intents?.flatMap((i: any) => i.cart) || [];
   
@@ -92,7 +123,25 @@ function CartPage() {
                             )}
                           </div>
                           <div className="mt-0.5 truncate text-base font-medium">{it.name}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">{it.quantity_units} qty · {it.category}</div>
+                          
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex items-center rounded-lg border border-border bg-surface text-xs font-semibold overflow-hidden">
+                              <button 
+                                onClick={() => updateItemQuantity(idx, it.sku, -1)}
+                                className="px-2.5 py-1 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer select-none"
+                              >
+                                -
+                              </button>
+                              <span className="px-2.5 font-mono text-xs min-w-[14px] text-center select-none">{it.quantity_units}</span>
+                              <button 
+                                onClick={() => updateItemQuantity(idx, it.sku, 1)}
+                                className="px-2.5 py-1 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer select-none"
+                              >
+                                +
+                              </button>
+                            </div>
+                            <span className="text-xs text-muted-foreground">· {it.category}</span>
+                          </div>
 
                           {/* Why */}
                           <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs text-muted-foreground">

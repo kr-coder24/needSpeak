@@ -52,6 +52,10 @@ DYNAMODB_TABLE_PRODUCTS=ProductCatalog
 DYNAMODB_TABLE_SESSIONS=CartSessions
 S3_BUCKET=pulse-cart-sessions-shivam-2026
 
+# OpenSearch (Phase 7)
+SEARCH_PROVIDER=local                   # "local" or "opensearch"
+OPENSEARCH_HOST=your-opensearch-domain-endpoint.amazonaws.com
+
 # MOCK_AWS — Set to 1 to skip all DynamoDB/S3/Bedrock calls.
 # Uses an in-memory product catalog and session store instead.
 # Auto-detected as 1 if no AWS credentials are found on the machine.
@@ -128,7 +132,7 @@ Cart Response -> Frontend
 | **Pillar 6: Collaborative Cart** | 1 / 6 | 🟡 | `/collab/$id` UI page shell is built. Sharing features and database socket sync are static/mocked. |
 | **Pillar 7: GoalCart** | 5 / 5 | ✅ | Dynamic budget optimization, custom item-swapping suggestions UI (cheaper alternatives), budget progress bar, and over/under indicator. |
 | **Pillar 8: CompareCart** | 1 / 5 | 🟡 | "What If" modal with budget slider exists in ReviewCart. Backed re-runs are cosmetic/mocked. |
-| **Pillar 9: Preferences** | 1 / 5 | 🟡 | `/preferences` UI page exists (Dietary tags: Veg/Vegan/Jain, preferred brands, budget styles). Not yet fully wired to resolver. |
+| **Pillar 9: Preferences** | 5 / 5 | ✅ | Full CRUD user preferences API, integrated directly into the resolver pipeline (filtering dietary tags, brand affinity, and budget constraints). |
 | **Pillar 10: Smart Alts** | 3 / 3 | ✅ | Alternate product suggestions with savings metrics (`pending_substitution` schema) and instant swap acceptance. |
 | **Pillar 11: Explainability** | 3 / 3 | ✅ | High visibility for item-matching rules (`matched_from`), substitution reasons, and missing/unavailable item reasoning. |
 | **Pillar 12: Confidence Layer** | 4 / 4 | ✅ | Evaluates input confidence (High/Med/Low), active clarification questions, and pauses cart generation until clarified. |
@@ -145,6 +149,9 @@ Cart Response -> Frontend
 | POST | `/api/transcribe` | Transcription endpoint: takes WebM/Opus audio recording and transcribes via Gemini. |
 | GET | `/api/session/{session_id}` | Reloads/retrieves a previous session's details and resolved cart. |
 | GET | `/api/health` | Diagnostic endpoint: verifies LLM (Gemini/Bedrock), S3, and DynamoDB health. |
+| POST | `/api/preferences` | Saves user dietary preferences, brand affinity, and budget constraints. |
+| GET | `/api/preferences/{user_id}` | Loads active preferences for a given user profile. |
+| POST | `/api/events` | Logs telemetry events (add_to_cart, purchase, substitution_reject) for offline ML training. |
 
 ### Authentication Endpoints (CSV-backed)
 | Method | Path | Description |
@@ -185,3 +192,17 @@ Both options are independent. For example, you can write real Gemini queries whi
 | **Auth** | Secure CSV-based storage using bcrypt password hashing |
 | **Audio** | Hybrid Web Speech API (Client-side translation) + MediaRecorder fallback |
 | **Export** | Custom `cart-export.ts` utility (supports formatting WhatsApp-friendly text or CSV download) |
+
+---
+
+## 🔍 OpenSearch Hybrid Search (Phase 7)
+OpenSearch can be enabled for hybrid BM25 text match + KNN vector search.
+* **Setup Script:** `python scripts/setup_opensearch.py` initializes the `product-catalog` index with KNN vector dimensions.
+* **Provider Resolver:** Activate by setting `SEARCH_PROVIDER=opensearch` and supplying `OPENSEARCH_HOST` in `.env`. Falls back to the local retriever if host is not configured.
+
+---
+
+## 📊 Offline Recommendation Engine (Phase 8)
+* **Event Exporter:** Run `python scripts/export_events.py` to dump events from DynamoDB (or mock events if `MOCK_AWS=1`) to a local CSV (`data/exported_events.csv`).
+* **Baseline Training:** Run `python scripts/train_lightfm_baseline.py` to train a hybrid collaborative filtering model using `lightfm` on positive interactions (purchases/add to carts). Includes a mock fallback for local environments without compiler setups.
+

@@ -21,11 +21,15 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 
-from app.auth.csv_store import (
+from app.auth.dynamo_store import (
     create_user,
     authenticate_user,
     upsert_google_user,
     find_user_by_email,
+    find_user_by_id,
+    store_auth_session,
+    get_auth_session_user_id,
+    delete_auth_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,6 +92,7 @@ async def signup(req: SignupRequest):
     # Create session token
     token = secrets.token_urlsafe(32)
     _sessions[token] = user
+    store_auth_session(token, user["user_id"])
 
     logger.info(f"Signup: {req.email}")
     return AuthResponse(success=True, user=user, token=token, message="Account created successfully!")
@@ -105,6 +110,7 @@ async def login(req: LoginRequest):
 
     token = secrets.token_urlsafe(32)
     _sessions[token] = user
+    store_auth_session(token, user["user_id"])
 
     logger.info(f"Login: {req.email}")
     return AuthResponse(success=True, user=user, token=token, message="Welcome back!")
@@ -125,6 +131,7 @@ async def google_auth(req: GoogleAuthRequest):
 
     token = secrets.token_urlsafe(32)
     _sessions[token] = user
+    store_auth_session(token, user["user_id"])
 
     logger.info(f"Google auth: {req.email}")
     return AuthResponse(success=True, user=user, token=token, message="Signed in with Google!")
@@ -145,7 +152,17 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail={"message": "Not authenticated."})
 
     token = auth_header.split("Bearer ")[1].strip()
+    
+    # Try mock session first, then DynamoDB
     user = _sessions.get(token)
+    if not user:
+        user_id = get_auth_session_user_id(token)
+        if user_id:
+            user = find_user_by_id(user_id)
+            if user:
+                # Cache it locally
+                _sessions[token] = user
+                
     if not user:
         raise HTTPException(status_code=401, detail={"message": "Session expired. Please log in again."})
 
@@ -159,5 +176,6 @@ async def logout(request: Request):
     if auth_header.startswith("Bearer "):
         token = auth_header.split("Bearer ")[1].strip()
         _sessions.pop(token, None)
+        delete_auth_session(token)
 
     return {"success": True, "message": "Logged out."}

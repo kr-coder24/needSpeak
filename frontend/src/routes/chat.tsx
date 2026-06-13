@@ -345,7 +345,15 @@ function ChatPage() {
     if ((!overrideText && !text.trim()) || phase === "thinking") return;
 
     const inputText = (overrideText || text).trim();
-    const currentInputType = overrideType || inputType;
+    // Auto-detect URL input: if it looks like a URL, set input_type to "url"
+    const detectedType = (() => {
+      try {
+        const url = new URL(inputText);
+        if (["http:", "https:"].includes(url.protocol)) return "url" as const;
+      } catch { /* not a URL */ }
+      return undefined;
+    })();
+    const currentInputType = detectedType || overrideType || inputType;
     setMessages((m) => [...m, { role: "user", text: inputText }]);
     setPhase("thinking");
     setText("");

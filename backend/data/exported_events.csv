@@ -1,0 +1,2 @@
+user_id,event_ts_event_id,event_type,sku,session_id,rank_position
+demo_user,2026-06-13T19:43:40.894897_mock,purchase,SKU-GRN-001,mock_session_1,1

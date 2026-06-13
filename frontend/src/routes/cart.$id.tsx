@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Users,
   Leaf,
+  AlertTriangle,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
@@ -45,6 +46,9 @@ function CartPage() {
   const [whatIfAttendees, setWhatIfAttendees] = useState<number>(10);
   const [whatIfDietary, setWhatIfDietary] = useState<string>("any");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [reserving, setReserving] = useState(false);
+  const [reservationStatus, setReservationStatus] = useState<"idle" | "success" | "error">("idle");
+  const [reservationMessage, setReservationMessage] = useState<string>("");
 
   // CompareCart states
   const [comparing, setComparing] = useState(false);
@@ -169,6 +173,60 @@ function CartPage() {
       setNewCartTotal(null);
     }
   }, [compareOpen]);
+
+  const handleReserve = async () => {
+    if (!session || reserving) return;
+    setReserving(true);
+    setReservationStatus("idle");
+
+    try {
+      // Map cartItems to {sku, qty}
+      const itemsToReserve = cartItems.filter((i: any) => i.sku).map((i: any) => ({
+        sku: i.sku,
+        qty: i.quantity_units
+      }));
+
+      const res = await fetch(`/api/cart/${session.session_id}/reserve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: itemsToReserve })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to reserve items");
+      }
+
+      setReservationStatus("success");
+      setReservationMessage("Items reserved successfully! Redirecting to checkout...");
+
+      // Phase 6: Log purchase event
+      try {
+        await fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: "demo_user", // Fixed for now
+            session_id: session.session_id,
+            event_type: "purchase",
+            intent_type: session.intent_type,
+            context: "Completed checkout from cart review"
+          })
+        });
+      } catch (err) {
+        console.error("Telemetry error:", err);
+      }
+      
+      // We could redirect to a checkout page here, but for now we just show success
+      // setTimeout(() => router.navigate({ to: "/checkout", params: { id: data.reservation_id } }), 1500);
+
+    } catch (e: any) {
+      setReservationStatus("error");
+      setReservationMessage(e.message || "Something went wrong.");
+    } finally {
+      setReserving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -324,8 +382,30 @@ function CartPage() {
                   </li>
                 ))}
               </ul>
-              <button className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-brand-foreground hover:bg-brand/90">
-                Proceed to checkout
+              {reservationStatus === "error" && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {reservationMessage}
+                </div>
+              )}
+              {reservationStatus === "success" && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-xs text-success">
+                  <Check className="h-3.5 w-3.5" />
+                  {reservationMessage}
+                </div>
+              )}
+              <button 
+                onClick={handleReserve}
+                disabled={reserving || reservationStatus === "success"}
+                className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-50"
+              >
+                {reserving ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reserving...</>
+                ) : reservationStatus === "success" ? (
+                  <><Check className="mr-2 h-4 w-4" /> Reserved</>
+                ) : (
+                  "Proceed to checkout"
+                )}
               </button>
             </div>
 

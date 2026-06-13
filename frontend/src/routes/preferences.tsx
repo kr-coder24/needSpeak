@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { loadPreferences, savePreferences, type UserPreferences } from "@/lib/preferences";
 import { Check } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -19,7 +20,12 @@ export const Route = createFileRoute("/preferences")({
   component: PreferencesPage,
 });
 
-const dietary = ["No restriction", "Vegetarian", "Vegan", "Jain", "Eggless"];
+const dietaryOptions: { id: UserPreferences["dietary"], label: string }[] = [
+  { id: "any", label: "No restriction" },
+  { id: "veg", label: "Vegetarian" },
+  { id: "vegan", label: "Vegan" },
+  { id: "jain", label: "Jain" },
+];
 const budgetStyle = [
   { id: "value", title: "Value", desc: "Cheapest acceptable across the cart" },
   { id: "balanced", title: "Balanced", desc: "Quality and price weighed equally" },
@@ -37,12 +43,28 @@ const brands = [
 ];
 
 function PreferencesPage() {
-  const [diet, setDiet] = useState("Vegetarian");
-  const [style, setStyle] = useState("balanced");
-  const [picked, setPicked] = useState<string[]>(["Amul", "Tata"]);
+  const [diet, setDiet] = useState<UserPreferences["dietary"]>("any");
+  const [style, setStyle] = useState<UserPreferences["budgetStyle"]>("balanced");
+  const [picked, setPicked] = useState<string[]>([]);
+
+  useEffect(() => {
+    const prefs = loadPreferences();
+    setDiet(prefs.dietary);
+    setStyle(prefs.budgetStyle);
+    setPicked(prefs.preferredBrands);
+  }, []);
 
   const toggle = (b: string) =>
     setPicked((p) => (p.includes(b) ? p.filter((x) => x !== b) : [...p, b]));
+
+  const handleSave = () => {
+    savePreferences({
+      dietary: diet,
+      budgetStyle: style,
+      preferredBrands: picked,
+    });
+    alert("Preferences saved!");
+  };
 
   return (
     <AppShell>
@@ -58,12 +80,12 @@ function PreferencesPage() {
             Dietary
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            {dietary.map((d) => {
-              const active = d === diet;
+            {dietaryOptions.map((d) => {
+              const active = d.id === diet;
               return (
                 <button
-                  key={d}
-                  onClick={() => setDiet(d)}
+                  key={d.id}
+                  onClick={() => setDiet(d.id)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
                     active
                       ? "border-foreground bg-foreground text-background"
@@ -71,7 +93,7 @@ function PreferencesPage() {
                   }`}
                 >
                   {active && <Check className="h-3.5 w-3.5" />}
-                  {d}
+                  {d.label}
                 </button>
               );
             })}
@@ -89,7 +111,7 @@ function PreferencesPage() {
               return (
                 <button
                   key={b.id}
-                  onClick={() => setStyle(b.id)}
+                  onClick={() => setStyle(b.id as UserPreferences["budgetStyle"])}
                   className={`rounded-2xl border p-4 text-left transition-colors ${
                     active
                       ? "border-foreground bg-surface"
@@ -140,7 +162,7 @@ function PreferencesPage() {
         </section>
 
         <div className="mt-10 flex justify-end">
-          <button className="h-10 rounded-lg bg-foreground px-5 text-sm font-medium text-background hover:bg-foreground/90">
+          <button onClick={handleSave} className="h-10 rounded-lg bg-foreground px-5 text-sm font-medium text-background hover:bg-foreground/90">
             Save preferences
           </button>
         </div>

@@ -35,7 +35,9 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { samplePrompts } from "@/lib/mock/needspeak";
 import { saveToHistory, loadHistory, type CartHistoryEntry } from "@/lib/cart-history";
+import { loadPreferences } from "@/lib/preferences";
 import { useVoiceInput } from "@/hooks/use-voice-input";
+import { getItemBadge } from "@/lib/mock/item-badges";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -147,8 +149,13 @@ function CartItemRow({
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">{item.name}</div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            {item.brand} · {item.unit_quantity}{item.unit}
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{item.brand} · {item.unit_quantity}{item.unit}</span>
+            {getItemBadge(item.sku) && (
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getItemBadge(item.sku)!.color}`}>
+                {getItemBadge(item.sku)!.label}
+              </span>
+            )}
           </div>
           <div className="mt-2 flex items-center gap-2">
             <QuantityControl value={qty} onDecrement={onDecrement} onIncrement={onIncrement} />
@@ -279,6 +286,7 @@ function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadEndpoint, setUploadEndpoint] = useState<string>("");
+  const [inputType, setInputType] = useState<"text" | "whatsapp">("text");
 
   // Voice input via MediaRecorder + backend transcription
   const voice = useVoiceInput({
@@ -350,13 +358,15 @@ function ChatPage() {
       }, 0)
     : 0;
 
-  const onSubmit = async () => {
-    if (!text.trim() || phase === "thinking") return;
+  const onSubmit = async (overrideText?: string, overrideType?: "text" | "whatsapp") => {
+    if ((!overrideText && !text.trim()) || phase === "thinking") return;
 
-    const inputText = text.trim();
+    const inputText = (overrideText || text).trim();
+    const currentInputType = overrideType || inputType;
     setMessages((m) => [...m, { role: "user", text: inputText }]);
     setPhase("thinking");
     setText("");
+    setInputType("text");
     setErrorMsg(null);
 
     // Budget: prefer explicit field, fall back to parsing text.
@@ -365,8 +375,13 @@ function ChatPage() {
     const budget = budgetFromField && budgetFromField >= 50 ? budgetFromField : budgetFromText;
 
     try {
-      const body: any = { content: inputText, input_type: detectInputType(inputText) };
+      const prefs = loadPreferences();
+      const autoType = detectInputType(inputText);
+      const body: any = { content: inputText, input_type: autoType === "url" ? "url" : inputType };
       if (budget) body.budget_inr = budget;
+      if (prefs.dietary !== "any") body.dietary_pref = prefs.dietary;
+      if (prefs.preferredBrands.length) body.preferred_brands = prefs.preferredBrands;
+      if (prefs.budgetStyle !== "balanced") body.budget_style = prefs.budgetStyle;
 
       const res = await fetch("/api/parse", {
         method: "POST",
@@ -681,6 +696,18 @@ function ChatPage() {
                   {c.l}
                 </button>
               ))}
+              <button 
+                onClick={() => {
+                  const whatsappText = prompt("Paste your WhatsApp message:");
+                  if (whatsappText?.trim()) {
+                    setText(whatsappText.trim());
+                    setInputType("whatsapp");
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+              >
+                <Paperclip className="h-3.5 w-3.5" /> WhatsApp
+              </button>
             </div>
 
             <PromptInput onSubmit={onSubmit}>

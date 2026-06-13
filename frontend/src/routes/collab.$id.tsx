@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Copy, QrCode, UserPlus } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, QrCode, UserPlus, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { AppShell } from "@/components/layout/AppShell";
 import { iplCart } from "@/lib/mock/needspeak";
 
@@ -26,9 +28,35 @@ const contributors = [
 ];
 
 function CollabPage() {
+  const { id: cartId } = Route.useParams();
   const cart = iplCart;
   const total = contributors.reduce((s, c) => s + c.spent, 0);
   const pct = Math.min(100, (total / cart.budget) * 100);
+
+  const [showQR, setShowQR] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const shareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/collab/${cartId}`
+    : `/collab/${cartId}`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch {
+      // Fallback for browsers that don't support clipboard API
+      const textarea = document.createElement("textarea");
+      textarea.value = shareUrl;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
 
   return (
     <AppShell>
@@ -41,17 +69,62 @@ function CollabPage() {
               Shared with 3 contributors · budget ₹{cart.budget}
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm hover:border-foreground">
-              <Copy className="h-4 w-4" />
-              <span className="hidden sm:inline">Copy link</span>
+          <div className="relative flex shrink-0 gap-2">
+            <button
+              onClick={handleCopyLink}
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm transition-colors hover:border-foreground"
+            >
+              {copySuccess ? (
+                <Check className="h-4 w-4 text-success" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">{copySuccess ? "Copied!" : "Copy link"}</span>
             </button>
-            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-foreground px-3 text-sm font-medium text-background hover:bg-foreground/90">
+            <button
+              onClick={() => setShowQR((o) => !o)}
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors ${
+                showQR
+                  ? "bg-brand text-brand-foreground"
+                  : "bg-foreground text-background hover:bg-foreground/90"
+              }`}
+            >
               <QrCode className="h-4 w-4" />
               QR
             </button>
+
+            {/* QR Code Popover */}
+            {showQR && (
+              <div className="absolute right-0 top-12 z-20 rounded-2xl border border-border bg-background p-5 shadow-lg animate-in fade-in-0 zoom-in-95">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-muted-foreground">Scan to join this cart</span>
+                  <button
+                    onClick={() => setShowQR(false)}
+                    className="h-5 w-5 rounded-full text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="rounded-xl bg-white p-3">
+                  <QRCodeSVG value={shareUrl} size={180} level="M" />
+                </div>
+                <p className="mt-3 max-w-[200px] text-center text-[10px] text-muted-foreground break-all">
+                  {shareUrl}
+                </p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Copied toast notification */}
+        {copySuccess && (
+          <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background shadow-lg">
+              <Check className="h-4 w-4" />
+              Link copied to clipboard!
+            </div>
+          </div>
+        )}
 
         {/* Budget bar */}
         <div className="mt-8 rounded-2xl border border-border bg-card p-5">

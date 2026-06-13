@@ -16,7 +16,14 @@ from typing import Optional
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from app.config import AWS_REGION, DYNAMODB_TABLE_PRODUCTS, DYNAMODB_TABLE_SESSIONS, MOCK_AWS
+from app.config import (
+    AWS_REGION, 
+    DYNAMODB_TABLE_PRODUCTS, 
+    DYNAMODB_TABLE_SESSIONS, 
+    DYNAMODB_TABLE_PREFERENCES,
+    DYNAMODB_TABLE_EVENTS,
+    MOCK_AWS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +46,14 @@ def _get_products_table():
 
 def _get_sessions_table():
     return _get_dynamodb().Table(DYNAMODB_TABLE_SESSIONS)
+
+
+def _get_preferences_table():
+    return _get_dynamodb().Table(DYNAMODB_TABLE_PREFERENCES)
+
+
+def _get_events_table():
+    return _get_dynamodb().Table(DYNAMODB_TABLE_EVENTS)
 
 
 # ---------------------------------------------------------------------------
@@ -694,3 +709,52 @@ def _get_mock_session(session_id: str) -> Optional[dict]:
         "context_summary": "Mock session",
         "total_price_inr": 0,
     }
+
+# ---------------------------------------------------------------------------
+# User Preferences (Phase 6)
+# ---------------------------------------------------------------------------
+_mock_preferences_store: dict[str, dict] = {}
+
+def save_user_preferences(user_id: str, preferences_data: dict, mock_mode: Optional[bool] = None) -> None:
+    is_mock = MOCK_AWS or (mock_mode if mock_mode is not None else False)
+    if is_mock:
+        _mock_preferences_store[user_id] = preferences_data
+        return
+    
+    table = _get_preferences_table()
+    item = json.loads(json.dumps(preferences_data, default=str), parse_float=Decimal)
+    item["user_id"] = user_id
+    item["last_updated_at"] = datetime.now(timezone.utc).isoformat()
+    table.put_item(Item=item)
+
+def get_user_preferences(user_id: str, mock_mode: Optional[bool] = None) -> Optional[dict]:
+    is_mock = MOCK_AWS or (mock_mode if mock_mode is not None else False)
+    if is_mock:
+        return _mock_preferences_store.get(user_id)
+    
+    table = _get_preferences_table()
+    try:
+        response = table.get_item(Key={"user_id": user_id})
+        item = response.get("Item")
+        if item:
+            return _decimal_to_native(item)
+    except Exception as e:
+        logger.error(f"Error getting preferences for {user_id}: {e}")
+    return None
+
+# ---------------------------------------------------------------------------
+# User Events (Phase 6)
+# ---------------------------------------------------------------------------
+_mock_events_store: list[dict] = []
+
+def save_event(event_data: dict, mock_mode: Optional[bool] = None) -> None:
+    is_mock = MOCK_AWS or (mock_mode if mock_mode is not None else False)
+    if is_mock:
+        _mock_events_store.append(event_data)
+        return
+    
+    table = _get_events_table()
+    item = json.loads(json.dumps(event_data, default=str), parse_float=Decimal)
+    table.put_item(Item=item)
+
+

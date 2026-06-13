@@ -198,6 +198,23 @@ function CartPage() {
 
       setReservationStatus("success");
       setReservationMessage("Items reserved successfully! Redirecting to checkout...");
+
+      // Phase 6: Log purchase event
+      try {
+        await fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: "demo_user", // Fixed for now
+            session_id: session.session_id,
+            event_type: "purchase",
+            intent_type: session.intent_type,
+            context: "Completed checkout from cart review"
+          })
+        });
+      } catch (err) {
+        console.error("Telemetry error:", err);
+      }
       
       // We could redirect to a checkout page here, but for now we just show success
       // setTimeout(() => router.navigate({ to: "/checkout", params: { id: data.reservation_id } }), 1500);

@@ -60,7 +60,10 @@ from app.db.dynamo import (
     save_session,
     get_session,
     check_dynamodb_health,
+    get_user_preferences,
+    save_user_preferences,
 )
+from app.intelligence.event_logger import log_event
 from app.db.s3 import store_raw_input, store_cart_result, check_s3_health
 from app.auth.auth_routes import router as auth_router
 
@@ -804,7 +807,61 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
             status_code=exc.status_code,
             content=detail,
         )
-    return JSONResponse(
         status_code=exc.status_code,
         content={"error_code": "internal_error", "message": str(detail)},
     )
+
+# ---------------------------------------------------------------------------
+# Preferences & Events Endpoints (Phase 6)
+# ---------------------------------------------------------------------------
+class PreferenceRequest(BaseModel):
+    user_id: str
+    dietary: list[str] = Field(default_factory=list)
+    preferred_brands: list[str] = Field(default_factory=list)
+    avoided_brands: list[str] = Field(default_factory=list)
+    allergies: list[str] = Field(default_factory=list)
+    budget_mode: str = "balanced"
+
+@app.post("/api/preferences")
+async def update_preferences(req: PreferenceRequest, request: Request):
+    """Save user preferences."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    save_user_preferences(req.user_id, req.model_dump(exclude={"user_id"}), mock_mode=mock_mode)
+    return {"status": "success"}
+
+@app.get("/api/preferences/{user_id}")
+async def fetch_preferences(user_id: str, request: Request):
+    """Load user preferences."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    prefs = get_user_preferences(user_id, mock_mode=mock_mode)
+    return prefs or {}
+
+class EventRequest(BaseModel):
+    user_id: str
+    event_type: str
+    sku: str = ""
+    session_id: str = ""
+    intent_type: str = ""
+    query_text: str = ""
+    rank_position: int = -1
+    price_inr: float = 0.0
+    category: str = ""
+    context: str = ""
+
+@app.post("/api/events")
+async def capture_event(req: EventRequest):
+    """Log an interaction event for the preference engine."""
+    log_event(
+        user_id=req.user_id,
+        event_type=req.event_type,
+        sku=req.sku,
+        session_id=req.session_id,
+        intent_type=req.intent_type,
+        query_text=req.query_text,
+        rank_position=req.rank_position,
+        price_inr=req.price_inr,
+        category=req.category,
+        context=req.context
+    )
+    return {"status": "logged"}
+

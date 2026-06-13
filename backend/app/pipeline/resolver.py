@@ -23,6 +23,7 @@ from app.models import ExtractedItem, CartItem, UnavailableItem, UnavailableReas
 from app.unit_conversions import normalize_to_base_unit
 from app.db.dynamo import get_all_products
 from app.db.s3 import store_failed_match_log
+import os
 
 # New V2 imports
 from app.catalog.models import ProductQuery, RankedProduct
@@ -32,14 +33,21 @@ from app.search.ranker import rank_candidates, RankingContext
 logger = logging.getLogger(__name__)
 
 # Singleton retriever instance (lazy-loaded)
-_retriever: Optional[LocalRetriever] = None
+from app.search.retrieval import ProductRetriever
+_retriever: Optional[ProductRetriever] = None
 
 
-def _get_retriever(mock_mode: bool = False) -> LocalRetriever:
+def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
     """Get or create the retriever singleton."""
     global _retriever
     if _retriever is None:
-        _retriever = LocalRetriever(mock_mode=mock_mode)
+        provider = os.getenv("SEARCH_PROVIDER", "local").strip().lower()
+        if provider == "opensearch":
+            from app.search.opensearch_retrieval import OpenSearchRetriever
+            host = os.getenv("OPENSEARCH_HOST", "")
+            _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
+        else:
+            _retriever = LocalRetriever(mock_mode=mock_mode)
     return _retriever
 
 

@@ -40,7 +40,7 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 
 export const Route = createFileRoute("/chat")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { prompt?: string } => ({
     prompt: typeof search.prompt === "string" ? search.prompt : undefined,
   }),
   head: () => ({
@@ -269,6 +269,7 @@ function ChatPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [inputType, setInputType] = useState<"text" | "whatsapp">("text");
 
   // Voice input via MediaRecorder + backend transcription
@@ -341,11 +342,25 @@ function ChatPage() {
       }, 0)
     : 0;
 
-  const onSubmit = async (overrideText?: string, overrideType?: "text" | "whatsapp") => {
-    if ((!overrideText && !text.trim()) || phase === "thinking") return;
+  const onSubmit = async (
+    override?: string | { text: string },
+    overrideType?: any
+  ) => {
+    if (phase === "thinking") return;
 
-    const inputText = (overrideText || text).trim();
-    const currentInputType = overrideType || inputType;
+    let inputText = "";
+    if (typeof override === "string") {
+      inputText = override;
+    } else if (override && typeof override === "object" && "text" in override) {
+      inputText = override.text;
+    } else {
+      inputText = text;
+    }
+
+    inputText = inputText.trim();
+    if (!inputText) return;
+
+    const currentInputType = (typeof overrideType === "string" ? overrideType : null) || inputType;
     setMessages((m) => [...m, { role: "user", text: inputText }]);
     setPhase("thinking");
     setText("");
@@ -570,7 +585,10 @@ function ChatPage() {
                 <ImageIcon className="h-3.5 w-3.5" /> Image
               </button>
 
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+              <button 
+                onClick={() => pdfInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+              >
                 <FileText className="h-3.5 w-3.5" /> PDF
               </button>
 
@@ -598,13 +616,52 @@ function ChatPage() {
                   setPhase("thinking");
                   setMessages(m => [...m, { role: "user", text: `📷 Uploaded: ${file.name}` }]);
 
+                  const prefs = loadPreferences();
                   const formData = new FormData();
                   formData.append("image", file);
                   if (budgetInput) formData.append("budget_inr", budgetInput);
+                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
 
                   try {
                     const res = await fetch("/api/parse-image", { method: "POST", body: formData });
                     if (!res.ok) throw new Error("Image parsing failed");
+                    const data = await res.json();
+                    if (data.extracted_text) {
+                      setText(data.extracted_text);
+                      setInputType("text");
+                      onSubmit(data.extracted_text, "text");
+                    }
+                  } catch (err: any) {
+                    setErrorMsg(err.message);
+                    setPhase("idle");
+                  }
+                }}
+              />
+
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setPhase("thinking");
+                  setMessages(m => [...m, { role: "user", text: `📄 Uploaded PDF: ${file.name}` }]);
+
+                  const prefs = loadPreferences();
+                  const formData = new FormData();
+                  formData.append("pdf", file);
+                  if (budgetInput) formData.append("budget_inr", budgetInput);
+                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
+
+                  try {
+                    const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
+                    if (!res.ok) throw new Error("PDF parsing failed");
                     const data = await res.json();
                     if (data.extracted_text) {
                       setText(data.extracted_text);

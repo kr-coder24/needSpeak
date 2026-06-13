@@ -18,9 +18,9 @@
 | 1.1 | Natural language text input | ✅ | `/api/parse` POST, full pipeline |
 | 1.2 | Recipe URL ingestion (AllRecipes, BBCGoodFood) | ✅ | `url_fetcher.py`, JSON-LD extraction |
 | 1.3 | YouTube transcript ingestion | ✅ | `youtube_fetcher.py`, auto-gen captions |
-| 1.4 | WhatsApp message input | 🟡 | UI chip exists, backend preprocessor not yet wired to frontend |
-| 1.5 | Shopping list image / handwritten list | 🟡 | UI chip exists, Gemini Vision OCR endpoint not yet built |
-| 1.6 | PDF document ingestion | 🟡 | UI chip exists, no extraction |
+| 1.4 | WhatsApp message input | ✅ | Wired frontend paste prompt to backend WhatsApp preprocessor |
+| 1.5 | Shopping list image / handwritten list | ✅ | Fully built /api/parse-image Gemini Vision OCR pipeline and wired to UI |
+| 1.6 | PDF document ingestion | ✅ | Fully built /api/parse-pdf using pypdf and wired to UI |
 | 1.7 | Structured JSON output (intent, items, qty, units) | ✅ | `ExtractionResult`, `ExtractedIntent` models |
 | 1.8 | Hindi / Hinglish / Indian English understanding | ✅ | Prompt rules 8; tested via Gemini |
 | 1.9 | Budget extraction from text (regex) | ✅ | `extractBudgetFromText()` in chat.tsx |
@@ -80,8 +80,8 @@
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 6.1 | Collab page UI shell | ✅ | `/collab/$id` route with budget bar, contributors, items |
-| 6.2 | QR code generation | 🟡 | Button exists, no actual QR code generated |
-| 6.3 | Share link | 🟡 | Copy button exists, no link generation |
+| 6.2 | QR code generation | ✅ | Uses qrcode.react to generate scan-to-join code in collab page |
+| 6.3 | Share link | ✅ | Copies collab session URL to clipboard with toast notification |
 | 6.4 | Real-time contribution (multiple users adding items) | ❌ | Static mock data only — no WebSocket or polling |
 | 6.5 | Budget auto-rebalancing on new items | ❌ | Not implemented |
 | 6.6 | Invite contributor flow | 🟡 | "Invite" button exists, no backend |
@@ -117,10 +117,10 @@
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 9.1 | Preferences page UI | ✅ | `/preferences` route exists |
-| 9.2 | Dietary preferences (Veg / Vegan / Jain) | 🟡 | UI fields exist; not sent to backend or respected in resolver |
-| 9.3 | Preferred brands | 🟡 | UI fields exist; not wired to resolver |
-| 9.4 | Budget style (Value / Balanced / Premium) | 🟡 | UI fields exist; not wired |
-| 9.5 | Preferences persisted (localStorage / user account) | ❌ | No persistence |
+| 9.2 | Dietary preferences (Veg / Vegan / Jain) | ✅ | Fully wired to backend. Pre-filters catalog candidates before resolution |
+| 9.3 | Preferred brands | ✅ | Fully wired to backend. Brand score boost applied during resolution |
+| 9.4 | Budget style (Value / Balanced / Premium) | ✅ | Fully wired to backend. Ties broken during matching favoring value/premium prices |
+| 9.5 | Preferences persisted (localStorage / user account) | ✅ | Saved to and loaded from localStorage |
 
 ---
 
@@ -210,14 +210,14 @@
 | B.8 | **Accept / Reject alternative** — for each substituted item, show the original alongside the substitute with a one-tap swap button | ✅ Done | Backend now returns `pending_substitution` for user choice |
 | B.9 | **Item removal** — let the user remove items from the live cart and see the total update | ✅ Done | X button on hover, filtered totals |
 | B.10 | **Re-order suggestion** — "You built a similar cart 2 weeks ago. Add those items again?" using localStorage history | ✅ Done | `findSimilarCart()` + banner |
-| B.11 | **Freshness / availability flag** — mock a "low stock" or "seasonal" badge on certain items | 🟢 Low | Visual polish for demo |
+| B.11 | **Freshness / availability flag** — mock a "low stock" or "seasonal" badge on certain items | ✅ Done | Visual polish for demo (displays Seasonal/Low Stock/Frozen badges by SKU prefix) |
 
 ### Context Inputs
 | # | Feature | Priority | Why |
 |---|---------|----------|-----|
-| B.12 | **Image OCR** — use Gemini Vision to extract items from a handwritten list photo | 🔴 High | Report mentions it; endpoint not yet built |
-| B.13 | **PDF parsing** — extract text from a PDF (event checklist, school list) using pdf.js or pdfminer | 🟡 Medium | Report mentions it; UI chip exists |
-| B.14 | **WhatsApp forward parsing** — accept pasted WhatsApp text "Please bring X, Y, Z" | 🔴 High | Backend preprocessor exists but not wired to frontend |
+| B.12 | **Image OCR** — use Gemini Vision to extract items from a handwritten list photo | ✅ Done | Gemini Vision OCR pipeline (/api/parse-image) wired to UI |
+| B.13 | **PDF parsing** — extract text from a PDF (event checklist, school list) using pdf.js or pdfminer | ✅ Done | Implemented via pypdf backend endpoint and frontend wiring |
+| B.14 | **WhatsApp forward parsing** — accept pasted WhatsApp text "Please bring X, Y, Z" | ✅ Done | Wired frontend paste prompt to backend preprocessor |
 
 ### Collaboration
 | # | Feature | Priority | Why |
@@ -237,39 +237,32 @@
 
 | Category | Done | Partial | Not Started |
 |----------|------|---------|-------------|
-| Intent Engine (Pillar 1) | 9 | 2 | 0 |
+| Intent Engine (Pillar 1) | 11 | 0 | 0 |
 | OccasionCart (Pillar 2) | 4 | 0 | 1 |
 | RecipeCart (Pillar 3) | 4 | 0 | 0 |
 | Quantity Engine (Pillar 4) | 4 | 1 | 0 |
 | Multi-Intent (Pillar 5) | 4 | 0 | 0 |
-| SplitCart (Pillar 6) | 1 | 3 | 2 |
+| SplitCart (Pillar 6) | 3 | 1 | 2 |
 | GoalCart (Pillar 7) | 5 | 0 | 0 |
 | CompareCart (Pillar 8) | 5 | 0 | 0 |
-| Preferences (Pillar 9) | 1 | 3 | 1 |
+| Preferences (Pillar 9) | 5 | 0 | 0 |
 | Smart Alternatives (Pillar 10) | 3 | 0 | 0 |
 | Explainability (Pillar 11) | 3 | 0 | 0 |
 | Confidence Layer (Pillar 12) | 4 | 0 | 0 |
 | ReviewCart (Pillar 13) | 4 | 1 | 0 |
-| Infrastructure | 14 | 0 | 3 |
-| **Total** | **65** | **7** | **10** |
+| Infrastructure | 15 | 0 | 2 |
+| **Total** | **74** | **3** | **5** |
 
-**Overall completion: ~79% done, ~9% partial, ~12% not started.**
+**Overall completion: ~90% done, ~4% partial, ~6% not started.**
 
 ---
 
-## Remaining Work (Member 2 — in progress)
+## Remaining Work (Sprint 2 Next Steps)
 
-1. **B.12** Image OCR — Gemini Vision endpoint (`/api/parse-image`) + wire frontend Image chip
-2. **B.14** WhatsApp parsing — wire existing `whatsapp_input.py` preprocessor to frontend WhatsApp chip
+1. **B.15** Real-time collab via WebSockets (SplitCart).
 
 ---
 
 ## Recommended Next Sprint
 
-1. **B.12** Gemini Vision image OCR — 2 hrs, closes handwritten list demo
-2. **B.14** WhatsApp forward parsing (wire to frontend) — 1 hr
-3. **B.7** Real CompareCart re-run — 2 hrs, turns cosmetic feature into real one
-4. **9.2–9.4** Wire preferences to resolver — 3 hrs, closes Pillar 9
-5. **B.13** PDF parsing — 2 hrs, closes PDF chip
-
-These five items would push completion to ~85%+.
+1. **B.15** Real-time collab via WebSockets (SplitCart) — 4 hrs

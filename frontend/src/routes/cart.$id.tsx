@@ -28,6 +28,7 @@ import { useWishlistStore } from "@/store/useWishlistStore";
 import { loadHistory } from "@/lib/cart-history";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
+import { BudgetFingerprint } from "@/components/common/BudgetFingerprint";
 
 export const Route = createFileRoute("/cart/$id")({
   head: () => ({
@@ -594,6 +595,8 @@ function CartPage() {
   const [reserving, setReserving] = useState(false);
   const [reservationStatus, setReservationStatus] = useState<"idle" | "success" | "error">("idle");
   const [reservationMessage, setReservationMessage] = useState<string>("");
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
 
   // Fetch session data from the backend
   useEffect(() => {
@@ -830,6 +833,47 @@ function CartPage() {
       setReservationMessage(e.message || "Something went wrong.");
     } finally {
       setReserving(false);
+    }
+  };
+
+  const handleGenerateNarrative = async () => {
+    if (!session || narrativeLoading) return;
+    setNarrativeLoading(true);
+    try {
+      const res = await fetch("/api/cart-narrative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cart_items: cartItems.map((i: any) => ({
+            name: i.name,
+            brand: i.brand,
+            price_per_unit_inr: i.price_per_unit_inr,
+            total_price_inr: i.total_price_inr,
+            quantity_units: i.quantity_units,
+            substituted: i.substituted || false,
+            substitution_reason: i.substitution_reason || "",
+            matched_from: i.matched_from || [],
+            category: i.category || "",
+          })),
+          unavailable_items: unavailableItems.map((i: any) => ({
+            name: i.name,
+            reason: i.reason || "",
+          })),
+          total_price: total,
+          budget: budget,
+          budget_exceeded: session.budget_exceeded || false,
+          context_summary: intentSummary || session.context_summary || "",
+          dietary_pref: null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to generate narrative");
+      const data = await res.json();
+      setNarrative(data.narrative);
+    } catch (err) {
+      console.error("Narrative generation failed:", err);
+      setNarrative("Could not generate explanation. Try again.");
+    } finally {
+      setNarrativeLoading(false);
     }
   };
 
@@ -1115,6 +1159,42 @@ function CartPage() {
               )}
 
               
+
+              {/* Budget Fingerprint — Shopper DNA */}
+              <BudgetFingerprint cartItems={cartItems} budget={budget} totalSpent={total} />
+
+              {/* Cart Narrative — "Why this cart?" */}
+              <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-500/10 shadow-sm shadow-amber-500/10">
+                    <Sparkles className="h-4.5 w-4.5 text-amber-500" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground">Why this cart?</span>
+                </div>
+                {narrative ? (
+                  <p className="text-xs leading-relaxed text-foreground/80 font-medium">
+                    {narrative}
+                  </p>
+                ) : (
+                  <button
+                    onClick={handleGenerateNarrative}
+                    disabled={narrativeLoading}
+                    className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border/60 bg-surface/30 px-4 py-3 text-xs font-semibold text-muted-foreground transition-all duration-300 hover:border-amber-500/40 hover:text-amber-600 hover:bg-amber-500/5 disabled:opacity-50"
+                  >
+                    {narrativeLoading ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Thinking...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 transition-transform group-hover:rotate-12" />
+                        Explain my cart decisions
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
 
               <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
                 <div className="flex items-center gap-2.5 mb-4">

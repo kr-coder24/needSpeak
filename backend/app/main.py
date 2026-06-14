@@ -1477,3 +1477,64 @@ async def capture_event(req: EventRequest, request: Request):
     )
     return {"status": "logged"}
 
+
+# ---------------------------------------------------------------------------
+# Shopper DNA / Budget Fingerprint Profile
+# ---------------------------------------------------------------------------
+from app.db.dynamo import save_shopper_profile, get_shopper_profile
+
+
+class CartNarrativeRequest(BaseModel):
+    """Request for cart decision narrative."""
+    cart_items: list[dict] = Field(default_factory=list)
+    unavailable_items: list[dict] = Field(default_factory=list)
+    total_price: float = 0.0
+    budget: float | None = None
+    budget_exceeded: bool = False
+    context_summary: str = ""
+    dietary_pref: str | None = None
+
+
+@app.post("/api/cart-narrative")
+async def get_cart_narrative(req: CartNarrativeRequest, request: Request):
+    """Generate a 3-sentence decision rationale explaining why items were chosen."""
+    from app.intelligence.cart_narrative import generate_cart_narrative
+
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    narrative = generate_cart_narrative(
+        cart_items=req.cart_items,
+        unavailable_items=req.unavailable_items,
+        total_price=req.total_price,
+        budget=req.budget,
+        budget_exceeded=req.budget_exceeded,
+        context_summary=req.context_summary,
+        dietary_pref=req.dietary_pref,
+        mock_mode=mock_mode,
+    )
+    return {"narrative": narrative}
+
+
+class ShopperProfileRequest(BaseModel):
+    user_id: str
+    archetype_history: list[str] = Field(default_factory=list)
+    trait_counts: dict[str, int] = Field(default_factory=dict)
+    total_sessions: int = 0
+    top_traits: list[dict] = Field(default_factory=list)
+    current_fingerprint: dict | None = None
+
+
+@app.post("/api/shopper-profile")
+async def update_shopper_profile(req: ShopperProfileRequest, request: Request):
+    """Save or update the shopper DNA profile (Budget Fingerprint)."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    profile_data = req.model_dump(exclude={"user_id"})
+    save_shopper_profile(req.user_id, profile_data, mock_mode=mock_mode)
+    return {"status": "success"}
+
+
+@app.get("/api/shopper-profile/{user_id}")
+async def fetch_shopper_profile(user_id: str, request: Request):
+    """Load shopper DNA profile for a user."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    profile = get_shopper_profile(user_id, mock_mode=mock_mode)
+    return profile or {}

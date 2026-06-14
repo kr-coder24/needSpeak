@@ -13,6 +13,7 @@ import { Route as RecipeRouteImport } from './routes/recipe'
 import { Route as PreferencesRouteImport } from './routes/preferences'
 import { Route as OccasionsRouteImport } from './routes/occasions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
@@ -37,6 +38,11 @@ const OccasionsRoute = OccasionsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -68,6 +74,7 @@ const CartIdRoute = CartIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
   '/preferences': typeof PreferencesRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
   '/preferences': typeof PreferencesRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
   '/preferences': typeof PreferencesRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/chat'
+    | '/history'
     | '/login'
     | '/occasions'
     | '/preferences'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/chat'
+    | '/history'
     | '/login'
     | '/occasions'
     | '/preferences'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/chat'
+    | '/history'
     | '/login'
     | '/occasions'
     | '/preferences'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  HistoryRoute: typeof HistoryRoute
   LoginRoute: typeof LoginRoute
   OccasionsRoute: typeof OccasionsRoute
   PreferencesRoute: typeof PreferencesRoute
@@ -175,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  HistoryRoute: HistoryRoute,
   LoginRoute: LoginRoute,
   OccasionsRoute: OccasionsRoute,
   PreferencesRoute: PreferencesRoute,

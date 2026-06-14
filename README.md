@@ -76,29 +76,71 @@ NeedSpeak / Context-to-Cart is a state-of-the-art **Intent-Commerce Engine**. It
 Create a `backend/.env` file in the root of the backend folder:
 
 ```env
-# Active LLM Provider: "gemini" or "bedrock"
-LLM_PROVIDER=gemini
+# ===========================================================================
+# LLM Providers Configuration
+# ===========================================================================
+LLM_PROVIDER=gemini                             # Active LLM: "gemini" or "bedrock"
 
-# Google Gemini Configuration
-# NOTE: Defaulting to gemini-flash-latest handles 1,500 daily requests. 
-# gemini-2.5-flash is supported but limited to 20 daily requests on Google's Free Tier.
+# --- Google Gemini ---
+# NOTE: gemini-flash-latest is recommended (1500 daily requests on free tier).
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL_ID=gemini-flash-latest
+GEMINI_MODEL_ID=gemini-flash-latest             # e.g., gemini-flash-latest, gemini-2.5-flash
 
-# AWS Configuration (Used if MOCK_AWS=0)
+# --- Amazon Bedrock ---
+BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-6    # Bedrock model to invoke (if LLM_PROVIDER=bedrock)
+
+# ===========================================================================
+# AWS General Configuration (Used if MOCK_AWS=0)
+# ===========================================================================
 AWS_REGION=us-east-1
-DYNAMODB_TABLE_PRODUCTS=ProductCatalog
-DYNAMODB_TABLE_SESSIONS=CartSessions
-S3_BUCKET=pulse-cart-sessions-shivam-2026
 
-# Search Configuration: "local" (BM25) or "opensearch" (Hybrid vector + text)
-SEARCH_PROVIDER=local
-OPENSEARCH_HOST=your-opensearch-domain-endpoint.amazonaws.com
+# --- DynamoDB Tables ---
+DYNAMODB_TABLE_PRODUCTS=ProductCatalog          # Stores SKU and catalog data
+DYNAMODB_TABLE_SESSIONS=CartSessions            # Stores cart results and session history
+DYNAMODB_TABLE_USERS=NeedSpeakUsers              # User registry and profile details
+DYNAMODB_TABLE_EMAIL_LOCKS=NeedSpeakEmailLocks  # Database-level unique locks for emails
+DYNAMODB_TABLE_AUTH_SESSIONS=NeedSpeakAuthSessions # User active token authentication states
+DYNAMODB_TABLE_PREFERENCES=NeedSpeakUserPreferences # Enriched dietary/brand affinity preferences
+DYNAMODB_TABLE_EVENTS=NeedSpeakUserEvents        # Analytics telemetry events logs
 
-# Mock Settings
-MOCK_AWS=1      # Set to 1 to skip DynamoDB/S3/Bedrock (runs in-memory mock catalog)
+# --- S3 Buckets ---
+S3_BUCKET=pulse-cart-sessions-shivam-2026       # Bucket to upload receipt/transcript files
+
+# ===========================================================================
+# Search Engine Configuration
+# ===========================================================================
+# Choose: "hybrid" (BM25 + synonyms + fuzzy), "opensearch" (AWS OpenSearch), or "local" (vector-only)
+SEARCH_PROVIDER=hybrid
+OPENSEARCH_HOST=your-opensearch-domain-endpoint.amazonaws.com # Endpoint (if SEARCH_PROVIDER=opensearch)
+
+# ===========================================================================
+# Mock Settings (Hackathon & Demo mode)
+# ===========================================================================
+MOCK_AWS=1      # Set to 1 to bypass all AWS resources (runs database fully in-memory)
 MOCK_MODE=0     # Set to 1 to bypass the LLM and return static mock extractions
 ```
+
+---
+
+### 1.5. Deploying with Live AWS Infrastructure
+
+To transition from the local mock setup to live AWS services, follow these steps:
+
+1. **Disable Mock AWS**: In your `backend/.env` file, change `MOCK_AWS` to `0`:
+   ```env
+   MOCK_AWS=0
+   ```
+2. **Provide AWS Credentials**:
+   * **Local Testing**: Install the AWS CLI and run `aws configure`, or set the standard access keys in your shell/environment:
+     ```bash
+     export AWS_ACCESS_KEY_ID="your-access-key-id"
+     export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+     ```
+   * **Production/Cloud Deployment (EC2, ECS, Lambda)**: Assign an **IAM Instance Profile / ECS Task Role** containing permissions to read/write to your DynamoDB tables, read/write to S3, and invoke Bedrock models. The application's `boto3` client will automatically resolve these roles without storing raw key secrets in env files.
+3. **Verify Resource Names**: Confirm that the table names (`DYNAMODB_TABLE_PRODUCTS`, etc.) and the S3 bucket (`S3_BUCKET`) in your environment match your actual AWS deployments.
+4. **Choose Services**:
+   * **LLM Provider**: Set `LLM_PROVIDER=bedrock` to switch intent extraction from Google Gemini to AWS Bedrock (ensure model access is enabled in the AWS Console for `BEDROCK_MODEL_ID` in your region).
+   * **Search Engine**: Set `SEARCH_PROVIDER=opensearch` and configure `OPENSEARCH_HOST` to query a live AWS OpenSearch domain.
 
 ---
 

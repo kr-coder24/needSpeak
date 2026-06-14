@@ -474,8 +474,23 @@ function ChatPage() {
     },
   });
 
-  // No auto-restore — chat page always starts fresh.
-  // Users can still access past carts via the History panel.
+  // Auto-restore latest session if currently empty
+  useEffect(() => {
+    if (phase === "idle" && messages.length <= 1 && !cartData) {
+      const history = loadHistory();
+      if (history.length > 0) {
+        const latest = history[0];
+        setPhase("cart");
+        setCartData(latest);
+        setMessages([
+          {
+            role: "assistant",
+            text: `Restored your last session: ${latest.intent_type || "Cart"} with ${latest.item_count} items.`,
+          },
+        ]);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -673,10 +688,11 @@ function ChatPage() {
       const intents: any[] = data.intents ?? [];
       const allCartItems = intents.flatMap((g: any) => g.cart ?? []);
       const allUnavailable = intents.flatMap((g: any) => g.unavailable_items ?? []);
-      const intentType = intents
-        .map((g: any) => g.intent_type)
-        .filter(Boolean)
-        .join(", ");
+      const rawIntents = intents
+        .map((g: any) => g.intent_type === "general" ? "Shopping List" : g.intent_type)
+        .filter(Boolean);
+      const uniqueIntents = Array.from(new Set(rawIntents));
+      const intentType = uniqueIntents.join(", ");
       const contextSummary = intents
         .map((g: any) => g.context_summary)
         .filter(Boolean)
@@ -697,7 +713,10 @@ function ChatPage() {
             session_id: data.session_id, // Always use latest session_id so Review page finds the accumulated cart
             cart: [...(cartData.cart || []), ...allCartItems],
             unavailable_items: [...(cartData.unavailable_items || []), ...allUnavailable],
-            intent_type: cartData.intent_type + (intentType ? ", " + intentType : ""),
+            intent_type: Array.from(new Set([
+              ...(cartData.intent_type || "").split(", "),
+              ...uniqueIntents
+            ])).filter(Boolean).join(", "),
             context_summary:
               cartData.context_summary + (contextSummary ? " · " + contextSummary : ""),
             total_price_inr: (cartData.total_price_inr || 0) + data.total_price_inr,
@@ -706,7 +725,7 @@ function ChatPage() {
             ...data,
             cart: allCartItems,
             unavailable_items: allUnavailable,
-            intent_type: intentType || "shopping",
+            intent_type: intentType || "Shopping List",
             context_summary: contextSummary,
           };
 
@@ -1139,7 +1158,7 @@ function ChatPage() {
                     </button>
                   </div>
                   <div className="mt-3 font-display text-xl font-semibold tracking-tight capitalize">
-                    {cartData.intent_type}
+                    {(cartData.intent_type || "").split(", ").map((t: string) => t.toLowerCase() === "general" ? "Shopping List" : t).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(", ")}
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">
                     {cartData.context_summary}
@@ -1194,7 +1213,7 @@ function ChatPage() {
                             {/* Section header */}
                             <div className="mb-2 flex items-center justify-between">
                               <span className="text-xs font-semibold uppercase tracking-wider text-brand">
-                                {group.intent_type}
+                                {group.intent_type === "general" ? "Shopping List" : group.intent_type}
                               </span>
                               <span className="text-xs text-muted-foreground">₹{groupSubtotal.toFixed(0)}</span>
                             </div>
@@ -1297,14 +1316,48 @@ function ChatPage() {
                       />
                     </div>
                   )}
-                  <Link
-                    to="/cart/$id"
-                    params={{ id: cartData.session_id }}
+                  <button
+                    onClick={() => {
+                      const updatedCart = (cartData.cart || []).map((item: any) => {
+                        const sku = String(item.sku);
+                        if (removedKeys.includes(sku)) return null;
+                        const qty = quantities[sku] ?? item.quantity_units;
+                        return {
+                          ...item,
+                          quantity_units: qty,
+                          total_price_inr: qty * item.price_per_unit_inr,
+                        };
+                      }).filter(Boolean);
+                      
+                      const updatedCartData = {
+                        ...cartData,
+                        cart: updatedCart,
+                        total_price_inr: computedTotal,
+                      };
+                      setCartData(updatedCartData);
+                      
+                      const histEntry = {
+                        session_id: cartData.session_id,
+                        saved_at: new Date().toISOString(),
+                        intent_type: cartData.intent_type,
+                        context_summary: cartData.context_summary,
+                        total_price_inr: computedTotal,
+                        item_count: updatedCart.length,
+                        cart: updatedCart,
+                        unavailable_items: cartData.unavailable_items || [],
+                        summary: cartData.summary || "",
+                        budget_inr: cartData.budget_inr,
+                      };
+                      saveToHistory(histEntry);
+                      window.dispatchEvent(new Event("cart-history-updated"));
+                      
+                      navigate({ to: "/cart/$id", params: { id: cartData.session_id } });
+                    }}
                     className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-foreground text-sm font-medium text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg"
                   >
                     Review cart
                     <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  </button>
                 </div>
               </>
             ) : (

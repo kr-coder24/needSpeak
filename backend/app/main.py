@@ -1,5 +1,5 @@
 """
-Context-to-Cart — FastAPI Application
+Context-to-Cart — FastAPI Application (Reload Trigger)
 ======================================
 Main entry point. Route definitions, CORS, and pipeline orchestration.
 

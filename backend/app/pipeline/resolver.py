@@ -300,22 +300,20 @@ def _optimize_for_budget(
             savings = item.total_price_inr - cheapest["total_price_inr"]
             
             updated_item = item.model_copy(update={
-                "pending_substitution": {
-                    "name": cheapest["name"],
-                    "sku": cheapest["sku"],
-                    "brand": cheapest["brand"],
-                    "price_per_unit_inr": cheapest["price_per_unit_inr"],
-                    "quantity_units": cheapest["quantity_units"],
-                    "unit": item.unit,
-                    "unit_quantity": item.unit_quantity,
-                    "total_price_inr": cheapest["total_price_inr"],
-                    "reason": f"Save ₹{savings:.0f}",
-                },
+                "name": cheapest["name"],
+                "sku": cheapest["sku"],
+                "brand": cheapest["brand"],
+                "price_per_unit_inr": cheapest["price_per_unit_inr"],
+                "quantity_units": cheapest["quantity_units"],
+                "total_price_inr": cheapest["total_price_inr"],
+                "substituted": True,
+                "substitution_reason": f"Save ₹{savings:.0f}",
+                "pending_substitution": None,
             })
             optimized.append(updated_item)
             logger.info(
-                f"Pending substitution for '{item.name}' -> '{cheapest['name']}' "
-                f"(potential saving ₹{savings:.0f})"
+                f"Substituted '{item.name}' -> '{cheapest['name']}' "
+                f"(saved ₹{savings:.0f})"
             )
         else:
             optimized.append(item)

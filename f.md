@@ -84,7 +84,7 @@
 | 6.3 | Share link | ✅ | Copies collab session URL to clipboard with toast notification |
 | 6.4 | Real-time contribution (multiple users adding items) | ✅ | WebSocket-based live sync with full state management (collab_ws.py + useCollabWebSocket.ts) |
 | 6.5 | Budget auto-rebalancing on new items | ✅ | `_calculate_budget_splits()` runs after every cart mutation |
-| 6.6 | Invite contributor flow | 🟡 | "Invite" button exists, email/sms backend not wired |
+| 6.6 | Invite contributor flow | ✅ | Full email/SMS invite system with modal UI, backend route, and SendGrid/Twilio integration (collab_notifications.py) |
 
 ---
 
@@ -163,7 +163,7 @@
 | 13.2 | Budget widget with progress bar | ✅ | |
 | 13.3 | Per-item explainability | ✅ | `matched_from`, substitution reason |
 | 13.4 | AI-generated summary | ✅ | `session.summary` shown in sidebar |
-| 13.5 | Proceed to checkout button | 🟡 | Button exists, no actual checkout integration |
+| 13.5 | Proceed to checkout button | ✅ | Complete checkout flow with inventory reservation (reservations.py), payment integration (Razorpay/Stripe), checkout page, and order confirmation |
 
 ---
 
@@ -242,18 +242,18 @@
 | RecipeCart (Pillar 3) | 4 | 0 | 0 |
 | Quantity Engine (Pillar 4) | 4 | 1 | 0 |
 | Multi-Intent (Pillar 5) | 4 | 0 | 0 |
-| SplitCart (Pillar 6) | 5 | 1 | 0 |
+| SplitCart (Pillar 6) | 6 | 0 | 0 |
 | GoalCart (Pillar 7) | 5 | 0 | 0 |
 | CompareCart (Pillar 8) | 5 | 0 | 0 |
 | Preferences (Pillar 9) | 5 | 0 | 0 |
 | Smart Alternatives (Pillar 10) | 3 | 0 | 0 |
 | Explainability (Pillar 11) | 3 | 0 | 0 |
 | Confidence Layer (Pillar 12) | 4 | 0 | 0 |
-| ReviewCart (Pillar 13) | 4 | 1 | 0 |
+| ReviewCart (Pillar 13) | 5 | 0 | 0 |
 | Infrastructure | 15 | 1 | 1 |
-| **Total** | **76** | **4** | **2** |
+| **Total** | **78** | **2** | **2** |
 
-**Overall completion: ~93% done, ~5% partial, ~2% not started.**
+**Overall completion: ~95% done, ~2% partial, ~2% not started.**
 
 ---
 
@@ -277,17 +277,17 @@
    - **Status**: ❌ Not configured
    - **Note**: Infrastructure deployment, not a code feature
 
-### ✅ VERIFIED AS FULLY IMPLEMENTED
+### ✅ COMPLETED FEATURES (No Action Needed)
 
-1. **Real-time Collaborative Cart WebSocket** 
-   - **Backend**: `backend/app/collab/collab_ws.py` (ConnectionManager with broadcast)
-   - **Routes**: `backend/app/collab/collab_routes.py` (@router.websocket)
-   - **Frontend**: `frontend/src/hooks/useCollabWebSocket.ts` (full WebSocket client)
-   - **Tests**: `backend/tests/test_collab.py` (comprehensive WebSocket tests)
-   - **Live State**: Real-time item merging, quantity recalculation, budget splits
-   - **NOT mock data**: Uses live catalog resolution and quantity engine
+1. **6.6 Invite Contributor Flow** ✅
+   - **Backend**: `backend/app/collab/collab_notifications.py` (SendGrid + Twilio integration)
+   - **Routes**: `backend/app/collab/collab_routes.py` (@router.post("/{session_id}/invite"))
+   - **Frontend**: Full modal UI with email/SMS form in `collab.$id.tsx`
+   - **Status**: Fully implemented, just needs API keys in production
 
-2. **Budget auto-rebalancing in collab**
-   - **Status**: ✅ Done (NOT ❌)
-   - **Location**: `backend/app/collab/collab_store.py` → `_calculate_budget_splits()`
-   - **Proof**: Recalculates splits after every merge/add/remove/update operation
+2. **13.5 Proceed to Checkout** ✅
+   - **Reservation**: `backend/app/inventory/reservations.py` (reserve_items with race condition handling)
+   - **Routes**: `/api/cart/{id}/reserve`, `/api/payment/create-intent`, `/api/payment/confirm`
+   - **Checkout Page**: `frontend/src/routes/checkout.$id.tsx` (complete with Razorpay integration)
+   - **Confirmation**: Order confirmation page with confetti animation
+   - **Status**: Fully implemented, Razorpay keys optional for testing (mock mode works)

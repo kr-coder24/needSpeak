@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RecipeRouteImport } from './routes/recipe'
 import { Route as PreferencesRouteImport } from './routes/preferences'
+import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as OccasionsRouteImport } from './routes/occasions'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteImport } from './routes/chat'
@@ -28,6 +29,11 @@ const RecipeRoute = RecipeRouteImport.update({
 const PreferencesRoute = PreferencesRouteImport.update({
   id: '/preferences',
   path: '/preferences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
+  id: '/order-confirmed',
+  path: '/order-confirmed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OccasionsRoute = OccasionsRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/chat': typeof ChatRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRoute
   LoginRoute: typeof LoginRoute
   OccasionsRoute: typeof OccasionsRoute
+  OrderConfirmedRoute: typeof OrderConfirmedRoute
   PreferencesRoute: typeof PreferencesRoute
   RecipeRoute: typeof RecipeRoute
   CartIdRoute: typeof CartIdRoute
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/preferences'
       fullPath: '/preferences'
       preLoaderRoute: typeof PreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order-confirmed': {
+      id: '/order-confirmed'
+      path: '/order-confirmed'
+      fullPath: '/order-confirmed'
+      preLoaderRoute: typeof OrderConfirmedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/occasions': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRoute,
   LoginRoute: LoginRoute,
   OccasionsRoute: OccasionsRoute,
+  OrderConfirmedRoute: OrderConfirmedRoute,
   PreferencesRoute: PreferencesRoute,
   RecipeRoute: RecipeRoute,
   CartIdRoute: CartIdRoute,

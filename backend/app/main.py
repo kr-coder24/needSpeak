@@ -1,5 +1,5 @@
 """
-Context-to-Cart — FastAPI Application
+Context-to-Cart — FastAPI Application (Reload Trigger)
 ======================================
 Main entry point. Route definitions, CORS, and pipeline orchestration.
 
@@ -69,6 +69,7 @@ from app.intelligence.event_logger import log_event
 from app.db.s3 import store_raw_input, store_cart_result, check_s3_health
 from app.auth.auth_routes import router as auth_router
 from app.collab.collab_routes import router as collab_router
+from app.collab.bulk_buy_routes import router as community_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -115,6 +116,11 @@ def _parse_brands_form(value: str | None) -> list[str]:
 # ---------------------------------------------------------------------------
 # Startup / Shutdown
 # ---------------------------------------------------------------------------
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.inventory.cleanup import cleanup_expired_reservations
+
+scheduler = BackgroundScheduler()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load product catalog into memory at startup."""
@@ -130,8 +136,18 @@ async def lifespan(app: FastAPI):
     products = load_all_products()
     logger.info(f"Loaded {len(products)} products into memory cache")
 
+    scheduler.add_job(
+        cleanup_expired_reservations,
+        "interval",
+        minutes=5,
+        id="cleanup_reservations",
+    )
+    scheduler.start()
+    logger.info("Started reservation cleanup scheduler")
+
     yield  # App runs
 
+    scheduler.shutdown()
     logger.info("Context-to-Cart shutting down...")
 
 
@@ -155,7 +171,9 @@ app.add_middleware(
         "http://127.0.0.1:8080",
         "http://localhost:8081",
         "http://127.0.0.1:8081",
-        "*"
+        # Add production domains here when deploying
+        # "https://needspeak.app",
+        # "https://www.needspeak.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -167,6 +185,7 @@ app.include_router(auth_router)
 
 # Collab routes
 app.include_router(collab_router)
+app.include_router(community_router)
 
 
 # ---------------------------------------------------------------------------
@@ -378,6 +397,7 @@ async def parse_content(req: ParseRequest, request: Request):
                 quality_preference=req.quality_preference or "balanced",
                 pack_size_preference=req.pack_size_preference or "balanced",
                 occasion=req.occasion,
+                implicit_preferences=implicit_prefs,
             )
             global_total_price += intent_total_price
             global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -912,34 +932,120 @@ async def ingest_prescription(
 # ---------------------------------------------------------------------------
 # POST /api/cart/{session_id}/reserve — Reserve Inventory
 # ---------------------------------------------------------------------------
-class ReserveRequest(BaseModel):
-    items: list[dict] = Field(..., description="List of items to reserve: [{'sku': '...', 'qty': 2}]")
+from app.inventory.models import (
+    ReserveRequest,
+    ReservationResponse,
+    PaymentIntentRequest,
+    PaymentIntentResponse,
+)
+from app.inventory.reservations import (
+    reserve_items,
+    get_reservation,
+    commit_reservation,
+)
 
-@app.post("/api/cart/{session_id}/reserve")
-async def reserve_cart(session_id: str, req: ReserveRequest, request: Request):
+@app.post("/api/cart/{session_id}/reserve", response_model=ReservationResponse)
+async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Request):
+    """Reserve inventory for cart items."""
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import reserve_items
-    success, failed_skus, res_id = reserve_items(session_id, req.items, mock_mode=mock_mode)
-    if not success:
-        raise HTTPException(
-            status_code=409, 
-            detail={"message": "Some items are out of stock", "failed_skus": failed_skus}
+    
+    user_id = request.headers.get("X-User-ID", "demo_user")  # TODO: use real auth
+    
+    result = reserve_items(
+        items=[item.model_dump() for item in req.items],
+        session_id=session_id,
+        user_id=user_id,
+        idempotency_key=req.idempotency_key,
+        mock_mode=mock_mode,
+    )
+    
+    return ReservationResponse(**result)
+
+
+@app.get("/api/reservation/{reservation_id}")
+async def get_reservation_details(reservation_id: str):
+    """Get reservation details."""
+    reservation = get_reservation(reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    return reservation
+
+
+@app.post("/api/payment/create-intent", response_model=PaymentIntentResponse)
+async def create_payment_intent(req: PaymentIntentRequest):
+    """Create payment intent with Razorpay or Stripe."""
+    reservation = get_reservation(req.reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    if reservation["status"] != "reserved":
+        raise HTTPException(status_code=400, detail="Reservation is not in reserved state")
+    
+    amount = reservation["total_amount"]
+    
+    # Razorpay integration
+    payment_provider = os.getenv("PAYMENT_PROVIDER", "razorpay").lower()
+    
+    if payment_provider == "razorpay":
+        import razorpay
+        client = razorpay.Client(
+            auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
         )
-    return {"success": True, "reservation_id": res_id}
+        
+        order = client.order.create({
+            "amount": int(amount * 100),  # paise
+            "currency": "INR",
+            "receipt": req.reservation_id,
+            "notes": {
+                "reservation_id": req.reservation_id,
+                "customer_email": req.customer_email or "",
+            }
+        })
+        
+        return PaymentIntentResponse(
+            client_secret=order["id"],  # Razorpay order_id
+            amount=amount,
+            currency="INR",
+            reservation_id=req.reservation_id,
+        )
+    
+    elif payment_provider == "stripe":
+        import stripe
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+        
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount * 100),  # cents
+            currency="inr",
+            metadata={"reservation_id": req.reservation_id},
+        )
+        
+        return PaymentIntentResponse(
+            client_secret=intent.client_secret,
+            amount=amount,
+            currency="INR",
+            reservation_id=req.reservation_id,
+        )
+    
+    else:
+        raise HTTPException(status_code=500, detail="No payment provider configured")
 
-@app.post("/api/cart/{session_id}/release")
-async def release_cart(session_id: str, req: ReserveRequest, request: Request):
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import release_reservation
-    release_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
-    return {"success": True}
 
-@app.post("/api/cart/{session_id}/commit")
-async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import commit_reservation
-    commit_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
-    return {"success": True}
+class ConfirmPaymentRequest(BaseModel):
+    reservation_id: str
+    payment_id: str
+
+@app.post("/api/payment/confirm")
+async def confirm_payment(req: ConfirmPaymentRequest):
+    """Confirm payment and commit reservation."""
+    reservation = get_reservation(req.reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    # TODO: Verify payment with provider API
+    
+    commit_reservation(req.reservation_id)
+    
+    return {"success": True, "message": "Order confirmed"}
 
 
 
@@ -1383,3 +1489,64 @@ async def capture_event(req: EventRequest, request: Request):
     )
     return {"status": "logged"}
 
+
+# ---------------------------------------------------------------------------
+# Shopper DNA / Budget Fingerprint Profile
+# ---------------------------------------------------------------------------
+from app.db.dynamo import save_shopper_profile, get_shopper_profile
+
+
+class CartNarrativeRequest(BaseModel):
+    """Request for cart decision narrative."""
+    cart_items: list[dict] = Field(default_factory=list)
+    unavailable_items: list[dict] = Field(default_factory=list)
+    total_price: float = 0.0
+    budget: float | None = None
+    budget_exceeded: bool = False
+    context_summary: str = ""
+    dietary_pref: str | None = None
+
+
+@app.post("/api/cart-narrative")
+async def get_cart_narrative(req: CartNarrativeRequest, request: Request):
+    """Generate a 3-sentence decision rationale explaining why items were chosen."""
+    from app.intelligence.cart_narrative import generate_cart_narrative
+
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    narrative = generate_cart_narrative(
+        cart_items=req.cart_items,
+        unavailable_items=req.unavailable_items,
+        total_price=req.total_price,
+        budget=req.budget,
+        budget_exceeded=req.budget_exceeded,
+        context_summary=req.context_summary,
+        dietary_pref=req.dietary_pref,
+        mock_mode=mock_mode,
+    )
+    return {"narrative": narrative}
+
+
+class ShopperProfileRequest(BaseModel):
+    user_id: str
+    archetype_history: list[str] = Field(default_factory=list)
+    trait_counts: dict[str, int] = Field(default_factory=dict)
+    total_sessions: int = 0
+    top_traits: list[dict] = Field(default_factory=list)
+    current_fingerprint: dict | None = None
+
+
+@app.post("/api/shopper-profile")
+async def update_shopper_profile(req: ShopperProfileRequest, request: Request):
+    """Save or update the shopper DNA profile (Budget Fingerprint)."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    profile_data = req.model_dump(exclude={"user_id"})
+    save_shopper_profile(req.user_id, profile_data, mock_mode=mock_mode)
+    return {"status": "success"}
+
+
+@app.get("/api/shopper-profile/{user_id}")
+async def fetch_shopper_profile(user_id: str, request: Request):
+    """Load shopper DNA profile for a user."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    profile = get_shopper_profile(user_id, mock_mode=mock_mode)
+    return profile or {}

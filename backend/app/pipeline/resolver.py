@@ -28,6 +28,37 @@ import os
 # New V2 imports
 from app.catalog.models import ProductQuery, RankedProduct
 from app.search.local_retrieval import LocalRetriever
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Words that stay lowercase in title case (articles, conjunctions, prepositions)
+_LOWERCASE_WORDS = {"a", "an", "the", "and", "or", "of", "for", "in", "on", "with", "to", "vs"}
+# Words/patterns that should stay uppercase (brand abbreviations, units)
+_UPPERCASE_PATTERNS = {"2l", "1l", "1.25l", "500ml", "250ml", "200g", "100g", "ml", "g", "kg", "pet", "itc", "mdh", "mtr"}
+
+
+def _title_case(name: str) -> str:
+    """Convert product name to proper title case, respecting brand abbreviations and units."""
+    if not name:
+        return name
+    words = name.split()
+    result = []
+    for i, word in enumerate(words):
+        lower = word.lower()
+        if lower in _UPPERCASE_PATTERNS or (len(word) <= 3 and word.upper() == word and word.isalpha()):
+            result.append(word.upper())
+        elif "-" in word:
+            # Handle hyphenated words like "coca-cola" → "Coca-Cola"
+            parts = word.split("-")
+            result.append("-".join(p[0].upper() + p[1:] if p else p for p in parts))
+        elif i == 0 or lower not in _LOWERCASE_WORDS:
+            result.append(word[0].upper() + word[1:] if word else word)
+        else:
+            result.append(lower)
+    return " ".join(result)
 from app.search.ranker import rank_candidates, RankingContext
 
 logger = logging.getLogger(__name__)
@@ -38,15 +69,23 @@ _retriever: Optional[ProductRetriever] = None
 
 
 def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
-    """Get or create the retriever singleton."""
+    """
+    Get or create the retriever singleton.
+    
+    Priority:
+    1. SEARCH_PROVIDER=opensearch -> OpenSearchRetriever (if explicitly set)
+    2. SEARCH_PROVIDER=hybrid (default) -> HybridRetriever (BM25 + synonyms + fuzzy)
+    3. SEARCH_PROVIDER=local -> LocalVectorRetriever (vector-only fallback)
+    """
     global _retriever
     if _retriever is None:
-        provider = os.getenv("SEARCH_PROVIDER", "local").strip().lower()
+        provider = os.getenv("SEARCH_PROVIDER", "hybrid").strip().lower()
+        
         if provider == "opensearch":
             from app.search.opensearch_retrieval import OpenSearchRetriever
             host = os.getenv("OPENSEARCH_HOST", "")
             _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
-        elif provider in ("local_vector", "vector"):
+        elif provider in ("local", "local_vector", "vector"):
             from app.search.local_vector_retrieval import LocalVectorRetriever
             logger.warning(
                 "SEARCH_PROVIDER=%s is experimental; default local BM25 is safer "
@@ -55,7 +94,9 @@ def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
             )
             _retriever = LocalVectorRetriever(mock_mode=mock_mode)
         else:
-            _retriever = LocalRetriever(mock_mode=mock_mode)
+            # Default: hybrid retriever (BM25 + synonyms + fuzzy matching)
+            from app.search.hybrid_retrieval import HybridRetriever
+            _retriever = HybridRetriever(mock_mode=mock_mode)
     return _retriever
 
 
@@ -195,7 +236,7 @@ def _build_cart_item(
         
         alt_list.append({
             "sku": alt.sku,
-            "name": alt.title,
+            "name": _title_case(alt.title),
             "brand": alt.brand,
             "price_per_unit": alt.price_inr,
             "price_per_unit_inr": alt.price_inr,
@@ -215,7 +256,7 @@ def _build_cart_item(
     
     return CartItem(
         sku=product.sku,
-        name=product.title,
+        name=_title_case(product.title),
         brand=product.brand,
         quantity_units=quantity_units,
         unit=product.unit,
@@ -272,22 +313,20 @@ def _optimize_for_budget(
             savings = item.total_price_inr - cheapest["total_price_inr"]
             
             updated_item = item.model_copy(update={
-                "pending_substitution": {
-                    "name": cheapest["name"],
-                    "sku": cheapest["sku"],
-                    "brand": cheapest["brand"],
-                    "price_per_unit_inr": cheapest["price_per_unit_inr"],
-                    "quantity_units": cheapest["quantity_units"],
-                    "unit": item.unit,
-                    "unit_quantity": item.unit_quantity,
-                    "total_price_inr": cheapest["total_price_inr"],
-                    "reason": f"Save ₹{savings:.0f}",
-                },
+                "name": cheapest["name"],
+                "sku": cheapest["sku"],
+                "brand": cheapest["brand"],
+                "price_per_unit_inr": cheapest["price_per_unit_inr"],
+                "quantity_units": cheapest["quantity_units"],
+                "total_price_inr": cheapest["total_price_inr"],
+                "substituted": True,
+                "substitution_reason": f"Save ₹{savings:.0f}",
+                "pending_substitution": None,
             })
             optimized.append(updated_item)
             logger.info(
-                f"Pending substitution for '{item.name}' -> '{cheapest['name']}' "
-                f"(potential saving ₹{savings:.0f})"
+                f"Substituted '{item.name}' -> '{cheapest['name']}' "
+                f"(saved ₹{savings:.0f})"
             )
         else:
             optimized.append(item)
@@ -316,6 +355,7 @@ def resolve_cart(
     quality_preference: str = "balanced",
     pack_size_preference: str = "balanced",
     occasion: Optional[str] = None,
+    implicit_preferences: Optional[any] = None,
 ) -> tuple[list[CartItem], list[UnavailableItem], float, bool]:
     """
     Resolve extracted items to real products using retrieval + ranking.
@@ -349,6 +389,7 @@ def resolve_cart(
         pack_size_preference=pack_size_preference or "balanced",
         occasion=occasion,
         remaining_budget=remaining_budget,
+        favorite_skus=implicit_preferences.favorite_skus if implicit_preferences else [],
     )
 
     for item in items:

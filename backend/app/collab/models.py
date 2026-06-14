@@ -80,6 +80,9 @@ class CollabCartItem(BaseModel):
     pending_substitution: Optional[dict] = None
     substitution_reason: Optional[str] = None
     merge_savings_inr: float = 0.0
+    carbon_co2_kg: float = 0.0
+    carbon_origin: str = ""
+    local_carbon_alternative: Optional[dict] = None
 
     @property
     def total_price_inr(self) -> float:
@@ -100,6 +103,9 @@ class CollabSession(BaseModel):
     contributors: list[Contributor] = Field(default_factory=list)
     items: list[CollabCartItem] = Field(default_factory=list)
     share_code: str = ""
+    community_code: str = ""
+    community_name: str = ""
+    carbon_score_kg: float = 0.0
     is_active: bool = True
 
     @property
@@ -127,6 +133,8 @@ class CreateCollabRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     host_name: str = Field(..., min_length=1, max_length=50)
     total_budget_inr: float = Field(0.0, ge=0)
+    community_code: str = Field(default="", max_length=60)
+    community_name: str = Field(default="", max_length=80)
 
 
 class JoinCollabRequest(BaseModel):
@@ -157,7 +165,58 @@ class CollabSummary(BaseModel):
     total_budget_inr: float
     total_estimated_cost: float
     budget_remaining: float
+    carbon_score_kg: float = 0.0
     is_active: bool
+
+
+class CarbonItemBreakdown(BaseModel):
+    sku: str
+    name: str
+    co2_kg: float
+    origin: str
+    distance_km: float
+
+
+class CarbonAlternative(BaseModel):
+    sku: str
+    name: str
+    local_alt_sku: str
+    local_alt_name: str
+    savings_km: float
+    savings_co2_kg: float
+
+
+class CarbonCartBreakdown(BaseModel):
+    total_co2_kg: float
+    items: list[CarbonItemBreakdown] = Field(default_factory=list)
+    suggestions: list[CarbonAlternative] = Field(default_factory=list)
+
+
+class CommunityGroup(BaseModel):
+    code: str
+    name: str
+    member_session_ids: list[str] = Field(default_factory=list)
+    created_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+
+class BulkDealSession(BaseModel):
+    session_id: str
+    session_name: str
+    items: list[dict] = Field(default_factory=list)
+    subtotal_inr: float = 0.0
+    discounted_total_inr: float = 0.0
+    estimated_savings_inr: float = 0.0
+
+
+class BulkDealMatch(BaseModel):
+    category: str
+    matching_sessions: list[BulkDealSession] = Field(default_factory=list)
+    total_quantity: float = 0.0
+    discount_pct: float = 0.0
+    estimated_savings_inr: float = 0.0
+    accepted_session_ids: list[str] = Field(default_factory=list)
 
 
 class RemoveCollabItemRequest(BaseModel):

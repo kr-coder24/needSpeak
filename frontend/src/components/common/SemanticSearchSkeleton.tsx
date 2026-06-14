@@ -8,7 +8,7 @@ export function SemanticSearchSkeleton() {
     "Generating 768-dimensional semantic vectors...",
     "Querying local vector space for Cosine Similarity...",
     "Applying dietary and budget weights...",
-    "Ranking top candidates..."
+    "Ranking top candidates...",
   ];
 
   useEffect(() => {

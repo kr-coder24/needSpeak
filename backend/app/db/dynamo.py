@@ -22,6 +22,7 @@ from app.config import (
     DYNAMODB_TABLE_SESSIONS, 
     DYNAMODB_TABLE_PREFERENCES,
     DYNAMODB_TABLE_EVENTS,
+    DYNAMODB_TABLE_SHOPPER_PROFILES,
     MOCK_AWS
 )
 
@@ -54,6 +55,10 @@ def _get_preferences_table():
 
 def _get_events_table():
     return _get_dynamodb().Table(DYNAMODB_TABLE_EVENTS)
+
+
+def _get_shopper_profiles_table():
+    return _get_dynamodb().Table(DYNAMODB_TABLE_SHOPPER_PROFILES)
 
 
 # ---------------------------------------------------------------------------
@@ -776,3 +781,39 @@ def get_user_events(user_id: str, event_type: str = "purchase", limit: int = 50,
     except Exception as e:
         logger.error(f"Error getting events for {user_id}: {e}")
         return []
+
+# ---------------------------------------------------------------------------
+# Shopper Profiles / Budget Fingerprint (Shopper DNA)
+# ---------------------------------------------------------------------------
+_mock_shopper_profiles_store: dict[str, dict] = {}
+
+
+def save_shopper_profile(user_id: str, profile_data: dict, mock_mode: Optional[bool] = None) -> None:
+    """Save or update shopper DNA profile."""
+    is_mock = MOCK_AWS or (mock_mode if mock_mode is not None else False)
+    if is_mock:
+        _mock_shopper_profiles_store[user_id] = profile_data
+        return
+
+    table = _get_shopper_profiles_table()
+    item = json.loads(json.dumps(profile_data, default=str), parse_float=Decimal)
+    item["user_id"] = user_id
+    item["last_updated_at"] = datetime.now(timezone.utc).isoformat()
+    table.put_item(Item=item)
+
+
+def get_shopper_profile(user_id: str, mock_mode: Optional[bool] = None) -> Optional[dict]:
+    """Retrieve shopper DNA profile for a user."""
+    is_mock = MOCK_AWS or (mock_mode if mock_mode is not None else False)
+    if is_mock:
+        return _mock_shopper_profiles_store.get(user_id)
+
+    table = _get_shopper_profiles_table()
+    try:
+        response = table.get_item(Key={"user_id": user_id})
+        item = response.get("Item")
+        if item:
+            return _decimal_to_native(item)
+    except Exception as e:
+        logger.error(f"Error getting shopper profile for {user_id}: {e}")
+    return None

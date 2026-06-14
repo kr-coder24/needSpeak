@@ -16,13 +16,25 @@ import {
   Wifi,
   WifiOff,
   X,
+  Mail,
+  Phone,
+  Send,
+  Leaf,
+  Handshake,
+  RefreshCw,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { useCollabWebSocket } from "@/hooks/useCollabWebSocket";
-import { joinCollabSession } from "@/lib/collab-api";
+import {
+  acceptCommunityDeal,
+  getCommunityDeals,
+  joinCollabSession,
+  type BulkDealMatch,
+} from "@/lib/collab-api";
 
 export const Route = createFileRoute("/collab/$id")({
   component: CollabPage,
@@ -37,6 +49,33 @@ const contributorColors = [
 ];
 
 const units = ["piece", "pack", "g", "kg", "ml", "l"];
+
+const UNIT_PRESETS: Array<{ tokens: string[]; units: string[]; defaultUnit: string }> = [
+  {
+    tokens: ["milk", "doodh", "water", "juice", "oil", "ghee", "cream", "coke", "cola", "drink"],
+    units: ["ml", "l"],
+    defaultUnit: "ml",
+  },
+  {
+    tokens: ["rice", "atta", "flour", "sugar", "salt", "paneer", "butter", "chicken", "chips"],
+    units: ["g", "kg"],
+    defaultUnit: "g",
+  },
+  {
+    tokens: ["bun", "buns", "bread", "notebook", "pen", "pencil", "eraser", "sharpener"],
+    units: ["piece", "pack"],
+    defaultUnit: "piece",
+  },
+];
+const DEFAULT_UNIT_PRESET = { units, defaultUnit: "piece" };
+
+function getAllowedUnits(productName: string) {
+  const normalized = productName.toLowerCase();
+  const preset = UNIT_PRESETS.find((entry) =>
+    entry.tokens.some((token) => normalized.includes(token)),
+  );
+  return preset || DEFAULT_UNIT_PRESET;
+}
 
 function quantityStep(unit: string) {
   if (unit === "g" || unit === "ml") return 100;
@@ -60,6 +99,13 @@ function CollabPage() {
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [budgetDraft, setBudgetDraft] = useState("");
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [showCommunityDeals, setShowCommunityDeals] = useState(false);
+  const [communityDeals, setCommunityDeals] = useState<BulkDealMatch[]>([]);
+  const [isLoadingDeals, setIsLoadingDeals] = useState(false);
 
   useEffect(() => {
     setContributorId(localStorage.getItem(`collab_${sessionId}_contributor`));
@@ -84,7 +130,15 @@ function CollabPage() {
 
   useEffect(() => {
     if (session) setBudgetDraft(String(session.total_budget_inr));
-  }, [session?.total_budget_inr]);
+  }, [session]);
+
+  const unitPreset = useMemo(() => getAllowedUnits(productName), [productName]);
+
+  useEffect(() => {
+    if (productName.trim() && !unitPreset.units.includes(unit)) {
+      setUnit(unitPreset.defaultUnit);
+    }
+  }, [productName, unit, unitPreset.defaultUnit, unitPreset.units]);
 
   const handleJoin = async (event: FormEvent) => {
     event.preventDefault();
@@ -107,6 +161,37 @@ function CollabPage() {
     addItems([{ name: productName.trim(), quantity, unit }]);
     setProductName("");
     setQuantity(1);
+  };
+
+  const handleInvite = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() && !invitePhone.trim()) return;
+
+    setInviting(true);
+    try {
+      const recipients = [];
+      if (inviteEmail.trim()) recipients.push({ type: "email", value: inviteEmail.trim() });
+      if (invitePhone.trim()) recipients.push({ type: "sms", value: invitePhone.trim() });
+
+      const res = await fetch(`/api/collab/${sessionId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipients, contributor_id: contributorId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to send invites");
+
+      const data = await res.json();
+      const successCount = data.results.filter((r: any) => r.success).length;
+      toast.success(`Sent ${successCount} invite${successCount !== 1 ? "s" : ""}!`);
+      setInviteEmail("");
+      setInvitePhone("");
+      setShowInviteModal(false);
+    } catch (err) {
+      toast.error("Could not send invites. Try again.");
+    } finally {
+      setInviting(false);
+    }
   };
 
   if (!contributorId) {
@@ -202,6 +287,35 @@ function CollabPage() {
   const activeContributors = session.contributors.filter(
     (contributor) => contributor.status === "active",
   );
+  const hasCommunity = Boolean(session.community_code);
+
+  const loadCommunityDeals = async () => {
+    if (!session.community_code) return;
+    setIsLoadingDeals(true);
+    try {
+      const payload = await getCommunityDeals(session.community_code, session.session_id);
+      setCommunityDeals(payload.deals);
+    } catch {
+      toast.error("Could not load community deals.");
+    } finally {
+      setIsLoadingDeals(false);
+    }
+  };
+
+  const acceptDeal = async (category: string) => {
+    if (!session.community_code) return;
+    try {
+      const payload = await acceptCommunityDeal(
+        session.session_id,
+        session.community_code,
+        category,
+      );
+      setCommunityDeals(payload.deals);
+      toast.success("Community deal accepted for this cart.");
+    } catch {
+      toast.error("Could not accept this deal.");
+    }
+  };
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -228,6 +342,12 @@ function CollabPage() {
                 {isConnected ? "Live sync" : "Reconnecting"}
               </span>
               <span className="text-sm text-muted-foreground">Hosted by {session.host_name}</span>
+              {hasCommunity && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-xs font-bold text-success">
+                  <Leaf className="h-3.5 w-3.5" />
+                  {session.community_name || session.community_code}
+                </span>
+              )}
             </div>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
               {session.name}
@@ -238,6 +358,25 @@ function CollabPage() {
           </div>
 
           <div className="relative flex gap-2">
+            {hasCommunity && (
+              <button
+                onClick={() => {
+                  setShowCommunityDeals(true);
+                  void loadCommunityDeals();
+                }}
+                className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-success/20 bg-success/10 px-4 text-sm font-semibold text-success transition hover:bg-success/15"
+              >
+                <Handshake className="h-4 w-4" />
+                Community deals
+              </button>
+            )}
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold transition hover:bg-surface"
+            >
+              <Send className="h-4 w-4" />
+              Invite
+            </button>
             <button
               onClick={copyLink}
               className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold transition hover:bg-surface"
@@ -274,7 +413,7 @@ function CollabPage() {
           </div>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-3">
+        <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric
             icon={<Users className="h-5 w-5" />}
             label="Individual requests"
@@ -292,6 +431,12 @@ function CollabPage() {
             label="Merge savings"
             value={`Rs ${mergeSavings.toFixed(0)}`}
             detail="Fewer packs to buy"
+          />
+          <Metric
+            icon={<Leaf className="h-5 w-5" />}
+            label="Carbon footprint"
+            value={`${session.carbon_score_kg.toFixed(2)} kg`}
+            detail="CO2e transport"
           />
         </section>
 
@@ -353,7 +498,7 @@ function CollabPage() {
                       className="h-11 w-full cursor-pointer rounded-xl border border-input bg-background px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                       disabled={!isConnected}
                     >
-                      {units.map((entry) => (
+                      {unitPreset.units.map((entry) => (
                         <option key={entry} value={entry}>
                           {entry}
                         </option>
@@ -599,10 +744,16 @@ function CollabPage() {
                                     Saved Rs {item.merge_savings_inr.toFixed(0)}
                                   </span>
                                 )}
+                                {item.carbon_co2_kg > 0 && (
+                                  <span className="rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-bold text-success">
+                                    {item.carbon_co2_kg.toFixed(2)} kg CO2e
+                                  </span>
+                                )}
                               </div>
                               <p className="mt-0.5 text-sm text-muted-foreground">
                                 {item.brand} · Buy {item.quantity} x{" "}
                                 {formatQuantity(item.unit_quantity)} {item.unit}
+                                {item.carbon_origin ? ` Â· Origin: ${item.carbon_origin}` : ""}
                               </p>
                             </div>
                             <div className="shrink-0 text-right">
@@ -722,6 +873,19 @@ function CollabPage() {
                               </div>
                             </div>
                           )}
+
+                          {item.local_carbon_alternative && (
+                            <div className="mt-4 rounded-2xl border border-success/20 bg-success/5 p-4">
+                              <p className="text-sm font-bold text-success">
+                                Local carbon swap: {item.local_carbon_alternative.local_alt_name}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Could save {item.local_carbon_alternative.savings_km.toFixed(0)} km
+                                transport and{" "}
+                                {item.local_carbon_alternative.savings_co2_kg.toFixed(2)} kg CO2e.
+                              </p>
+                            </div>
+                          )}
                         </motion.li>
                       );
                     })}
@@ -729,9 +893,210 @@ function CollabPage() {
                 </ul>
               )}
             </section>
+
+            {session.items.length > 0 && (
+              <section className="mt-6 rounded-3xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold">Carbon breakdown</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Per-item transport footprint from catalog origin metadata.
+                    </p>
+                  </div>
+                  <Leaf className="h-5 w-5 text-success" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {session.items.map((item) => {
+                    const max = Math.max(...session.items.map((entry) => entry.carbon_co2_kg), 0.1);
+                    const width = Math.max(6, (item.carbon_co2_kg / max) * 100);
+                    return (
+                      <div key={item.id} className="rounded-2xl bg-surface/60 p-3">
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="font-semibold capitalize">{item.name}</span>
+                          <span className="text-muted-foreground">
+                            {item.carbon_origin || "Unknown"} Â· {item.carbon_co2_kg.toFixed(2)} kg
+                          </span>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-background">
+                          <div
+                            className="h-full rounded-full bg-success"
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </main>
         </div>
       </div>
+
+      {showInviteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowInviteModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold">Invite Contributors</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Send invite links via email or SMS</p>
+
+            <form onSubmit={handleInvite} className="mt-6 space-y-4">
+              <div>
+                <label htmlFor="invite-email" className="mb-1.5 block text-sm font-semibold">
+                  <Mail className="inline h-4 w-4 mr-1" />
+                  Email (optional)
+                </label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="friend@example.com"
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="invite-phone" className="mb-1.5 block text-sm font-semibold">
+                  <Phone className="inline h-4 w-4 mr-1" />
+                  Phone (optional)
+                </label>
+                <input
+                  id="invite-phone"
+                  type="tel"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  placeholder="+1234567890"
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="h-11 flex-1 cursor-pointer rounded-xl border border-border px-4 font-semibold transition hover:bg-surface"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting || (!inviteEmail.trim() && !invitePhone.trim())}
+                  className="h-11 flex-1 cursor-pointer rounded-xl bg-foreground px-4 font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {inviting ? "Sending..." : "Send Invites"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCommunityDeals && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+          onClick={() => setShowCommunityDeals(false)}
+        >
+          <div
+            className="max-h-[82vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-success">
+                  {session.community_name || session.community_code}
+                </p>
+                <h2 className="mt-1 text-2xl font-bold">Community bulk-buy deals</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Matches are computed from live carts in the same community code.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCommunityDeals(false)}
+                aria-label="Close community deals"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full hover:bg-surface"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={loadCommunityDeals}
+              disabled={isLoadingDeals}
+              className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-surface disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoadingDeals ? "animate-spin" : ""}`} />
+              Refresh live matches
+            </button>
+
+            <div className="mt-5 space-y-3">
+              {communityDeals.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-6 text-center">
+                  <p className="font-semibold">No matching community deals yet.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Create another cart with this code and add overlapping categories like dairy or
+                    grains.
+                  </p>
+                </div>
+              ) : (
+                communityDeals.map((deal) => {
+                  const accepted = deal.accepted_session_ids.includes(session.session_id);
+                  return (
+                    <div
+                      key={deal.category}
+                      className="rounded-2xl border border-border bg-background/60 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-lg font-extrabold capitalize">
+                            {deal.matching_sessions.length} carts buying {deal.category}
+                          </h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Combine {deal.total_quantity.toFixed(0)} packs for {deal.discount_pct}%
+                            off.
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-success">
+                            Estimated community savings Rs {deal.estimated_savings_inr.toFixed(0)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => acceptDeal(deal.category)}
+                          disabled={accepted}
+                          className="cursor-pointer rounded-xl bg-foreground px-4 py-2 text-sm font-bold text-background disabled:cursor-default disabled:opacity-50"
+                        >
+                          {accepted ? "Accepted" : "Accept deal"}
+                        </button>
+                      </div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        {deal.matching_sessions.map((dealSession) => (
+                          <div
+                            key={dealSession.session_id}
+                            className="rounded-xl bg-surface/70 p-3"
+                          >
+                            <p className="font-bold">{dealSession.session_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Rs {dealSession.subtotal_inr.toFixed(0)} becomes Rs{" "}
+                              {dealSession.discounted_total_inr.toFixed(0)}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-success">
+                              Saves Rs {dealSession.estimated_savings_inr.toFixed(0)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

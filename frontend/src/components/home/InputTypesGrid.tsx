@@ -2,11 +2,31 @@ import { FileText, Image as ImageIcon, Link as LinkIcon, MessageSquare, Type } f
 import { SpotlightCard } from "@/components/effects/SpotlightCard";
 
 const types = [
-  { icon: Type, title: "Natural language", example: '"Diwali dinner for 8, mostly vegetarian, ₹2500"' },
-  { icon: LinkIcon, title: "Recipe URL", example: "Paste any recipe — ingredients become a cart with quantities scaled." },
-  { icon: ImageIcon, title: "Shopping list image", example: "Snap a handwritten list, get a structured cart back." },
-  { icon: MessageSquare, title: "WhatsApp message", example: "Forward the family group order — NeedSpeak parses every line." },
-  { icon: FileText, title: "PDF / document", example: "Drop a school supply list or event plan PDF." },
+  {
+    icon: Type,
+    title: "Natural language",
+    example: '"Diwali dinner for 8, mostly vegetarian, ₹2500"',
+  },
+  {
+    icon: LinkIcon,
+    title: "Recipe URL",
+    example: "Paste any recipe — ingredients become a cart with quantities scaled.",
+  },
+  {
+    icon: ImageIcon,
+    title: "Shopping list image",
+    example: "Snap a handwritten list, get a structured cart back.",
+  },
+  {
+    icon: MessageSquare,
+    title: "WhatsApp message",
+    example: "Forward the family group order — NeedSpeak parses every line.",
+  },
+  {
+    icon: FileText,
+    title: "PDF / document",
+    example: "Drop a school supply list or event plan PDF.",
+  },
 ];
 
 export function InputTypesGrid() {

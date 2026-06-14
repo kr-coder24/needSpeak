@@ -14,14 +14,97 @@ from app.collab.models import (
     Contributor,
     ProductSuggestion,
 )
+from app.catalog.models import ProductQuery
 from app.db.dynamo import get_all_products
 from app.models import ExtractedItem
 from app.pipeline.resolver import _calculate_quantity_units, _exact_match, _keyword_overlap_match
+from app.search.local_retrieval import LocalRetriever
+from app.search.ranker import RankingContext, rank_candidates
 from app.unit_conversions import normalize_to_base_unit
 
 _ALTERNATIVE_FAMILIES = [
     {"bread", "bun", "buns"},
 ]
+
+COUNT_UNITS = {"piece", "pieces", "pack", "packs"}
+WEIGHT_UNITS = {"g", "kg"}
+VOLUME_UNITS = {"ml", "l", "litre", "liter"}
+_SEARCH_RETRIEVER = LocalRetriever(mock_mode=False)
+
+
+def _product_by_sku(products: list[dict], sku: str) -> Optional[dict]:
+    return next((product for product in products if product.get("sku") == sku), None)
+
+
+def _search_engine_match(extracted: ExtractedItem) -> tuple[Optional[dict], str]:
+    """Resolve through Pillar 1 retrieval and ranking."""
+
+    products = get_all_products()
+    query = ProductQuery(
+        query_text=extracted.name,
+        category=None if extracted.category == "general" else extracted.category,
+    )
+    candidates = _SEARCH_RETRIEVER.retrieve(query, limit=12)
+    ranked = rank_candidates(
+        candidates,
+        RankingContext(
+            budget_mode="balanced",
+            quality_preference="balanced",
+            pack_size_preference="balanced",
+        ),
+    )
+    if not ranked:
+        return None, ""
+
+    best = ranked[0]
+    # Avoid turning gibberish into a random SKU. Typos with no retrieval hit are
+    # handled by find_close_suggestions below.
+    retrieval_relevance = best.score_breakdown.get("retrieval_relevance", 0.0)
+    if retrieval_relevance < 0.35 and best.score < 0.45:
+        return None, ""
+
+    product = _product_by_sku(products, best.sku)
+    if not product:
+        return None, ""
+    return product, best.display_reason or "Resolved by Pillar 1 search ranking"
+
+
+def _normalize_request_unit_for_product(
+    quantity: float,
+    unit: str,
+    product: dict,
+) -> tuple[float, str, Optional[str]]:
+    """Convert count-style demand into the SKU's measurable selling unit.
+
+    Example: "1 piece milk" becomes "500 ml milk" when the chosen SKU is a
+    500 ml milk pouch. This keeps the UI and split math honest while still
+    letting a rushed demo click recover gracefully.
+    """
+
+    requested_unit = unit.strip().lower()
+    product_unit = str(product.get("unit", "piece")).strip().lower()
+    product_unit_quantity = float(product.get("unit_quantity", 1))
+
+    if requested_unit in COUNT_UNITS and product_unit in WEIGHT_UNITS | VOLUME_UNITS:
+        return (
+            quantity * product_unit_quantity,
+            product_unit,
+            (
+                f"Interpreted {quantity:g} {requested_unit} as "
+                f"{quantity * product_unit_quantity:g} {product_unit}, "
+                f"because {product.get('name', 'this item')} is sold by {product_unit}."
+            ),
+        )
+
+    if requested_unit == "l":
+        return quantity, "litre", None
+    if requested_unit == "liter":
+        return quantity, "litre", None
+    if requested_unit == "pieces":
+        return quantity, "piece", None
+    if requested_unit == "packs":
+        return quantity, "pack", None
+    return quantity, requested_unit, None
 
 
 def _normalize_text(value: str) -> str:
@@ -140,6 +223,9 @@ def find_better_deal(product: dict, products: list[dict]) -> Optional[dict]:
     """Return a cheaper, closely related catalog product when one exists."""
 
     subcategory = product.get("subcategory", "").lower()
+    product_unit_quantity = float(product.get("unit_quantity", 1))
+    product_price = float(product.get("price_inr", 0))
+    product_unit_price = product_price / max(product_unit_quantity, 1)
     candidates = [
         candidate
         for candidate in products
@@ -147,8 +233,11 @@ def find_better_deal(product: dict, products: list[dict]) -> Optional[dict]:
         and candidate.get("in_stock", True)
         and candidate.get("subcategory", "").lower() == subcategory
         and candidate.get("unit", "piece") == product.get("unit", "piece")
-        and float(candidate.get("price_inr", 0))
-        < float(product.get("price_inr", 0))
+        and (
+            float(candidate.get("price_inr", 0))
+            / max(float(candidate.get("unit_quantity", 1)), 1)
+        )
+        < product_unit_price
         and _same_alternative_family(product, candidate)
     ]
     if not candidates:
@@ -156,9 +245,15 @@ def find_better_deal(product: dict, products: list[dict]) -> Optional[dict]:
 
     alternative = min(
         candidates,
-        key=lambda candidate: float(candidate.get("price_inr", float("inf"))),
+        key=lambda candidate: (
+            float(candidate.get("price_inr", float("inf")))
+            / max(float(candidate.get("unit_quantity", 1)), 1)
+        ),
     )
-    savings = float(product["price_inr"]) - float(alternative["price_inr"])
+    alternative_unit_price = float(alternative["price_inr"]) / max(
+        float(alternative.get("unit_quantity", 1)), 1
+    )
+    savings = (product_unit_price - alternative_unit_price) * product_unit_quantity
     return {
         "sku": alternative["sku"],
         "name": alternative["name"],
@@ -166,7 +261,7 @@ def find_better_deal(product: dict, products: list[dict]) -> Optional[dict]:
         "price_per_unit_inr": float(alternative["price_inr"]),
         "unit": alternative.get("unit", "piece"),
         "unit_quantity": float(alternative.get("unit_quantity", 1)),
-        "reason": f"Save Rs {savings:.0f} per pack with a similar option",
+        "reason": f"Save Rs {savings:.0f} per equivalent pack with a similar option",
         "savings_per_unit_inr": savings,
     }
 
@@ -186,15 +281,25 @@ def resolve_collab_input(
         notes=item_input.notes,
     )
 
-    product = _exact_match(extracted.name, products)
+    product, match_reason = _search_engine_match(extracted)
+    if product is None:
+        product = _exact_match(extracted.name, products)
+        match_reason = "Matched by product name"
     if product is None:
         product = _keyword_overlap_match(extracted.name, products, extracted.category)
-    match_reason = "Matched by product name"
+        match_reason = "Matched by keyword overlap"
     if product is None:
         product = _alias_match(extracted.name, products)
         match_reason = "Matched from a catalog alias"
     if product is None:
         return None, find_close_suggestions(extracted.name, products)
+
+    normalized_quantity, normalized_unit, unit_note = _normalize_request_unit_for_product(
+        extracted.quantity, extracted.unit, product
+    )
+    extracted = extracted.model_copy(
+        update={"quantity": normalized_quantity, "unit": normalized_unit}
+    )
 
     requested_base_amount, requested_base_unit = normalize_to_base_unit(
         extracted.quantity, extracted.unit, extracted.name
@@ -215,7 +320,7 @@ def resolve_collab_input(
         requested_base_amount=requested_base_amount,
         requested_base_unit=requested_base_unit,
         standalone_quantity_units=standalone_units,
-        notes=extracted.notes,
+        notes=unit_note or extracted.notes,
     )
     alternative = find_better_deal(product, products)
     resolved = CollabCartItem(
@@ -230,7 +335,7 @@ def resolve_collab_input(
         estimated_price_inr=float(product.get("price_inr", 0)),
         added_by=contributor.id,
         added_by_name=contributor.name,
-        notes=item_input.notes,
+        notes=unit_note or item_input.notes,
         matched_from=[
             (
                 f"{contributor.name}: {extracted.quantity:g} "
@@ -239,6 +344,6 @@ def resolve_collab_input(
         ],
         demands=[demand],
         pending_substitution=alternative,
-        substitution_reason=match_reason,
+        substitution_reason=unit_note or match_reason,
     )
     return resolved, []

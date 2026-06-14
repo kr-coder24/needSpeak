@@ -114,9 +114,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
   beforeLoad: ({ location }) => {
-    if (!getStoredAuth() && location.pathname !== '/login') {
+    if (!getStoredAuth() && location.pathname !== "/login") {
       throw redirect({
-        to: '/login',
+        to: "/login",
       });
     }
   },

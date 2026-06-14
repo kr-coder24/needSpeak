@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.collab.collab_service import resolve_collab_input
+from app.collab.carbon_footprint import compute_cart_carbon
 from app.collab.collab_store import (
     apply_substitution,
     create_session,
@@ -20,6 +21,7 @@ from app.collab.collab_store import (
     update_budget,
     update_demand_quantity,
 )
+from app.collab.community_store import join_community, normalize_community_code
 from app.collab.collab_ws import manager
 from app.collab.models import (
     AddCollabItemsRequest,
@@ -51,9 +53,13 @@ def _get_contributor(session_id: str, contributor_id: str):
 def _state_payload(session_id: str) -> dict:
     session = get_session(session_id)
     splits = get_budget_split(session_id) or []
+    carbon = compute_cart_carbon(session.items) if session else None
+    if session and carbon:
+        session.carbon_score_kg = carbon.total_co2_kg
     return {
         "session": session.model_dump() if session else None,
         "splits": [split.model_dump() for split in splits],
+        "carbon": carbon.model_dump() if carbon else None,
     }
 
 
@@ -106,7 +112,16 @@ async def create_collab(req: CreateCollabRequest):
         name=req.name.strip(),
         host_name=req.host_name.strip(),
         total_budget_inr=req.total_budget_inr,
+        community_code=normalize_community_code(req.community_code),
+        community_name=req.community_name.strip(),
     )
+    if session.community_code:
+        group = join_community(
+            session.session_id, session.community_code, session.community_name
+        )
+        if group:
+            session.community_code = group.code
+            session.community_name = group.name
     logger.info("Created collab session %s by %s", session.session_id, host.name)
     return {"session": session.model_dump(), "contributor": host.model_dump()}
 
@@ -190,6 +205,16 @@ async def get_collab_split(session_id: str):
     if splits is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"splits": [split.model_dump() for split in splits]}
+
+
+@router.get("/{session_id}/carbon")
+async def get_collab_carbon(session_id: str):
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    carbon = compute_cart_carbon(session.items)
+    session.carbon_score_kg = carbon.total_co2_kg
+    return carbon.model_dump()
 
 
 @router.websocket("/{session_id}/ws")
@@ -342,3 +367,61 @@ async def collab_websocket(
     except Exception:
         logger.exception("WebSocket failure in collab session %s", session_id)
         manager.disconnect(session_id, websocket, contributor_id)
+
+
+from pydantic import BaseModel
+from app.collab.collab_notifications import send_email_invite, send_sms_invite
+
+class InviteRequest(BaseModel):
+    recipients: list[dict]  # [{"type": "email", "value": "user@example.com"}, ...]
+    contributor_id: str
+
+@router.post("/{session_id}/invite")
+async def send_invites(session_id: str, req: InviteRequest):
+    """Send collaboration invites via email or SMS."""
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    contributor = _get_contributor(session_id, req.contributor_id)
+    if not contributor:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Only host or active contributors can invite
+    if contributor.status != "active" and session.host_id != req.contributor_id:
+        raise HTTPException(status_code=403, detail="Only active contributors can invite")
+    
+    share_url = f"https://yourdomain.com/collab/join/{session.share_code}"
+    # For local dev: share_url = f"http://localhost:5173/collab/join/{session.share_code}"
+    
+    results = []
+    for recipient in req.recipients:
+        recipient_type = recipient.get("type")
+        recipient_value = recipient.get("value")
+        
+        if not recipient_type or not recipient_value:
+            results.append({"value": recipient_value, "success": False, "error": "Invalid format"})
+            continue
+        
+        if recipient_type == "email":
+            success = send_email_invite(
+                recipient_email=recipient_value,
+                session_name=session.name,
+                share_url=share_url,
+                host_name=contributor.name,
+            )
+            results.append({"value": recipient_value, "type": "email", "success": success})
+        
+        elif recipient_type == "sms":
+            success = send_sms_invite(
+                recipient_phone=recipient_value,
+                session_name=session.name,
+                share_url=share_url,
+                host_name=contributor.name,
+            )
+            results.append({"value": recipient_value, "type": "sms", "success": success})
+        
+        else:
+            results.append({"value": recipient_value, "success": False, "error": "Unknown type"})
+    
+    return {"results": results}

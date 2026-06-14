@@ -8,6 +8,7 @@ import string
 import uuid
 from typing import Optional
 
+from app.collab.carbon_footprint import compute_cart_carbon
 from app.collab.models import (
     BudgetSplit,
     CollabCartItem,
@@ -31,7 +32,11 @@ def generate_share_code(length: int = 6) -> str:
 
 
 def create_session(
-    name: str, host_name: str, total_budget_inr: float
+    name: str,
+    host_name: str,
+    total_budget_inr: float,
+    community_code: str = "",
+    community_name: str = "",
 ) -> tuple[CollabSession, Contributor]:
     session_id = str(uuid.uuid4())
     share_code = generate_share_code()
@@ -48,6 +53,8 @@ def create_session(
         host_name=host_name,
         total_budget_inr=total_budget_inr,
         share_code=share_code,
+        community_code=community_code,
+        community_name=community_name,
         contributors=[host],
     )
     _sessions[session_id] = session
@@ -116,6 +123,9 @@ def _recalculate_item(item: CollabCartItem) -> None:
 
 
 def _refresh_contributor_stats(session: CollabSession) -> None:
+    carbon = compute_cart_carbon(session.items)
+    session.carbon_score_kg = carbon.total_co2_kg
+
     splits = _calculate_budget_splits(session)
     split_by_id = {split.contributor_id: split for split in splits}
     for contributor in session.contributors:
@@ -389,3 +399,11 @@ def get_budget_split(session_id: str) -> Optional[list[BudgetSplit]]:
 def clear_sessions_for_tests() -> None:
     _sessions.clear()
     _share_codes.clear()
+    try:
+        from app.collab.bulk_buy import clear_bulk_deals_for_tests
+        from app.collab.community_store import clear_communities_for_tests
+
+        clear_bulk_deals_for_tests()
+        clear_communities_for_tests()
+    except Exception:
+        pass

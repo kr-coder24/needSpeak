@@ -198,7 +198,9 @@ export function useVoiceInput(options: UseVoiceInputOptions = {}) {
             try {
               const err = await res.json();
               detail = err.message || err.detail || detail;
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
             throw new Error(detail);
           }
 

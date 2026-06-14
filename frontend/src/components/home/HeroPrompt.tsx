@@ -23,7 +23,10 @@ export function HeroPrompt() {
   return (
     <section className="relative overflow-hidden">
       {/* Aurora — two slow, very subtle warm blobs in the existing palette */}
-      <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-surface to-background" />
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-gradient-to-b from-surface to-background"
+      />
       <HeroBlob />
       <div
         aria-hidden

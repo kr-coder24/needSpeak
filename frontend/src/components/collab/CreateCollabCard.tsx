@@ -1,12 +1,19 @@
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Users, Wallet, Sparkles, ArrowRight, X } from "lucide-react";
+import { Users, Wallet, Sparkles, ArrowRight, X, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { listCommunities, type CommunityGroup } from "@/lib/collab-api";
 
 import { Button } from "@/components/ui/button";
 
 interface CreateCollabCardProps {
-  onSubmit: (data: { name: string; hostName: string; budget: number }) => void;
+  onSubmit: (data: {
+    name: string;
+    hostName: string;
+    budget: number;
+    communityCode: string;
+    communityName: string;
+  }) => void;
   onCancel: () => void;
   className?: string;
   isCreating?: boolean;
@@ -41,13 +48,27 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
   const [name, setName] = React.useState("");
   const [hostName, setHostName] = React.useState("");
   const [budget, setBudget] = React.useState<number>(1000);
+  const [communityCode, setCommunityCode] = React.useState("");
+  const [communities, setCommunities] = React.useState<CommunityGroup[]>([]);
+
+  React.useEffect(() => {
+    listCommunities()
+      .then((payload) => setCommunities(payload.communities))
+      .catch(() => setCommunities([]));
+  }, []);
 
   const canSubmit = name.trim().length > 0 && hostName.trim().length > 0 && !isCreating;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    onSubmit({ name: name.trim(), hostName: hostName.trim(), budget });
+    onSubmit({
+      name: name.trim(),
+      hostName: hostName.trim(),
+      budget,
+      communityCode: communityCode.trim(),
+      communityName: communityCode.trim(),
+    });
   };
 
   return (
@@ -204,6 +225,38 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
                 className="w-full rounded-xl border border-border bg-background py-3 pl-8 pr-4 text-base text-foreground transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="cc-community"
+              className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              Community or PIN code
+            </label>
+            <div className="relative">
+              <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                id="cc-community"
+                type="text"
+                value={communityCode}
+                onChange={(e) => setCommunityCode(e.target.value)}
+                disabled={isCreating}
+                placeholder="e.g. 110016 or IITD-hostel"
+                list="cc-communities"
+                className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-4 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
+              />
+              <datalist id="cc-communities">
+                {communities.map((community) => (
+                  <option key={community.code} value={community.code}>
+                    {community.name}
+                  </option>
+                ))}
+              </datalist>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Optional. Same code unlocks neighbourhood bulk-buy deals.
+            </p>
           </div>
         </div>
 

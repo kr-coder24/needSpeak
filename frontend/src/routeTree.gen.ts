@@ -11,10 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RecipeRouteImport } from './routes/recipe'
 import { Route as PreferencesRouteImport } from './routes/preferences'
+import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as OccasionsRouteImport } from './routes/occasions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PaymentIdRouteImport } from './routes/payment.$id'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
@@ -30,6 +33,11 @@ const PreferencesRoute = PreferencesRouteImport.update({
   path: '/preferences',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
+  id: '/order-confirmed',
+  path: '/order-confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OccasionsRoute = OccasionsRouteImport.update({
   id: '/occasions',
   path: '/occasions',
@@ -40,6 +48,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -48,6 +61,11 @@ const ChatRoute = ChatRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentIdRoute = PaymentIdRouteImport.update({
+  id: '/payment/$id',
+  path: '/payment/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CollabIdRoute = CollabIdRouteImport.update({
@@ -74,38 +92,47 @@ const CollabJoinCodeRoute = CollabJoinCodeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/payment/$id': typeof PaymentIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/payment/$id': typeof PaymentIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/payment/$id': typeof PaymentIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRouteTypes {
@@ -113,50 +140,62 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/chat'
+    | '/history'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/payment/$id'
     | '/collab/join/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/chat'
+    | '/history'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/payment/$id'
     | '/collab/join/$code'
   id:
     | '__root__'
     | '/'
     | '/chat'
+    | '/history'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/payment/$id'
     | '/collab/join/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  HistoryRoute: typeof HistoryRoute
   LoginRoute: typeof LoginRoute
   OccasionsRoute: typeof OccasionsRoute
+  OrderConfirmedRoute: typeof OrderConfirmedRoute
   PreferencesRoute: typeof PreferencesRoute
   RecipeRoute: typeof RecipeRoute
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
+  PaymentIdRoute: typeof PaymentIdRoute
   CollabJoinCodeRoute: typeof CollabJoinCodeRoute
 }
 
@@ -176,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PreferencesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/order-confirmed': {
+      id: '/order-confirmed'
+      path: '/order-confirmed'
+      fullPath: '/order-confirmed'
+      preLoaderRoute: typeof OrderConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/occasions': {
       id: '/occasions'
       path: '/occasions'
@@ -190,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
@@ -202,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment/$id': {
+      id: '/payment/$id'
+      path: '/payment/$id'
+      fullPath: '/payment/$id'
+      preLoaderRoute: typeof PaymentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/collab/$id': {
@@ -238,13 +298,16 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  HistoryRoute: HistoryRoute,
   LoginRoute: LoginRoute,
   OccasionsRoute: OccasionsRoute,
+  OrderConfirmedRoute: OrderConfirmedRoute,
   PreferencesRoute: PreferencesRoute,
   RecipeRoute: RecipeRoute,
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,
+  PaymentIdRoute: PaymentIdRoute,
   CollabJoinCodeRoute: CollabJoinCodeRoute,
 }
 export const routeTree = rootRouteImport

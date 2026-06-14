@@ -45,6 +45,10 @@ class UserPreferences(BaseModel):
         default_factory=list,
         description="Allergens to avoid: nuts, gluten, dairy, soy, etc."
     )
+    favorite_skus: list[str] = Field(
+        default_factory=list,
+        description="SKUs of frequently purchased items"
+    )
     preferred_categories: list[str] = Field(
         default_factory=list,
         description="Categories/subcategories to boost, e.g. snacks, cleaning, stationery."
@@ -95,15 +99,17 @@ ALLERGY_KEYWORDS = {
 # Core Functions
 # ---------------------------------------------------------------------------
 def build_implicit_preferences(user_events: list[dict]) -> UserPreferences:
-    """Analyze purchase events to build implicit brand/category preferences."""
+    """Analyze purchase events to build implicit brand, category preferences and favorite SKUs."""
     from app.db.dynamo import get_product_by_sku
     from collections import Counter
     
     brand_counts = Counter()
     category_counts = Counter()
+    sku_counts = Counter()
     for event in user_events:
         sku = event.get("sku")
         if sku:
+            sku_counts[sku] += 1
             product = get_product_by_sku(sku)
             if product and "brand" in product and product["brand"].lower() not in ("generic", "fresh"):
                 brand_counts[product["brand"]] += 1
@@ -115,18 +121,21 @@ def build_implicit_preferences(user_events: list[dict]) -> UserPreferences:
     # Threshold: at least 2 purchases to become preferred
     preferred_brands = [brand for brand, count in brand_counts.items() if count >= 2]
     preferred_categories = [category for category, count in category_counts.items() if count >= 2]
+    favorite_skus = [sku for sku, count in sku_counts.items() if count >= 2]
     
-    if preferred_brands or preferred_categories:
+    if preferred_brands or preferred_categories or favorite_skus:
         logger.info(
-            "Implicit preferences from %s events: brands=%s categories=%s",
+            "Implicit preferences from %s events: brands=%s categories=%s skus=%s",
             len(user_events),
             preferred_brands,
             preferred_categories,
+            favorite_skus
         )
         
     return UserPreferences(
         preferred_brands=preferred_brands,
         preferred_categories=preferred_categories,
+        favorite_skus=favorite_skus
     )
 
 
@@ -147,13 +156,18 @@ def apply_preferences(
     if not preferences and not implicit_preferences:
         return extraction
         
-    active_dietary = preferences.dietary if preferences else []
     active_brands = set(preferences.preferred_brands) if preferences else set()
     active_categories = set(preferences.preferred_categories) if preferences else set()
     if implicit_preferences and implicit_preferences.preferred_brands:
         active_brands.update(implicit_preferences.preferred_brands)
     if implicit_preferences and implicit_preferences.preferred_categories:
         active_categories.update(implicit_preferences.preferred_categories)
+        
+    # Explicit user preferences (Pillar 9) are superior to implicit history.
+    # If a user explicitly avoids a brand, strip it from the active brands list even if they bought it previously.
+    if preferences and preferences.avoided_brands:
+        avoided_set = {b.lower() for b in preferences.avoided_brands}
+        active_brands = {b for b in active_brands if b.lower() not in avoided_set}
         
     preferred_brands_list = list(active_brands)
     preferred_categories_list = list(active_categories)

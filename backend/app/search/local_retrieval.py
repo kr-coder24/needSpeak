@@ -27,7 +27,14 @@ STOP_WORDS = frozenset({
 def _tokenize(text: str) -> list[str]:
     """Split text into lowercase word tokens, removing stop words."""
     tokens = text.lower().replace("-", " ").replace("_", " ").replace(",", " ").split()
-    return [t for t in tokens if t not in STOP_WORDS and len(t) > 1]
+    normalized = []
+    for token in tokens:
+        if token in STOP_WORDS or len(token) <= 1:
+            continue
+        if len(token) > 3 and token.endswith("s"):
+            token = token[:-1]
+        normalized.append(token)
+    return normalized
 
 
 def _build_search_text(product: dict) -> str:
@@ -62,6 +69,15 @@ def _build_search_text(product: dict) -> str:
         parts.extend(str(o) for o in occ)
 
     return " ".join(p for p in parts if p).lower()
+
+
+def _as_lower_set(value) -> set[str]:
+    """Normalize list/set/string metadata to lowercase strings."""
+    if isinstance(value, (set, list, tuple)):
+        return {str(v).lower() for v in value if v is not None}
+    if isinstance(value, str):
+        return {value.lower()}
+    return set()
 
 
 def _bm25_score(
@@ -160,10 +176,11 @@ class LocalRetriever:
 
             # Apply dietary filter
             if query.dietary_filter and query.dietary_filter != "any":
-                product_dietary = product.get("dietary_tags", set())
-                if isinstance(product_dietary, (list, set)):
-                    if query.dietary_filter not in product_dietary:
-                        continue
+                product_dietary = _as_lower_set(
+                    product.get("dietary_tags", product.get("dietary", set()))
+                )
+                if query.dietary_filter.lower() not in product_dietary:
+                    continue
 
             # Apply brand avoidance filter
             if query.avoided_brands:
@@ -171,11 +188,34 @@ class LocalRetriever:
                 if any(b.lower() == product_brand for b in query.avoided_brands):
                     continue
 
+            # Apply broad category avoidance without removing unrelated matches.
+            if query.avoided_categories:
+                product_category = product.get("category", "").lower()
+                product_subcategory = product.get("subcategory", "").lower()
+                if any(
+                    c.lower() in (product_category, product_subcategory)
+                    for c in query.avoided_categories
+                ):
+                    continue
+
             # Apply max price filter
             if query.max_price is not None:
                 product_price = float(product.get("price_inr", 0))
                 if product_price > query.max_price:
                     continue
+
+            product_category = product.get("category", "").lower()
+            product_subcategory = product.get("subcategory", "").lower()
+            overlap_tokens = set(query_tokens) & set(doc_tokens)
+            if len(query_tokens) >= 2 and not overlap_tokens:
+                continue
+            if (
+                len(query_tokens) >= 2
+                and len(overlap_tokens) < 2
+                and query.category
+                and query.category.lower() not in (product_category, product_subcategory)
+            ):
+                continue
 
             # Calculate BM25 score
             score = _bm25_score(
@@ -199,6 +239,16 @@ class LocalRetriever:
                 if isinstance(occ_tags, (list, set)):
                     if query.occasion.lower() in {str(t).lower() for t in occ_tags}:
                         score += 1.5
+
+            # Preferred category/subcategory bonus for generalized profiles.
+            if query.preferred_categories:
+                product_category = product.get("category", "").lower()
+                product_subcategory = product.get("subcategory", "").lower()
+                for category in query.preferred_categories:
+                    category_lower = category.lower()
+                    if category_lower in (product_category, product_subcategory):
+                        score += 0.8
+                        break
 
             # Preferred brand bonus
             if query.preferred_brands:

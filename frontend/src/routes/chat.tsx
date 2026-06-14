@@ -84,6 +84,29 @@ function extractBudgetFromText(text: string): number | undefined {
   return undefined;
 }
 
+function getStoredUserId(): string {
+  try {
+    const raw = localStorage.getItem("needspeak-auth");
+    if (!raw) return "demo_user";
+    const parsed = JSON.parse(raw);
+    return parsed?.user?.user_id || parsed?.user?.id || "demo_user";
+  } catch {
+    return "demo_user";
+  }
+}
+
+function appendPreferenceFormData(formData: FormData, prefs: ReturnType<typeof loadPreferences>, userId: string) {
+  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+  if (prefs.avoidedBrands.length) formData.append("avoided_brands", JSON.stringify(prefs.avoidedBrands));
+  if (prefs.budgetStyle !== "balanced") formData.append("budget_mode", prefs.budgetStyle);
+  if (prefs.preferredCategories.length) formData.append("preferred_categories", JSON.stringify(prefs.preferredCategories));
+  if (prefs.avoidedCategories.length) formData.append("avoided_categories", JSON.stringify(prefs.avoidedCategories));
+  if (prefs.qualityPreference !== "balanced") formData.append("quality_preference", prefs.qualityPreference);
+  if (prefs.packSizePreference !== "balanced") formData.append("pack_size_preference", prefs.packSizePreference);
+  formData.append("user_id", userId);
+}
+
 // ─── QuantityControl ─────────────────────────────────────────────────────────
 
 function QuantityControl({
@@ -146,6 +169,11 @@ function CartItemRow({
             <div className="truncate text-sm font-medium capitalize">{item.name}</div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="capitalize">{item.brand}</span><span> · {item.unit_quantity}{item.unit}</span>
+              {typeof item.likely_rating === "number" && item.likely_rating > 0 && (
+                <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[9px] font-medium text-brand">
+                  Likely {Math.round(item.likely_rating)}%
+                </span>
+              )}
               {getItemBadge(item.sku) && (
                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getItemBadge(item.sku)!.color}`}>
                   {getItemBadge(item.sku)!.label}
@@ -215,6 +243,12 @@ function CartItemRow({
                         <span className="capitalize">{alt.brand}</span>
                         <span>·</span>
                         <span>{alt.unit_quantity}{alt.unit}</span>
+                        {typeof alt.likely_rating === "number" && alt.likely_rating > 0 && (
+                          <>
+                            <span>fit</span>
+                            <span>{Math.round(alt.likely_rating)}%</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -527,6 +561,57 @@ function ChatPage() {
       }, 0)
     : 0;
 
+  const applyCartResponse = useCallback((data: any, budget?: number) => {
+    const intents: any[] = data.intents ?? [];
+    const allCartItems = intents.flatMap((g: any) => g.cart ?? []);
+    const allUnavailable = intents.flatMap((g: any) => g.unavailable_items ?? []);
+    const intentType = intents.map((g: any) => g.intent_type).filter(Boolean).join(", ");
+    const contextSummary = intents.map((g: any) => g.context_summary).filter(Boolean).join(" | ");
+
+    if (data.confidence === "low" && data.clarification_question) {
+      setMessages((m) => [...m, { role: "assistant", text: data.clarification_question }]);
+      setPhase("idle");
+      return;
+    }
+
+    const normalized = {
+      ...data,
+      cart: allCartItems,
+      unavailable_items: allUnavailable,
+      intent_type: intentType || "shopping",
+      context_summary: contextSummary,
+    };
+
+    setCartData(normalized);
+    setIntentGroups(data.intents ?? []);
+
+    const entry: CartHistoryEntry = {
+      session_id: data.session_id,
+      saved_at: new Date().toISOString(),
+      intent_type: intentType || "shopping",
+      context_summary: contextSummary,
+      total_price_inr: data.total_price_inr,
+      item_count: allCartItems.length,
+      cart: allCartItems,
+      unavailable_items: allUnavailable,
+      summary: data.summary || "",
+      budget_inr: budget,
+    };
+    saveToHistory(entry);
+    window.dispatchEvent(new Event("cart-history-updated"));
+
+    const itemCount = allCartItems.length;
+    const unavailCount = allUnavailable.length;
+    let summaryText =
+      data.summary ||
+      `I found ${itemCount} items for your ${intentType || "shopping"} list, totaling Rs.${data.total_price_inr}.`;
+    if (unavailCount > 0)
+      summaryText += ` (${unavailCount} item${unavailCount > 1 ? "s" : ""} unavailable)`;
+
+    setMessages((m) => [...m, { role: "assistant", text: summaryText }]);
+    setPhase("cart");
+  }, []);
+
   const onSubmit = async (
     override?: string | { text: string },
     overrideType?: any
@@ -567,11 +652,18 @@ function ChatPage() {
 
     try {
       const prefs = loadPreferences();
+      const userId = getStoredUserId();
       const body: any = { content: inputText, input_type: currentInputType };
       if (budget) body.budget_inr = budget;
       if (prefs.dietary !== "any") body.dietary_pref = prefs.dietary;
       if (prefs.preferredBrands.length) body.preferred_brands = prefs.preferredBrands;
-      if (prefs.budgetStyle !== "balanced") body.budget_style = prefs.budgetStyle;
+      if (prefs.avoidedBrands.length) body.avoided_brands = prefs.avoidedBrands;
+      if (prefs.budgetStyle !== "balanced") body.budget_mode = prefs.budgetStyle;
+      if (prefs.preferredCategories.length) body.preferred_categories = prefs.preferredCategories;
+      if (prefs.avoidedCategories.length) body.avoided_categories = prefs.avoidedCategories;
+      if (prefs.qualityPreference !== "balanced") body.quality_preference = prefs.qualityPreference;
+      if (prefs.packSizePreference !== "balanced") body.pack_size_preference = prefs.packSizePreference;
+      body.user_id = userId;
       if (prefillOccasion) body.occasion = prefillOccasion;
 
       const res = await fetch("/api/parse", {
@@ -590,6 +682,8 @@ function ChatPage() {
       }
 
       const data = await res.json();
+      applyCartResponse(data, budget);
+      return;
 
       // Flatten multi-intent shape.
       const intents: any[] = data.intents ?? [];
@@ -809,25 +903,32 @@ function ChatPage() {
                   setMessages(m => [...m, { role: "user", text: `📷 Uploaded: ${file.name}` }]);
 
                   const prefs = loadPreferences();
+                  const userId = getStoredUserId();
+                  const uploadBudget = budgetInput ? parseInt(budgetInput, 10) : undefined;
                   const formData = new FormData();
                   formData.append("image", file);
-                  if (budgetInput) formData.append("budget_inr", budgetInput);
-                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
-                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
-                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
+                  if (uploadBudget) formData.append("budget_inr", String(uploadBudget));
+                  if (prefillOccasion) formData.append("occasion", prefillOccasion);
+                  appendPreferenceFormData(formData, prefs, userId);
 
                   try {
                     const res = await fetch("/api/parse-image", { method: "POST", body: formData });
                     if (!res.ok) throw new Error("Image parsing failed");
                     const data = await res.json();
-                    if (data.extracted_text) {
+                    if (data.intents) {
+                      applyCartResponse(data, uploadBudget);
+                    } else if (data.extracted_text) {
                       setText(data.extracted_text);
                       setInputType("text");
                       onSubmit(data.extracted_text, "text");
+                    } else {
+                      throw new Error("Image parsing returned no cart or extracted text");
                     }
                   } catch (err: any) {
                     setErrorMsg(err.message);
                     setPhase("idle");
+                  } finally {
+                    e.target.value = "";
                   }
                 }}
               />
@@ -844,25 +945,32 @@ function ChatPage() {
                   setMessages(m => [...m, { role: "user", text: `📄 Uploaded PDF: ${file.name}` }]);
 
                   const prefs = loadPreferences();
+                  const userId = getStoredUserId();
+                  const uploadBudget = budgetInput ? parseInt(budgetInput, 10) : undefined;
                   const formData = new FormData();
                   formData.append("pdf", file);
-                  if (budgetInput) formData.append("budget_inr", budgetInput);
-                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
-                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
-                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
+                  if (uploadBudget) formData.append("budget_inr", String(uploadBudget));
+                  if (prefillOccasion) formData.append("occasion", prefillOccasion);
+                  appendPreferenceFormData(formData, prefs, userId);
 
                   try {
                     const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
                     if (!res.ok) throw new Error("PDF parsing failed");
                     const data = await res.json();
-                    if (data.extracted_text) {
+                    if (data.intents) {
+                      applyCartResponse(data, uploadBudget);
+                    } else if (data.extracted_text) {
                       setText(data.extracted_text);
                       setInputType("text");
                       onSubmit(data.extracted_text, "text");
+                    } else {
+                      throw new Error("PDF parsing returned no cart or extracted text");
                     }
                   } catch (err: any) {
                     setErrorMsg(err.message);
                     setPhase("idle");
+                  } finally {
+                    e.target.value = "";
                   }
                 }}
               />

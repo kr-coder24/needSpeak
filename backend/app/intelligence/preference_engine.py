@@ -27,7 +27,7 @@ class UserPreferences(BaseModel):
     """User-controlled shopping preferences."""
     dietary: list[str] = Field(
         default_factory=list,
-        description="Dietary restrictions: vegetarian, vegan, jain, gluten_free, etc."
+        description="Dietary restrictions: veg, vegan, jain, gluten_free, etc."
     )
     preferred_brands: list[str] = Field(
         default_factory=list,
@@ -44,6 +44,22 @@ class UserPreferences(BaseModel):
     allergies: list[str] = Field(
         default_factory=list,
         description="Allergens to avoid: nuts, gluten, dairy, soy, etc."
+    )
+    preferred_categories: list[str] = Field(
+        default_factory=list,
+        description="Categories/subcategories to boost, e.g. snacks, cleaning, stationery."
+    )
+    avoided_categories: list[str] = Field(
+        default_factory=list,
+        description="Categories/subcategories to avoid or penalize."
+    )
+    quality_preference: str = Field(
+        default="balanced",
+        description="Product quality preference: value, balanced, quality."
+    )
+    pack_size_preference: str = Field(
+        default="balanced",
+        description="Pack-size behavior: small, balanced, bulk."
     )
 
 
@@ -79,25 +95,39 @@ ALLERGY_KEYWORDS = {
 # Core Functions
 # ---------------------------------------------------------------------------
 def build_implicit_preferences(user_events: list[dict]) -> UserPreferences:
-    """Analyze purchase events to build implicit brand preferences."""
+    """Analyze purchase events to build implicit brand/category preferences."""
     from app.db.dynamo import get_product_by_sku
     from collections import Counter
     
     brand_counts = Counter()
+    category_counts = Counter()
     for event in user_events:
         sku = event.get("sku")
         if sku:
             product = get_product_by_sku(sku)
             if product and "brand" in product and product["brand"].lower() not in ("generic", "fresh"):
                 brand_counts[product["brand"]] += 1
+            if product:
+                category = product.get("subcategory") or product.get("category")
+                if category:
+                    category_counts[str(category)] += 1
                 
     # Threshold: at least 2 purchases to become preferred
     preferred_brands = [brand for brand, count in brand_counts.items() if count >= 2]
+    preferred_categories = [category for category, count in category_counts.items() if count >= 2]
     
-    if preferred_brands:
-        logger.info(f"Implicit preferred brands built from {len(user_events)} events: {preferred_brands}")
+    if preferred_brands or preferred_categories:
+        logger.info(
+            "Implicit preferences from %s events: brands=%s categories=%s",
+            len(user_events),
+            preferred_brands,
+            preferred_categories,
+        )
         
-    return UserPreferences(preferred_brands=preferred_brands)
+    return UserPreferences(
+        preferred_brands=preferred_brands,
+        preferred_categories=preferred_categories,
+    )
 
 
 def apply_preferences(
@@ -119,10 +149,14 @@ def apply_preferences(
         
     active_dietary = preferences.dietary if preferences else []
     active_brands = set(preferences.preferred_brands) if preferences else set()
+    active_categories = set(preferences.preferred_categories) if preferences else set()
     if implicit_preferences and implicit_preferences.preferred_brands:
         active_brands.update(implicit_preferences.preferred_brands)
+    if implicit_preferences and implicit_preferences.preferred_categories:
+        active_categories.update(implicit_preferences.preferred_categories)
         
     preferred_brands_list = list(active_brands)
+    preferred_categories_list = list(active_categories)
 
     for intent in extraction.intents:
         filtered_items = []
@@ -137,6 +171,11 @@ def apply_preferences(
                 brands_str = ", ".join(preferred_brands_list)
                 existing_notes = item.notes or ""
                 item.notes = f"{existing_notes} [Preferred brands: {brands_str}]".strip()
+
+            if preferred_categories_list:
+                categories_str = ", ".join(preferred_categories_list)
+                existing_notes = item.notes or ""
+                item.notes = f"{existing_notes} [Preferred categories: {categories_str}]".strip()
 
             filtered_items.append(item)
 
@@ -153,7 +192,7 @@ def _should_exclude(item: ExtractedItem, prefs: UserPreferences) -> bool:
     for restriction in prefs.dietary:
         restriction = restriction.lower().strip()
 
-        if restriction == "vegetarian":
+        if restriction in ("veg", "vegetarian"):
             if name_words & NON_VEG_KEYWORDS or name_lower in NON_VEG_KEYWORDS:
                 return True
 

@@ -73,6 +73,17 @@ function UnavailableItemRow({ item }: { item: any }) {
   );
 }
 
+function getStoredUserId(): string {
+  try {
+    const raw = localStorage.getItem("needspeak-auth");
+    if (!raw) return "demo_user";
+    const parsed = JSON.parse(raw);
+    return parsed?.user?.user_id || parsed?.user?.id || "demo_user";
+  } catch {
+    return "demo_user";
+  }
+}
+
 function CartPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -282,7 +293,7 @@ function CartPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            user_id: "demo_user", // Fixed for now
+            user_id: getStoredUserId(),
             session_id: session.session_id,
             event_type: "checkout_initiated",
             intent_type: session.intent_type,

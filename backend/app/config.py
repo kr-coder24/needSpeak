@@ -28,7 +28,7 @@ BEDROCK_MODEL_ID = os.getenv(
 # Active LLM Provider: "gemini" or "bedrock"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-flash-latest")
+GEMINI_MODEL_ID = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
 
 # ---------------------------------------------------------------------------
 # Amazon DynamoDB

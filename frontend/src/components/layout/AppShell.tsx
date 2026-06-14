@@ -67,10 +67,22 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreatingCollab, setIsCreatingCollab] = useState(false);
 
-  const handleCreateCollab = async (data: { name: string; hostName: string; budget: number }) => {
+  const handleCreateCollab = async (data: {
+    name: string;
+    hostName: string;
+    budget: number;
+    communityCode: string;
+    communityName: string;
+  }) => {
     setIsCreatingCollab(true);
     try {
-      const { session, contributor } = await createCollabSession(data.name, data.hostName, data.budget);
+      const { session, contributor } = await createCollabSession(
+        data.name,
+        data.hostName,
+        data.budget,
+        data.communityCode,
+        data.communityName,
+      );
       localStorage.setItem(`collab_${session.session_id}_contributor`, contributor.id);
       setIsDialogOpen(false);
       navigate({ to: `/collab/${session.session_id}` });

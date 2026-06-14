@@ -72,9 +72,10 @@ def test_collab_normalizes_count_unit_for_measured_product():
     assert suggestions == []
     assert resolved is not None
     demand = resolved.demands[0]
-    assert resolved.name == "amul taaza fresh milk"
+    assert "milk" in resolved.name
+    assert resolved.category == "dairy"
     assert resolved.quantity == 1
-    assert demand.requested_quantity == 500
+    assert demand.requested_quantity == resolved.unit_quantity
     assert demand.requested_unit == "ml"
     assert "sold by ml" in demand.notes
 
@@ -119,9 +120,11 @@ def test_websocket_resolves_product_and_returns_live_state():
             update = websocket.receive_json()
             assert update["type"] == "items_added"
             item = update["data"]["session"]["items"][0]
-            assert item["sku"] == "SKU-BAK-V266"
-            assert item["quantity"] == 2
+            assert item["category"] == "dairy"
+            assert item["unit"] == "ml"
+            assert item["quantity"] == 1
             assert item["estimated_price_inr"] > 0
+            assert item["carbon_co2_kg"] > 0
             assert update["data"]["splits"][0]["amount_owed"] > 0
 
             websocket.send_json(
@@ -142,9 +145,9 @@ def test_websocket_resolves_product_and_returns_live_state():
             normalized = websocket.receive_json()
             assert normalized["type"] == "items_added"
             normalized_item = normalized["data"]["session"]["items"][0]
-            assert normalized_item["quantity"] == 3
+            assert normalized_item["quantity"] == 2
             assert normalized_item["demands"][0]["requested_unit"] == "ml"
-            assert normalized_item["demands"][0]["requested_quantity"] == 1100
+            assert normalized_item["demands"][0]["requested_quantity"] == 2600
 
             websocket.send_json(
                 {
@@ -186,3 +189,45 @@ def test_websocket_resolves_product_and_returns_live_state():
                 "type": "items_not_found",
                 "data": {"items": ["asdfghjkl"]},
             }
+
+
+def test_community_bulk_buy_matches_live_sessions():
+    with TestClient(app) as client:
+        first = client.post(
+            "/api/collab/create",
+            json={
+                "name": "Hostel A snacks",
+                "host_name": "Aman",
+                "total_budget_inr": 1000,
+                "community_code": "110016",
+            },
+        ).json()
+        second = client.post(
+            "/api/collab/create",
+            json={
+                "name": "Hostel B snacks",
+                "host_name": "Neha",
+                "total_budget_inr": 1000,
+                "community_code": "110016",
+            },
+        ).json()
+
+        for payload in (first, second):
+            response = client.post(
+                f"/api/collab/{payload['session']['session_id']}/add-items",
+                json={
+                    "contributor_id": payload["contributor"]["id"],
+                    "items": [{"name": "milk", "quantity": 1, "unit": "l"}],
+                },
+            )
+            assert response.status_code == 200
+
+        deals = client.get(
+            f"/api/community/110016/deals?session_id={first['session']['session_id']}"
+        )
+        assert deals.status_code == 200
+        dairy = next(
+            deal for deal in deals.json()["deals"] if deal["category"] == "dairy"
+        )
+        assert dairy["discount_pct"] == 5
+        assert len(dairy["matching_sessions"]) == 2

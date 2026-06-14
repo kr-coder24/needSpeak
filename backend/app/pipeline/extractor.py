@@ -44,7 +44,7 @@ RULES:
 9. For budget-constrained requests, extract the budget but still list all items normally.
 10. If the text mentions servings/people, set the servings field accordingly.
 11. DEDUPLICATE: Combine identical or similar ingredients (e.g. "onions" and "sliced onions") into a single entry with their quantities combined/summed. Do NOT list the same item multiple times for different recipe steps.
-12. CONFIDENCE EVALUATION: Assess how confident you are in the user's intent. If the input is too vague or broad (e.g., "I need snacks for guests" without specifying what kind of gathering), set confidence to "low" and provide a helpful clarification_question (e.g., "Is this a sports gathering, a children's birthday, or a formal dinner?"). Otherwise, set confidence to "high" and clarification_question to null.
+12. CONFIDENCE EVALUATION: Only set confidence to "low" when the user's INTENT is truly uninterpretable (e.g., single random word with no shopping context, completely garbled text). NEVER ask clarification about brand, flavor, size, or variety preferences — just pick the most popular/best-value option for the category. For example: "cold drinks" → pick Coca-Cola; "biscuits" → pick the best-selling brand; "chips" → pick a popular option. The alternatives/swap system handles brand preference later. Set confidence to "high" in all other cases and clarification_question to null.
 13. EVENT INFERENCE: For event, party, occasion, or gathering descriptions (e.g. "IPL watch party for 10 people", "birthday party", "movie night", "picnic for 5"), infer and suggest common items that would be needed (snacks, drinks, disposables, etc.) even if the user did not list specific items. Scale quantities to the number of people mentioned. These are valid shopping requests — do NOT return no_shoppable_content for them.
 14. For Indian events and occasions, suggest culturally appropriate items (e.g. chips, namkeen, cold drinks, popcorn, paper cups, paper plates for a cricket watch party)."""
 
@@ -331,15 +331,33 @@ def _get_mock_extraction(text: str) -> ExtractionResult:
     text_lower = text.lower()
 
     # Detect intent from keywords - check burger first to avoid 'masala' keyword collision
-    if any(w in text_lower for w in ["ambiguous", "snacks for guests", "vague"]):
+    if any(w in text_lower for w in ["ambiguous", "vague"]):
         return ExtractionResult(
             confidence="low",
-            clarification_question="What kind of gathering is this? (e.g., sports night, kids birthday, formal dinner)",
+            clarification_question="Could you provide more context about what you're looking for?",
             intents=[
                 ExtractedIntent(
                     intent_type=IntentType.GENERAL,
-                    context_summary="Generic snacks request for guests",
+                    context_summary="Request too vague to extract items",
                     items=[]
+                )
+            ]
+        )
+    elif any(w in text_lower for w in ["snacks for guests", "guests"]):
+        return ExtractionResult(
+            servings=8,
+            confidence="high",
+            intents=[
+                ExtractedIntent(
+                    intent_type=IntentType.GENERAL,
+                    context_summary="Snacks and drinks for guests",
+                    items=[
+                        ExtractedItem(name="chips", quantity=3, unit="pack", category="snacks"),
+                        ExtractedItem(name="namkeen", quantity=2, unit="pack", category="snacks"),
+                        ExtractedItem(name="cold drink", quantity=2, unit="bottle", category="beverages"),
+                        ExtractedItem(name="biscuits", quantity=2, unit="pack", category="snacks"),
+                        ExtractedItem(name="dry fruits mix", quantity=1, unit="pack", category="snacks", optional=True),
+                    ]
                 )
             ]
         )

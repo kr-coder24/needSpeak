@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ArrowRight,
@@ -286,10 +286,12 @@ function HistoryPanel({
   open,
   onClose,
   onRestore,
+  onReorder,
 }: {
   open: boolean;
   onClose: () => void;
   onRestore: (entry: CartHistoryEntry) => void;
+  onReorder: (entry: CartHistoryEntry) => void;
 }) {
   const [history, setHistory] = useState<CartHistoryEntry[]>([]);
 
@@ -328,13 +330,9 @@ function HistoryPanel({
         ) : (
           <div className="divide-y divide-border">
             {history.map((entry) => (
-              <button
+              <div
                 key={entry.session_id}
-                onClick={() => {
-                  onRestore(entry);
-                  onClose();
-                }}
-                className="w-full px-4 py-3 text-left transition-colors hover:bg-surface"
+                className="px-4 py-3 transition-colors hover:bg-surface"
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate text-sm font-medium">{entry.context_summary || entry.intent_type}</span>
@@ -346,7 +344,30 @@ function HistoryPanel({
                 {entry.budget_inr && (
                   <div className="mt-0.5 text-xs text-muted-foreground">Budget ₹{entry.budget_inr}</div>
                 )}
-              </button>
+                {/* Action buttons */}
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      onRestore(entry);
+                      onClose();
+                    }}
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-surface px-2.5 text-[10px] font-semibold text-foreground transition-colors hover:bg-brand/10 hover:text-brand"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Load in Chat
+                  </button>
+                  <button
+                    onClick={() => {
+                      onReorder(entry);
+                      onClose();
+                    }}
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-brand/10 px-2.5 text-[10px] font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
+                  >
+                    <ShoppingCart className="h-3 w-3" />
+                    Reorder
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -359,6 +380,7 @@ function HistoryPanel({
 
 function ChatPage() {
   const { prompt: prefillPrompt, occasion: prefillOccasion } = Route.useSearch();
+  const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("idle");
   const [text, setText] = useState(samplePrompts[0]);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
@@ -382,6 +404,9 @@ function ChatPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [inputType, setInputType] = useState<"text" | "whatsapp">("text");
+
+  // Track pending clarification context so follow-up answers include original request
+  const pendingClarificationRef = useRef<string | null>(null);
 
   // Voice input via MediaRecorder + backend transcription
   const voice = useVoiceInput({
@@ -526,6 +551,13 @@ function ChatPage() {
     inputText = inputText.trim();
     if (!inputText) return;
 
+    // If we're answering a clarification, combine with the original request for full context
+    let contentForBackend = inputText;
+    if (pendingClarificationRef.current) {
+      contentForBackend = `${pendingClarificationRef.current}. Specifically: ${inputText}`;
+      pendingClarificationRef.current = null; // consumed
+    }
+
     // Auto-detect URL input: if it looks like a URL, set input_type to "url"
     const detectedType = (() => {
       try {
@@ -548,7 +580,7 @@ function ChatPage() {
 
     try {
       const prefs = loadPreferences();
-      const body: any = { content: inputText, input_type: currentInputType };
+      const body: any = { content: contentForBackend, input_type: currentInputType };
       if (budget) body.budget_inr = budget;
       if (prefs.dietary !== "any") body.dietary_pref = prefs.dietary;
       if (prefs.preferredBrands.length) body.preferred_brands = prefs.preferredBrands;
@@ -581,6 +613,8 @@ function ChatPage() {
 
       // Low-confidence → ask a clarifying question.
       if (data.confidence === "low" && data.clarification_question) {
+        // Store the original request so the follow-up answer includes full context
+        pendingClarificationRef.current = contentForBackend;
         setMessages((m) => [...m, { role: "assistant", text: data.clarification_question }]);
         setPhase("idle");
         return;
@@ -624,11 +658,15 @@ function ChatPage() {
 
       const itemCount = allCartItems.length;
       const unavailCount = allUnavailable.length;
-      let summaryText =
-        data.summary ||
-        `I found ${itemCount} items for your ${intentType || "shopping"} list, totaling ₹${data.total_price_inr}.`;
+      
+      // Build a reliable summary from actual data (backend summary can be inaccurate)
+      const itemNames = allCartItems.slice(0, 3).map((it: any) => it.name).join(", ");
+      const moreText = itemCount > 3 ? ` and ${itemCount - 3} more` : "";
+      let summaryText = cartData
+        ? `Added ${itemCount} item${itemCount !== 1 ? "s" : ""} to your cart (${itemNames}${moreText}) — ₹${data.total_price_inr}. Cart total: ₹${newCartData.total_price_inr}`
+        : `Found ${itemCount} item${itemCount !== 1 ? "s" : ""} (${itemNames}${moreText}) totaling ₹${data.total_price_inr}.`;
       if (unavailCount > 0)
-        summaryText += ` (${unavailCount} item${unavailCount > 1 ? "s" : ""} unavailable)`;
+        summaryText += ` ${unavailCount} item${unavailCount > 1 ? "s" : ""} unavailable.`;
 
       setMessages((m) => [...m, { role: "assistant", text: summaryText }]);
       setPhase("cart");
@@ -641,24 +679,59 @@ function ChatPage() {
   };
 
   const restoreFromHistory = (entry: CartHistoryEntry) => {
-    const normalized = {
-      session_id: entry.session_id,
-      cart: entry.cart,
-      unavailable_items: entry.unavailable_items,
-      intent_type: entry.intent_type,
-      context_summary: entry.context_summary,
-      total_price_inr: entry.total_price_inr,
-      budget_exceeded: false,
-      summary: entry.summary,
-    };
-    setCartData(normalized);
+    // "Load in Chat" — append history cart to existing live cart (or set as new base)
+    if (cartData) {
+      // Append to existing cart
+      const merged = {
+        ...cartData,
+        session_id: entry.session_id, // use history entry's session_id for review page
+        cart: [...(cartData.cart || []), ...(entry.cart || [])],
+        unavailable_items: [...(cartData.unavailable_items || []), ...(entry.unavailable_items || [])],
+        intent_type: cartData.intent_type + (entry.intent_type ? ", " + entry.intent_type : ""),
+        context_summary: cartData.context_summary + (entry.context_summary ? " · " + entry.context_summary : ""),
+        total_price_inr: (cartData.total_price_inr || 0) + (entry.total_price_inr || 0),
+      };
+      setCartData(merged);
+      // Save merged cart to history
+      const histEntry: CartHistoryEntry = {
+        session_id: entry.session_id,
+        saved_at: new Date().toISOString(),
+        intent_type: merged.intent_type,
+        context_summary: merged.context_summary,
+        total_price_inr: merged.total_price_inr,
+        item_count: merged.cart.length,
+        cart: merged.cart,
+        unavailable_items: merged.unavailable_items,
+        summary: entry.summary || "",
+        budget_inr: entry.budget_inr,
+      };
+      saveToHistory(histEntry);
+      window.dispatchEvent(new Event("cart-history-updated"));
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: `Added ${entry.item_count} items from history. Cart now has ${merged.cart.length} items — ₹${merged.total_price_inr}` },
+      ]);
+    } else {
+      // No existing cart — set as base
+      const normalized = {
+        session_id: entry.session_id,
+        cart: entry.cart,
+        unavailable_items: entry.unavailable_items,
+        intent_type: entry.intent_type,
+        context_summary: entry.context_summary,
+        total_price_inr: entry.total_price_inr,
+        budget_exceeded: false,
+        summary: entry.summary,
+      };
+      setCartData(normalized);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: `Loaded ${entry.item_count} item${entry.item_count !== 1 ? "s" : ""} from your previous cart — ₹${entry.total_price_inr}. Add more items or tap Review cart.` },
+      ]);
+    }
     // History stores flattened cart — no intent groups available
-    setIntentGroups([]);
+    setIntentGroups((prev) => cartData ? prev : []);
     if (entry.budget_inr) setBudgetInput(String(entry.budget_inr));
-    setMessages((m) => [
-      ...m,
-      { role: "assistant", text: `Restored cart: ${entry.context_summary || entry.intent_type} — ₹${entry.total_price_inr}` },
-    ]);
     setPhase("cart");
   };
 
@@ -671,6 +744,10 @@ function ChatPage() {
           open={historyOpen}
           onClose={() => setHistoryOpen(false)}
           onRestore={restoreFromHistory}
+          onReorder={(entry) => {
+            // Navigate directly to the cart review page for reorder
+            navigate({ to: "/cart/$id", params: { id: entry.session_id } });
+          }}
         />
 
         {/* Left: conversation */}

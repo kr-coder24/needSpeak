@@ -48,6 +48,7 @@ function PreferencesPage() {
   const [picked, setPicked] = useState<string[]>([]);
   const [magicText, setMagicText] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
   useEffect(() => {
     const prefs = loadPreferences();
@@ -65,7 +66,8 @@ function PreferencesPage() {
       budgetStyle: style,
       preferredBrands: picked,
     });
-    alert("Preferences saved!");
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus("idle"), 2000);
   };
 
   const handleMagicExtract = async () => {
@@ -79,19 +81,68 @@ function PreferencesPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.dietary) setDiet(data.dietary);
-        if (data.budget_mode) setStyle(data.budget_mode);
+        
+        // Normalize dietary value from LLM response
+        if (data.dietary) {
+          const dietMap: Record<string, UserPreferences["dietary"]> = {
+            "any": "any", "none": "any", "no restriction": "any",
+            "veg": "veg", "vegetarian": "veg",
+            "vegan": "vegan",
+            "jain": "jain",
+          };
+          const normalized = dietMap[data.dietary.toLowerCase()] || "any";
+          setDiet(normalized);
+        }
+        
+        // Normalize budget mode
+        if (data.budget_mode) {
+          const modeMap: Record<string, UserPreferences["budgetStyle"]> = {
+            "value": "value", "cheap": "value", "budget": "value",
+            "balanced": "balanced", "moderate": "balanced",
+            "premium": "premium", "expensive": "premium", "quality": "premium",
+          };
+          const normalized = modeMap[data.budget_mode.toLowerCase()] || "balanced";
+          setStyle(normalized);
+        }
+        
+        // Add extracted brands (merge with existing picks)
         if (data.preferred_brands && Array.isArray(data.preferred_brands)) {
-          // Capitalize properly and add all brands (even if not in predefined list)
-          const extractedBrands = data.preferred_brands.map((b: string) => 
+          const extractedBrands = data.preferred_brands.map((b: string) =>
             b.charAt(0).toUpperCase() + b.slice(1)
           );
-          setPicked(Array.from(new Set([...picked, ...extractedBrands])));
+          setPicked((prev) => Array.from(new Set([...prev, ...extractedBrands])));
         }
+
+        // Auto-save after extraction so preferences are immediately active
+        const dietMap2: Record<string, UserPreferences["dietary"]> = {
+          "any": "any", "none": "any", "no restriction": "any",
+          "veg": "veg", "vegetarian": "veg", "vegan": "vegan", "jain": "jain",
+        };
+        const modeMap2: Record<string, UserPreferences["budgetStyle"]> = {
+          "value": "value", "cheap": "value", "budget": "value",
+          "balanced": "balanced", "moderate": "balanced",
+          "premium": "premium", "expensive": "premium", "quality": "premium",
+        };
+        const finalDiet: UserPreferences["dietary"] = data.dietary
+          ? (dietMap2[String(data.dietary).toLowerCase()] || "any")
+          : diet;
+        const finalStyle: UserPreferences["budgetStyle"] = data.budget_mode
+          ? (modeMap2[String(data.budget_mode).toLowerCase()] || "balanced")
+          : style;
+        const finalBrands = data.preferred_brands?.length
+          ? Array.from(new Set([...picked, ...data.preferred_brands.map((b: string) => b.charAt(0).toUpperCase() + b.slice(1))]))
+          : picked;
+
+        savePreferences({ dietary: finalDiet, budgetStyle: finalStyle, preferredBrands: finalBrands });
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 3000);
+        setMagicText("");
+      } else {
+        alert("Failed to extract preferences. Try rephrasing.");
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to extract preferences.");
+      alert("Failed to extract preferences. Check your connection.");
     } finally {
       setIsExtracting(false);
     }
@@ -124,7 +175,10 @@ function PreferencesPage() {
               value={magicText}
               onChange={(e) => setMagicText(e.target.value)}
             />
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex items-center justify-end gap-3">
+              {saveStatus === "saved" && (
+                <span className="text-xs font-medium text-success">✓ Preferences applied</span>
+              )}
               <button
                 onClick={handleMagicExtract}
                 disabled={isExtracting || !magicText.trim()}
@@ -244,8 +298,22 @@ function PreferencesPage() {
         </section>
 
         <div className="mt-10 flex justify-end">
-          <button onClick={handleSave} className="h-10 rounded-lg bg-foreground px-5 text-sm font-medium text-background hover:bg-foreground/90">
-            Save preferences
+          <button
+            onClick={handleSave}
+            className={`inline-flex h-10 items-center gap-2 rounded-lg px-5 text-sm font-medium transition-colors ${
+              saveStatus === "saved"
+                ? "bg-success text-white"
+                : "bg-foreground text-background hover:bg-foreground/90"
+            }`}
+          >
+            {saveStatus === "saved" ? (
+              <>
+                <Check className="h-4 w-4" />
+                Saved!
+              </>
+            ) : (
+              "Save preferences"
+            )}
           </button>
         </div>
       </div>

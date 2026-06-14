@@ -15,6 +15,11 @@ import {
   Users,
   Leaf,
   AlertTriangle,
+  X,
+  TrendingDown,
+  TrendingUp,
+  RefreshCw,
+  Sliders,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
@@ -74,6 +79,427 @@ function UnavailableItemRow({ item }: { item: any }) {
   );
 }
 
+// ─── CompareCart "What If" Drawer ──────────────────────────────────────────────
+
+type CompareResult = {
+  intents: any[];
+  total_price_inr: number;
+  budget_exceeded: boolean;
+};
+
+function CompareCartDrawer({
+  open,
+  onClose,
+  sessionId,
+  currentCart: currentItems,
+  currentTotal,
+  currentBudget,
+  onApply,
+}: {
+  open: boolean;
+  onClose: () => void;
+  sessionId: string;
+  currentCart: any[];
+  currentTotal: number;
+  currentBudget: number | null;
+  onApply: (result: CompareResult) => void;
+}) {
+  const [budget, setBudget] = useState(currentBudget ?? 1500);
+  const [servings, setServings] = useState(10);
+  const [originalServings, setOriginalServings] = useState(10);
+  const [dietary, setDietary] = useState("any");
+  const [budgetMode, setBudgetMode] = useState("balanced");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<CompareResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset when drawer opens
+  useEffect(() => {
+    if (open) {
+      setBudget(currentBudget ?? 1500);
+      setResult(null);
+      setError(null);
+    }
+  }, [open, currentBudget]);
+
+  const runCompare = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/recompare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          budget_inr: budget,
+          servings_override: servings,
+          original_servings: originalServings,
+          dietary_pref: dietary === "any" ? null : dietary,
+          budget_mode: budgetMode,
+        }),
+      });
+      if (!res.ok) throw new Error("Comparison failed");
+      const data = await res.json();
+      setResult(data);
+    } catch (e: any) {
+      setError(e.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const comparedItems = result
+    ? result.intents.flatMap((g: any) => g.cart ?? [])
+    : [];
+  const comparedTotal = result?.total_price_inr ?? 0;
+  const savings = currentTotal - comparedTotal;
+
+  // Build a diff map: match items by name for comparison
+  const buildItemMap = (items: any[]) => {
+    const map = new Map<string, any>();
+    items.forEach((item) => {
+      const key = item.name?.toLowerCase() || item.sku;
+      map.set(key, item);
+    });
+    return map;
+  };
+
+  const currentMap = buildItemMap(currentItems);
+  const comparedMap = buildItemMap(comparedItems);
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-background/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Drawer panel */}
+      <div className="relative ml-auto flex h-full w-full max-w-4xl flex-col border-l border-border bg-background shadow-2xl animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand/20 to-brand/10">
+              <ArrowLeftRight className="h-4.5 w-4.5 text-brand" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">CompareCart — What If?</h2>
+              <p className="text-xs text-muted-foreground">
+                Tweak parameters and see how your cart changes
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Controls bar */}
+        <div className="border-b border-border bg-surface/30 px-6 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sliders className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Scenario Parameters
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {/* Budget */}
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Budget (₹)
+              </label>
+              <input
+                type="number"
+                min={100}
+                step={100}
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm font-medium focus:border-brand focus:outline-none"
+              />
+            </div>
+
+            {/* Servings */}
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Servings
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={servings}
+                  onChange={(e) => setServings(Number(e.target.value))}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm font-medium focus:border-brand focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Dietary */}
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Dietary
+              </label>
+              <select
+                value={dietary}
+                onChange={(e) => setDietary(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm font-medium focus:border-brand focus:outline-none"
+              >
+                <option value="any">Any</option>
+                <option value="vegetarian">Vegetarian</option>
+                <option value="vegan">Vegan</option>
+                <option value="jain">Jain</option>
+                <option value="eggetarian">Eggetarian</option>
+              </select>
+            </div>
+
+            {/* Budget Mode */}
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Mode
+              </label>
+              <select
+                value={budgetMode}
+                onChange={(e) => setBudgetMode(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm font-medium focus:border-brand focus:outline-none"
+              >
+                <option value="value">Value (cheapest)</option>
+                <option value="balanced">Balanced</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={runCompare}
+            disabled={loading}
+            className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand/90 px-5 text-sm font-bold text-brand-foreground shadow-md transition-all hover:scale-105 hover:shadow-lg disabled:opacity-60 disabled:pointer-events-none"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Re-resolving…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Compare
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Comparison body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex items-center justify-center p-12">
+              <SemanticSearchSkeleton />
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 m-6 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+
+          {result && !loading && (
+            <div className="p-6 space-y-6">
+              {/* Summary diff card */}
+              <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-surface/60 to-surface/30 p-5">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                      Current
+                    </div>
+                    <div className="text-2xl font-bold">₹{currentTotal}</div>
+                    <div className="text-xs text-muted-foreground">{currentItems.length} items</div>
+                  </div>
+                  <div className="flex flex-col items-center justify-center">
+                    <ArrowLeftRight className="h-5 w-5 text-muted-foreground mb-1" />
+                    {savings !== 0 && (
+                      <div className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+                        savings > 0
+                          ? "bg-success/15 text-success"
+                          : "bg-destructive/15 text-destructive"
+                      }`}>
+                        {savings > 0 ? (
+                          <><TrendingDown className="h-3 w-3" /> Save ₹{savings}</>
+                        ) : (
+                          <><TrendingUp className="h-3 w-3" /> +₹{Math.abs(savings)}</>
+                        )}
+                      </div>
+                    )}
+                    {savings === 0 && (
+                      <span className="text-xs text-muted-foreground">Same total</span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                      What If
+                    </div>
+                    <div className="text-2xl font-bold text-brand">₹{comparedTotal}</div>
+                    <div className="text-xs text-muted-foreground">{comparedItems.length} items</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Item-by-item comparison */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Item-by-Item Comparison
+                  </span>
+                  <div className="h-px flex-1 bg-border/40" />
+                </div>
+
+                <div className="space-y-2">
+                  {comparedItems.map((item: any, idx: number) => {
+                    const key = item.name?.toLowerCase() || item.sku;
+                    const original = currentMap.get(key);
+                    const priceDiff = original
+                      ? item.total_price_inr - original.total_price_inr
+                      : 0;
+                    const isNew = !original;
+                    const isSwapped = original && original.sku !== item.sku;
+
+                    return (
+                      <div
+                        key={item.sku || idx}
+                        className={`rounded-xl border p-3 transition-all ${
+                          isNew
+                            ? "border-brand/40 bg-brand/5"
+                            : isSwapped
+                            ? "border-amber-500/40 bg-amber-500/5"
+                            : priceDiff < 0
+                            ? "border-success/30 bg-success/5"
+                            : priceDiff > 0
+                            ? "border-destructive/30 bg-destructive/5"
+                            : "border-border/50 bg-background/50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold capitalize">
+                                {item.name}
+                              </span>
+                              {isNew && (
+                                <span className="shrink-0 rounded-full bg-brand/15 px-2 py-0.5 text-[9px] font-bold text-brand">
+                                  NEW
+                                </span>
+                              )}
+                              {isSwapped && (
+                                <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                  SWAPPED
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="capitalize">{item.brand}</span>
+                              <span>·</span>
+                              <span>{item.quantity_units}× {item.unit_quantity}{item.unit}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-sm font-bold">₹{item.total_price_inr}</div>
+                            {original && priceDiff !== 0 && (
+                              <div className={`text-[10px] font-semibold ${
+                                priceDiff < 0 ? "text-success" : "text-destructive"
+                              }`}>
+                                {priceDiff < 0 ? `↓ ₹${Math.abs(priceDiff)}` : `↑ ₹${priceDiff}`}
+                                <span className="ml-1 text-muted-foreground line-through">
+                                  ₹{original.total_price_inr}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Items that were in current but not in compared (removed) */}
+                  {Array.from(currentMap.entries())
+                    .filter(([key]) => !comparedMap.has(key))
+                    .map(([key, item]) => (
+                      <div
+                        key={key}
+                        className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 opacity-60"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold capitalize line-through">
+                                {item.name}
+                              </span>
+                              <span className="shrink-0 rounded-full bg-destructive/15 px-2 py-0.5 text-[9px] font-bold text-destructive">
+                                REMOVED
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-sm font-bold text-muted-foreground line-through">
+                            ₹{item.total_price_inr}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Apply button */}
+              <div className="sticky bottom-0 bg-background/90 backdrop-blur-md border-t border-border -mx-6 px-6 py-4">
+                <button
+                  onClick={() => {
+                    if (result) {
+                      onApply(result);
+                      onClose();
+                    }
+                  }}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand/90 text-sm font-bold text-brand-foreground shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl"
+                >
+                  <Check className="h-4 w-4" />
+                  Apply This Cart
+                  {savings > 0 && (
+                    <span className="ml-1 rounded-full bg-brand-foreground/20 px-2 py-0.5 text-[10px]">
+                      Save ₹{savings}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty state when no comparison has been run */}
+          {!result && !loading && !error && (
+            <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface">
+                <ArrowLeftRight className="h-8 w-8 text-muted-foreground/30" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium">Adjust the parameters above</p>
+                <p className="text-sm text-muted-foreground">
+                  Hit "Compare" to see how your cart changes with different budget, servings, or dietary preferences
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CartPage ─────────────────────────────────────────────────────────────────
+
 function CartPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -81,9 +507,6 @@ function CartPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
-  const [whatIfBudget, setWhatIfBudget] = useState(1500);
-  const [whatIfAttendees, setWhatIfAttendees] = useState<number>(10);
-  const [whatIfDietary, setWhatIfDietary] = useState<string>("any");
   const [copySuccess, setCopySuccess] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [optimizationSummary, setOptimizationSummary] = useState<string | null>(null);
@@ -302,6 +725,15 @@ function CartPage() {
     } finally {
       setReserving(false);
     }
+  };
+
+  const handleApplyCompare = (result: CompareResult) => {
+    setSession((prev: any) => ({
+      ...prev,
+      resolved_intents: result.intents,
+      total_price_inr: result.total_price_inr,
+      budget_exceeded: result.budget_exceeded,
+    }));
   };
 
   if (loading) {
@@ -708,6 +1140,17 @@ function CartPage() {
           </div>
         </div>
       )}
+
+      {/* CompareCart What-If Drawer */}
+      <CompareCartDrawer
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        sessionId={session?.session_id || id}
+        currentCart={cartItems}
+        currentTotal={total}
+        currentBudget={budget}
+        onApply={handleApplyCompare}
+      />
     </AppShell>
   );
 }

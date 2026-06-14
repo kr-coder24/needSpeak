@@ -55,6 +55,15 @@ export interface PendingSubstitution {
   savings_per_unit_inr: number;
 }
 
+export interface CarbonAlternative {
+  sku: string;
+  name: string;
+  local_alt_sku: string;
+  local_alt_name: string;
+  savings_km: number;
+  savings_co2_kg: number;
+}
+
 export interface CollabCartItem {
   id: string;
   sku: string;
@@ -73,6 +82,9 @@ export interface CollabCartItem {
   pending_substitution?: PendingSubstitution;
   substitution_reason?: string;
   merge_savings_inr: number;
+  carbon_co2_kg: number;
+  carbon_origin: string;
+  local_carbon_alternative?: CarbonAlternative;
 }
 
 export interface CollabSession {
@@ -85,6 +97,9 @@ export interface CollabSession {
   contributors: Contributor[];
   items: CollabCartItem[];
   share_code: string;
+  community_code: string;
+  community_name: string;
+  carbon_score_kg: number;
   is_active: boolean;
 }
 
@@ -100,6 +115,37 @@ export interface BudgetSplit {
   merge_savings_inr: number;
 }
 
+export interface CommunityGroup {
+  code: string;
+  name: string;
+  member_session_ids: string[];
+  created_at: string;
+}
+
+export interface BulkDealSession {
+  session_id: string;
+  session_name: string;
+  items: Array<{
+    sku: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    subtotal_inr: number;
+  }>;
+  subtotal_inr: number;
+  discounted_total_inr: number;
+  estimated_savings_inr: number;
+}
+
+export interface BulkDealMatch {
+  category: string;
+  matching_sessions: BulkDealSession[];
+  total_quantity: number;
+  discount_pct: number;
+  estimated_savings_inr: number;
+  accepted_session_ids: string[];
+}
+
 async function readJson<T>(response: Response, fallbackMessage: string): Promise<T> {
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
@@ -112,6 +158,8 @@ export async function createCollabSession(
   name: string,
   hostName: string,
   totalBudgetInr: number,
+  communityCode = "",
+  communityName = "",
 ): Promise<{ session: CollabSession; contributor: Contributor }> {
   const response = await fetch(`${API_BASE}/create`, {
     method: "POST",
@@ -120,6 +168,8 @@ export async function createCollabSession(
       name,
       host_name: hostName,
       total_budget_inr: totalBudgetInr,
+      community_code: communityCode,
+      community_name: communityName,
     }),
   });
   return readJson(response, "Failed to create session");
@@ -150,4 +200,36 @@ export async function getBudgetSplit(sessionId: string): Promise<{ splits: Budge
 export async function resolveShareCode(code: string): Promise<{ session_id: string }> {
   const response = await fetch(`${API_BASE}/join/${code}`);
   return readJson(response, "Failed to resolve share code");
+}
+
+export async function listCommunities(): Promise<{ communities: CommunityGroup[] }> {
+  const response = await fetch("/api/community/list");
+  return readJson(response, "Failed to list communities");
+}
+
+export async function getCommunityDeals(
+  code: string,
+  sessionId: string,
+): Promise<{ community_code: string; deals: BulkDealMatch[] }> {
+  const response = await fetch(
+    `/api/community/${encodeURIComponent(code)}/deals?session_id=${encodeURIComponent(sessionId)}`,
+  );
+  return readJson(response, "Failed to get community deals");
+}
+
+export async function acceptCommunityDeal(
+  sessionId: string,
+  communityCode: string,
+  category: string,
+): Promise<{ success: boolean; deals: BulkDealMatch[] }> {
+  const response = await fetch("/api/community/accept-deal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      community_code: communityCode,
+      deal_category: category,
+    }),
+  });
+  return readJson(response, "Failed to accept community deal");
 }

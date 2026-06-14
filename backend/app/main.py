@@ -69,6 +69,7 @@ from app.intelligence.event_logger import log_event
 from app.db.s3 import store_raw_input, store_cart_result, check_s3_health
 from app.auth.auth_routes import router as auth_router
 from app.collab.collab_routes import router as collab_router
+from app.collab.bulk_buy_routes import router as community_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -184,6 +185,7 @@ app.include_router(auth_router)
 
 # Collab routes
 app.include_router(collab_router)
+app.include_router(community_router)
 
 
 # ---------------------------------------------------------------------------

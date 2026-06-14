@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
+import { loadHistory } from "@/lib/cart-history";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 
 export const Route = createFileRoute("/cart/$id")({
@@ -98,8 +99,24 @@ function CartPage() {
         if (!res.ok) {
           throw new Error(res.status === 404 ? "Session not found" : `Error ${res.status}`);
         }
-        const data = await res.json();
-        setSession(data);
+        let data = await res.json();
+        
+        // Merge with local history to support appended carts from Chat page
+        const history = loadHistory();
+        const historyEntry = history.find(h => h.session_id === id);
+        if (historyEntry) {
+          data = {
+            ...data,
+            cart: historyEntry.cart,
+            cart_items: historyEntry.cart,
+            unavailable_items: historyEntry.unavailable_items,
+            intent_type: historyEntry.intent_type || data.intent_type,
+            context_summary: historyEntry.context_summary || data.context_summary,
+            total_price_inr: historyEntry.total_price_inr,
+            budget_inr: historyEntry.budget_inr || data.budget_inr,
+            resolved_intents: [], // Clear this so we prefer the flattened history cart
+          };
+        }
         setSession(data);
       } catch (e: any) {
         setError(e.message || "Failed to load session");

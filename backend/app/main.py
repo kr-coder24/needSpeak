@@ -19,6 +19,8 @@ import logging
 import os
 import sys
 import uuid
+import json
+from typing import Optional, List
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 import asyncio
@@ -66,6 +68,7 @@ from app.db.dynamo import (
 from app.intelligence.event_logger import log_event
 from app.db.s3 import store_raw_input, store_cart_result, check_s3_health
 from app.auth.auth_routes import router as auth_router
+from app.collab.collab_routes import router as collab_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -77,10 +80,46 @@ logging.basicConfig(
 )
 logger = logging.getLogger("context-to-cart")
 
+PARSE_TIMEOUT_SECONDS = int(os.getenv("PARSE_TIMEOUT_SECONDS", "120"))
+MULTIMODAL_TIMEOUT_SECONDS = int(os.getenv("MULTIMODAL_TIMEOUT_SECONDS", "180"))
+RECOMPARE_TIMEOUT_SECONDS = int(os.getenv("RECOMPARE_TIMEOUT_SECONDS", "20"))
+
+
+def _normalize_dietary_pref(value: str | None) -> str | None:
+    """Normalize UI/API dietary values to catalog tag vocabulary."""
+    if not value:
+        return None
+    val = value.strip().lower()
+    if val in ("any", "none"):
+        return None
+    if val in ("vegetarian", "veg"):
+        return "veg"
+    return val
+
+
+def _parse_brands_form(value: str | None) -> list[str]:
+    """Parse FormData brand/category arrays sent as JSON or a single string."""
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        if isinstance(parsed, list):
+            return [str(v) for v in parsed if str(v).strip()]
+        if parsed:
+            return [str(parsed)]
+    except Exception:
+        pass
+    return [value]
+
 
 # ---------------------------------------------------------------------------
 # Startup / Shutdown
 # ---------------------------------------------------------------------------
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.inventory.cleanup import cleanup_expired_reservations
+
+scheduler = BackgroundScheduler()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load product catalog into memory at startup."""
@@ -96,8 +135,18 @@ async def lifespan(app: FastAPI):
     products = load_all_products()
     logger.info(f"Loaded {len(products)} products into memory cache")
 
+    scheduler.add_job(
+        cleanup_expired_reservations,
+        "interval",
+        minutes=5,
+        id="cleanup_reservations",
+    )
+    scheduler.start()
+    logger.info("Started reservation cleanup scheduler")
+
     yield  # App runs
 
+    scheduler.shutdown()
     logger.info("Context-to-Cart shutting down...")
 
 
@@ -119,6 +168,9 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -127,6 +179,9 @@ app.add_middleware(
 
 # Auth routes
 app.include_router(auth_router)
+
+# Collab routes
+app.include_router(collab_router)
 
 
 # ---------------------------------------------------------------------------
@@ -293,15 +348,18 @@ async def parse_content(req: ParseRequest, request: Request):
         from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
         from app.db.dynamo import get_user_events
         
-        dietary_list = []
-        if req.dietary_pref and req.dietary_pref.lower() not in ("any", "none"):
-            val = req.dietary_pref.lower()
-            dietary_list.append("vegetarian" if val == "veg" else val)
+        normalized_dietary = _normalize_dietary_pref(req.dietary_pref)
+        dietary_list = [normalized_dietary] if normalized_dietary else []
         
         prefs = UserPreferences(
             dietary=dietary_list,
             preferred_brands=req.preferred_brands or [],
-            budget_mode=req.budget_mode or "balanced"
+            avoided_brands=req.avoided_brands or [],
+            budget_mode=req.budget_mode or "balanced",
+            preferred_categories=req.preferred_categories or [],
+            avoided_categories=req.avoided_categories or [],
+            quality_preference=req.quality_preference or "balanced",
+            pack_size_preference=req.pack_size_preference or "balanced",
         )
         
         implicit_prefs = None
@@ -310,6 +368,14 @@ async def parse_content(req: ParseRequest, request: Request):
             implicit_prefs = build_implicit_preferences(user_events)
             
         extraction = apply_preferences(extraction, prefs, implicit_prefs)
+        effective_preferred_brands = sorted({
+            *(req.preferred_brands or []),
+            *((implicit_prefs.preferred_brands if implicit_prefs else []) or []),
+        })
+        effective_preferred_categories = sorted({
+            *(req.preferred_categories or []),
+            *((implicit_prefs.preferred_categories if implicit_prefs else []) or []),
+        })
 
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
@@ -318,10 +384,14 @@ async def parse_content(req: ParseRequest, request: Request):
                 session_id=session_id,
                 mock_mode=mock_mode,
                 # V2 preference params
-                dietary_pref=req.dietary_pref,
-                preferred_brands=req.preferred_brands,
+                dietary_pref=normalized_dietary,
+                preferred_brands=effective_preferred_brands,
                 avoided_brands=req.avoided_brands,
+                preferred_categories=effective_preferred_categories,
+                avoided_categories=req.avoided_categories,
                 budget_mode=req.budget_mode or "balanced",
+                quality_preference=req.quality_preference or "balanced",
+                pack_size_preference=req.pack_size_preference or "balanced",
                 occasion=req.occasion,
                 implicit_preferences=implicit_prefs,
             )
@@ -374,6 +444,7 @@ async def parse_content(req: ParseRequest, request: Request):
             "budget_inr": req.budget_inr,
             "budget_exceeded": global_budget_exceeded,
             "summary": summary,
+            "user_id": req.user_id,
             "status": "completed",
         }
         save_session(session_data, mock_mode=mock_mode)
@@ -383,9 +454,9 @@ async def parse_content(req: ParseRequest, request: Request):
         return response_data
 
     try:
-        return await asyncio.wait_for(run_in_threadpool(run_pipeline), timeout=600.0)
+        return await asyncio.wait_for(run_in_threadpool(run_pipeline), timeout=PARSE_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] Pipeline timed out after 600 seconds.")
+        logger.error(f"[{session_id}] Pipeline timed out after {PARSE_TIMEOUT_SECONDS} seconds.")
         raise HTTPException(
             status_code=504,
             detail={
@@ -482,6 +553,16 @@ async def _run_multimodal_pipeline(
     extracted_text: str,
     input_type: str,
     budget_inr: float = None,
+    dietary_pref: str | None = None,
+    preferred_brands: list[str] | None = None,
+    avoided_brands: list[str] | None = None,
+    budget_mode: str = "balanced",
+    preferred_categories: list[str] | None = None,
+    avoided_categories: list[str] | None = None,
+    quality_preference: str = "balanced",
+    pack_size_preference: str = "balanced",
+    occasion: str | None = None,
+    user_id: str | None = "demo_user",
     mock_mode: bool = False,
 ):
     from app.pipeline.extractor import extract_items
@@ -519,6 +600,35 @@ async def _run_multimodal_pipeline(
         global_budget_exceeded = False
 
         budget_int = int(budget_inr) if budget_inr else None
+        normalized_dietary = _normalize_dietary_pref(dietary_pref)
+
+        from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
+        from app.db.dynamo import get_user_events
+
+        prefs = UserPreferences(
+            dietary=[normalized_dietary] if normalized_dietary else [],
+            preferred_brands=preferred_brands or [],
+            avoided_brands=avoided_brands or [],
+            budget_mode=budget_mode or "balanced",
+            preferred_categories=preferred_categories or [],
+            avoided_categories=avoided_categories or [],
+            quality_preference=quality_preference or "balanced",
+            pack_size_preference=pack_size_preference or "balanced",
+        )
+        implicit_prefs = None
+        if user_id:
+            user_events = get_user_events(user_id, event_type="purchase", mock_mode=mock_mode)
+            implicit_prefs = build_implicit_preferences(user_events)
+
+        extraction = apply_preferences(extraction, prefs, implicit_prefs)
+        effective_preferred_brands = sorted({
+            *(preferred_brands or []),
+            *((implicit_prefs.preferred_brands if implicit_prefs else []) or []),
+        })
+        effective_preferred_categories = sorted({
+            *(preferred_categories or []),
+            *((implicit_prefs.preferred_categories if implicit_prefs else []) or []),
+        })
 
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
@@ -526,11 +636,15 @@ async def _run_multimodal_pipeline(
                 budget_inr=budget_int,
                 session_id=session_id,
                 mock_mode=mock_mode,
-                dietary_pref=None,
-                preferred_brands=None,
-                avoided_brands=None,
-                budget_mode="balanced",
-                occasion=None,
+                dietary_pref=normalized_dietary,
+                preferred_brands=effective_preferred_brands,
+                avoided_brands=avoided_brands,
+                preferred_categories=effective_preferred_categories,
+                avoided_categories=avoided_categories,
+                budget_mode=budget_mode or "balanced",
+                quality_preference=quality_preference or "balanced",
+                pack_size_preference=pack_size_preference or "balanced",
+                occasion=occasion,
             )
             global_total_price += intent_total_price
             global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -571,6 +685,7 @@ async def _run_multimodal_pipeline(
             "budget_inr": budget_int,
             "budget_exceeded": global_budget_exceeded,
             "summary": summary,
+            "user_id": user_id,
             "status": "completed",
         }
         save_session(session_data, mock_mode=mock_mode)
@@ -583,7 +698,7 @@ async def _run_multimodal_pipeline(
 
     try:
         return await asyncio.wait_for(
-            run_in_threadpool(run_pipeline), timeout=600.0
+            run_in_threadpool(run_pipeline), timeout=MULTIMODAL_TIMEOUT_SECONDS
         )
     except HTTPException:
         raise
@@ -593,7 +708,7 @@ async def _run_multimodal_pipeline(
             detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
         )
     except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] Pipeline timed out after 600 seconds.")
+        logger.error(f"[{session_id}] Pipeline timed out after {MULTIMODAL_TIMEOUT_SECONDS} seconds.")
         raise HTTPException(
             status_code=504,
             detail={
@@ -628,7 +743,15 @@ async def ingest_image(
     budget_inr: float = Form(None),
     dietary_pref: Optional[str] = Form(None),
     preferred_brands: Optional[str] = Form(None),
+    avoided_brands: Optional[str] = Form(None),
     budget_style: Optional[str] = Form(None),
+    budget_mode: Optional[str] = Form(None),
+    preferred_categories: Optional[str] = Form(None),
+    avoided_categories: Optional[str] = Form(None),
+    quality_preference: Optional[str] = Form(None),
+    pack_size_preference: Optional[str] = Form(None),
+    occasion: Optional[str] = Form(None),
+    user_id: Optional[str] = Form("demo_user"),
 ):
     """
     Accept an image, extract text via Gemini Vision, run through pipeline.
@@ -646,12 +769,24 @@ async def ingest_image(
     )
 
     if mock_mode:
-        # In mock mode, return a sample extraction
-        return {
-            "extracted_text": "milk 2L, basmati rice 1kg, onions 500g, tomatoes 6 pieces",
-            "session_id": session_id,
-            "hint": "Submit this text to /api/parse with input_type=text",
-        }
+        extracted_text = "milk 2L, basmati rice 1kg, onions 500g, tomatoes 6 pieces"
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="image",
+            budget_inr=budget_inr,
+            dietary_pref=dietary_pref,
+            preferred_brands=_parse_brands_form(preferred_brands),
+            avoided_brands=_parse_brands_form(avoided_brands),
+            budget_mode=budget_mode or budget_style or "balanced",
+            preferred_categories=_parse_brands_form(preferred_categories),
+            avoided_categories=_parse_brands_form(avoided_categories),
+            quality_preference=quality_preference or "balanced",
+            pack_size_preference=pack_size_preference or "balanced",
+            occasion=occasion,
+            user_id=user_id,
+            mock_mode=mock_mode,
+        )
 
     try:
         from app.ingestion.image_input import extract_text_from_image
@@ -675,6 +810,16 @@ async def ingest_image(
             extracted_text=extracted_text,
             input_type="image",
             budget_inr=budget_inr,
+            dietary_pref=dietary_pref,
+            preferred_brands=_parse_brands_form(preferred_brands),
+            avoided_brands=_parse_brands_form(avoided_brands),
+            budget_mode=budget_mode or budget_style or "balanced",
+            preferred_categories=_parse_brands_form(preferred_categories),
+            avoided_categories=_parse_brands_form(avoided_categories),
+            quality_preference=quality_preference or "balanced",
+            pack_size_preference=pack_size_preference or "balanced",
+            occasion=occasion,
+            user_id=user_id,
             mock_mode=mock_mode,
         )
 
@@ -775,34 +920,120 @@ async def ingest_prescription(
 # ---------------------------------------------------------------------------
 # POST /api/cart/{session_id}/reserve — Reserve Inventory
 # ---------------------------------------------------------------------------
-class ReserveRequest(BaseModel):
-    items: list[dict] = Field(..., description="List of items to reserve: [{'sku': '...', 'qty': 2}]")
+from app.inventory.models import (
+    ReserveRequest,
+    ReservationResponse,
+    PaymentIntentRequest,
+    PaymentIntentResponse,
+)
+from app.inventory.reservations import (
+    reserve_items,
+    get_reservation,
+    commit_reservation,
+)
 
-@app.post("/api/cart/{session_id}/reserve")
-async def reserve_cart(session_id: str, req: ReserveRequest, request: Request):
+@app.post("/api/cart/{session_id}/reserve", response_model=ReservationResponse)
+async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Request):
+    """Reserve inventory for cart items."""
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import reserve_items
-    success, failed_skus, res_id = reserve_items(session_id, req.items, mock_mode=mock_mode)
-    if not success:
-        raise HTTPException(
-            status_code=409, 
-            detail={"message": "Some items are out of stock", "failed_skus": failed_skus}
+    
+    user_id = request.headers.get("X-User-ID", "demo_user")  # TODO: use real auth
+    
+    result = reserve_items(
+        items=[item.model_dump() for item in req.items],
+        session_id=session_id,
+        user_id=user_id,
+        idempotency_key=req.idempotency_key,
+        mock_mode=mock_mode,
+    )
+    
+    return ReservationResponse(**result)
+
+
+@app.get("/api/reservation/{reservation_id}")
+async def get_reservation_details(reservation_id: str):
+    """Get reservation details."""
+    reservation = get_reservation(reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    return reservation
+
+
+@app.post("/api/payment/create-intent", response_model=PaymentIntentResponse)
+async def create_payment_intent(req: PaymentIntentRequest):
+    """Create payment intent with Razorpay or Stripe."""
+    reservation = get_reservation(req.reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    if reservation["status"] != "reserved":
+        raise HTTPException(status_code=400, detail="Reservation is not in reserved state")
+    
+    amount = reservation["total_amount"]
+    
+    # Razorpay integration
+    payment_provider = os.getenv("PAYMENT_PROVIDER", "razorpay").lower()
+    
+    if payment_provider == "razorpay":
+        import razorpay
+        client = razorpay.Client(
+            auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
         )
-    return {"success": True, "reservation_id": res_id}
+        
+        order = client.order.create({
+            "amount": int(amount * 100),  # paise
+            "currency": "INR",
+            "receipt": req.reservation_id,
+            "notes": {
+                "reservation_id": req.reservation_id,
+                "customer_email": req.customer_email or "",
+            }
+        })
+        
+        return PaymentIntentResponse(
+            client_secret=order["id"],  # Razorpay order_id
+            amount=amount,
+            currency="INR",
+            reservation_id=req.reservation_id,
+        )
+    
+    elif payment_provider == "stripe":
+        import stripe
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+        
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount * 100),  # cents
+            currency="inr",
+            metadata={"reservation_id": req.reservation_id},
+        )
+        
+        return PaymentIntentResponse(
+            client_secret=intent.client_secret,
+            amount=amount,
+            currency="INR",
+            reservation_id=req.reservation_id,
+        )
+    
+    else:
+        raise HTTPException(status_code=500, detail="No payment provider configured")
 
-@app.post("/api/cart/{session_id}/release")
-async def release_cart(session_id: str, req: ReserveRequest, request: Request):
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import release_reservation
-    release_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
-    return {"success": True}
 
-@app.post("/api/cart/{session_id}/commit")
-async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import commit_reservation
-    commit_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
-    return {"success": True}
+class ConfirmPaymentRequest(BaseModel):
+    reservation_id: str
+    payment_id: str
+
+@app.post("/api/payment/confirm")
+async def confirm_payment(req: ConfirmPaymentRequest):
+    """Confirm payment and commit reservation."""
+    reservation = get_reservation(req.reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    # TODO: Verify payment with provider API
+    
+    commit_reservation(req.reservation_id)
+    
+    return {"success": True, "message": "Order confirmed"}
 
 
 
@@ -817,7 +1048,15 @@ async def parse_pdf(
     budget_inr: float = Form(None),
     dietary_pref: Optional[str] = Form(None),
     preferred_brands: Optional[str] = Form(None),
+    avoided_brands: Optional[str] = Form(None),
     budget_style: Optional[str] = Form(None),
+    budget_mode: Optional[str] = Form(None),
+    preferred_categories: Optional[str] = Form(None),
+    avoided_categories: Optional[str] = Form(None),
+    quality_preference: Optional[str] = Form(None),
+    pack_size_preference: Optional[str] = Form(None),
+    occasion: Optional[str] = Form(None),
+    user_id: Optional[str] = Form("demo_user"),
 ):
     """
     Accept a PDF file, extract text via pypdf, and run through the pipeline.
@@ -834,20 +1073,27 @@ async def parse_pdf(
     logger.info(f"[{session_id}] PDF upload: {len(pdf_bytes)} bytes")
 
     if mock_mode:
-        return {
-            "extracted_text": "Sample mock text from PDF: milk 2L, bread 1 pack",
-            "session_id": session_id,
-            "hint": "Submit this text to /api/parse with input_type=text",
-        }
+        extracted_text = "Sample mock text from PDF: milk 2L, bread 1 pack"
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="pdf",
+            budget_inr=budget_inr,
+            dietary_pref=dietary_pref,
+            preferred_brands=_parse_brands_form(preferred_brands),
+            avoided_brands=_parse_brands_form(avoided_brands),
+            budget_mode=budget_mode or budget_style or "balanced",
+            preferred_categories=_parse_brands_form(preferred_categories),
+            avoided_categories=_parse_brands_form(avoided_categories),
+            quality_preference=quality_preference or "balanced",
+            pack_size_preference=pack_size_preference or "balanced",
+            occasion=occasion,
+            user_id=user_id,
+            mock_mode=mock_mode,
+        )
 
     try:
         from app.ingestion.pdf_input import extract_text_from_pdf
-        import uuid
-        from datetime import datetime, timezone
-        from app.models import ParseResponse, IntentGroup, ErrorCode
-        import asyncio
-        from starlette.concurrency import run_in_threadpool
-        from app.db.dynamo import save_session, store_cart_result
         
         extracted_text = extract_text_from_pdf(pdf_bytes)
 
@@ -862,136 +1108,22 @@ async def parse_pdf(
 
         logger.info(f"[{session_id}] Extracted from PDF: '{extracted_text[:200]}'")
 
-        def run_pdf_pipeline():
-            from app.pipeline.extractor import extract_items
-            from app.pipeline.resolver import resolve_cart
-            from app.pipeline.summarizer import generate_summary
-
-            extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
-
-            if extraction.error == "no_shoppable_content":
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "error_code": ErrorCode.NO_CONTENT.value,
-                        "message": "No shoppable items found in the extracted text from the PDF.",
-                    },
-                )
-
-            if extraction.error in ("extraction_failed", "bedrock_timeout"):
-                error_code = (
-                    ErrorCode.BEDROCK_TIMEOUT
-                    if extraction.error == "bedrock_timeout"
-                    else ErrorCode.EXTRACTION_FAILED
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "error_code": error_code.value,
-                        "message": "AI extraction failed. Please try again.",
-                    },
-                )
-
-            resolved_intent_groups = []
-            global_total_price = 0.0
-            global_budget_exceeded = False
-
-            budget_int = int(budget_inr) if budget_inr else None
-
-            # Apply preferences (Pillar 9)
-            from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
-            from app.db.dynamo import get_user_events
-            import json
-            
-            brands_list = []
-            if preferred_brands:
-                try:
-                    brands_list = json.loads(preferred_brands)
-                    if not isinstance(brands_list, list):
-                        brands_list = [brands_list]
-                except Exception:
-                    brands_list = [preferred_brands]
-
-            dietary_list = []
-            if dietary_pref and dietary_pref.lower() not in ("any", "none"):
-                val = dietary_pref.lower()
-                dietary_list.append("vegetarian" if val == "veg" else val)
-
-            prefs = UserPreferences(
-                dietary=dietary_list,
-                preferred_brands=brands_list,
-                budget_mode=budget_style or "balanced"
-            )
-            
-            implicit_prefs = None
-            if req.user_id:
-                user_events = get_user_events(req.user_id, event_type="purchase", mock_mode=mock_mode)
-                implicit_prefs = build_implicit_preferences(user_events)
-                
-            extraction = apply_preferences(extraction, prefs, implicit_prefs)
-
-            for intent in extraction.intents:
-                cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
-                    items=intent.items,
-                    budget_inr=budget_int,
-                    session_id=session_id,
-                    mock_mode=mock_mode,
-                    dietary_pref=dietary_pref,
-                    preferred_brands=brands_list,
-                    budget_mode=budget_style,
-                    implicit_preferences=implicit_prefs,
-                )
-                global_total_price += intent_total_price
-                global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
-
-                resolved_intent_groups.append(IntentGroup(
-                    intent_type=intent.intent_type,
-                    context_summary=intent.context_summary,
-                    cart=cart_items,
-                    unavailable_items=unavailable_items,
-                ))
-
-            summary = generate_summary(
-                intent_groups=resolved_intent_groups,
-                total_price=global_total_price,
-                budget_inr=budget_int,
-                budget_exceeded=global_budget_exceeded,
-                mock_mode=mock_mode,
-            )
-
-            response_data = ParseResponse(
-                session_id=session_id,
-                confidence=extraction.confidence,
-                clarification_question=extraction.clarification_question,
-                intents=resolved_intent_groups,
-                total_price_inr=global_total_price,
-                budget_exceeded=global_budget_exceeded,
-                summary=summary,
-            )
-
-            session_data = {
-                "session_id": session_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "input_type": "text",
-                "confidence": extraction.confidence,
-                "extracted_text_from_pdf": extracted_text,
-                "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
-                "total_price_inr": global_total_price,
-                "budget_inr": budget_int,
-                "budget_exceeded": global_budget_exceeded,
-                "summary": summary,
-                "status": "completed",
-            }
-            save_session(session_data, mock_mode=mock_mode)
-            store_cart_result(session_id, session_data, mock_mode=mock_mode)
-
-            return {
-                "extracted_text": extracted_text,
-                **response_data.model_dump(),
-            }
-
-        return await asyncio.wait_for(
-            run_in_threadpool(run_pdf_pipeline), timeout=45.0
+        return await _run_multimodal_pipeline(
+            session_id=session_id,
+            extracted_text=extracted_text,
+            input_type="pdf",
+            budget_inr=budget_inr,
+            dietary_pref=dietary_pref,
+            preferred_brands=_parse_brands_form(preferred_brands),
+            avoided_brands=_parse_brands_form(avoided_brands),
+            budget_mode=budget_mode or budget_style or "balanced",
+            preferred_categories=_parse_brands_form(preferred_categories),
+            avoided_categories=_parse_brands_form(avoided_categories),
+            quality_preference=quality_preference or "balanced",
+            pack_size_preference=pack_size_preference or "balanced",
+            occasion=occasion,
+            user_id=user_id,
+            mock_mode=mock_mode,
         )
 
     except HTTPException:
@@ -1002,7 +1134,7 @@ async def parse_pdf(
             detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
         )
     except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] PDF pipeline timed out after 45 seconds.")
+        logger.error(f"[{session_id}] PDF pipeline timed out after {MULTIMODAL_TIMEOUT_SECONDS} seconds.")
         raise HTTPException(
             status_code=504,
             detail={
@@ -1040,7 +1172,11 @@ class RecompareRequest(BaseModel):
     dietary_pref: str | None = None
     preferred_brands: list[str] | None = None
     avoided_brands: list[str] | None = None
+    preferred_categories: list[str] | None = None
+    avoided_categories: list[str] | None = None
     budget_mode: str | None = "balanced"
+    quality_preference: str | None = "balanced"
+    pack_size_preference: str | None = "balanced"
     occasion: str | None = None
     user_id: str | None = "demo_user"
 
@@ -1103,7 +1239,11 @@ async def recompare_cart(req: RecompareRequest, request: Request):
                 dietary_pref=req.dietary_pref,
                 preferred_brands=req.preferred_brands,
                 avoided_brands=req.avoided_brands,
+                preferred_categories=req.preferred_categories,
+                avoided_categories=req.avoided_categories,
                 budget_mode=req.budget_mode or "balanced",
+                quality_preference=req.quality_preference or "balanced",
+                pack_size_preference=req.pack_size_preference or "balanced",
                 occasion=req.occasion,
             )
 
@@ -1126,7 +1266,7 @@ async def recompare_cart(req: RecompareRequest, request: Request):
         }
 
     try:
-        return await asyncio.wait_for(run_in_threadpool(run_recompare), timeout=15.0)
+        return await asyncio.wait_for(run_in_threadpool(run_recompare), timeout=RECOMPARE_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         raise HTTPException(
             status_code=504,
@@ -1221,8 +1361,12 @@ class PreferenceRequest(BaseModel):
     dietary: list[str] = Field(default_factory=list)
     preferred_brands: list[str] = Field(default_factory=list)
     avoided_brands: list[str] = Field(default_factory=list)
+    preferred_categories: list[str] = Field(default_factory=list)
+    avoided_categories: list[str] = Field(default_factory=list)
     allergies: list[str] = Field(default_factory=list)
     budget_mode: str = "balanced"
+    quality_preference: str = "balanced"
+    pack_size_preference: str = "balanced"
 
 @app.post("/api/preferences")
 async def update_preferences(req: PreferenceRequest, request: Request):
@@ -1253,10 +1397,16 @@ async def extract_preferences(req: PreferenceExtractRequest):
     client = genai.Client(api_key=api_key)
     
     prompt = f"""
-    You are a shopping preference extractor. Analyze the user's text and extract:
-    - dietary: "veg", "vegan", "jain", or "any" (default)
-    - budget_mode: "value", "balanced" (default), or "premium"
-    - preferred_brands: list of brand names they like
+    You are a general ecommerce preference extractor. Analyze the user's text and extract:
+    - dietary: "veg", "vegan", "jain", or "any" for food constraints
+    - budget_mode: "value", "balanced", or "premium"
+    - preferred_brands: brand names the user likes
+    - avoided_brands: brand names the user dislikes or avoids
+    - preferred_categories: product categories/subcategories they often prefer
+      such as snacks, dairy, cleaning, stationery, personal_care, electronics, fashion
+    - avoided_categories: product categories/subcategories they dislike or avoid
+    - quality_preference: "value", "balanced", or "quality"
+    - pack_size_preference: "small", "balanced", or "bulk"
     
     Text: "{req.text}"
     
@@ -1264,7 +1414,12 @@ async def extract_preferences(req: PreferenceExtractRequest):
     {{
         "dietary": "...",
         "budget_mode": "...",
-        "preferred_brands": [...]
+        "preferred_brands": [...],
+        "avoided_brands": [...],
+        "preferred_categories": [...],
+        "avoided_categories": [...],
+        "quality_preference": "...",
+        "pack_size_preference": "..."
     }}
     """
     
@@ -1280,7 +1435,12 @@ async def extract_preferences(req: PreferenceExtractRequest):
         return PreferenceExtractResponse(
             dietary=data.get("dietary", "any"),
             budget_mode=data.get("budget_mode", "balanced"),
-            preferred_brands=data.get("preferred_brands", [])
+            preferred_brands=data.get("preferred_brands", []),
+            avoided_brands=data.get("avoided_brands", []),
+            preferred_categories=data.get("preferred_categories", []),
+            avoided_categories=data.get("avoided_categories", []),
+            quality_preference=data.get("quality_preference", "balanced"),
+            pack_size_preference=data.get("pack_size_preference", "balanced"),
         )
     except Exception as e:
         logger.error(f"Failed to extract preferences: {e}")
@@ -1299,8 +1459,9 @@ class EventRequest(BaseModel):
     context: str = ""
 
 @app.post("/api/events")
-async def capture_event(req: EventRequest):
+async def capture_event(req: EventRequest, request: Request):
     """Log an interaction event for the preference engine."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
     log_event(
         user_id=req.user_id,
         event_type=req.event_type,
@@ -1311,7 +1472,8 @@ async def capture_event(req: EventRequest):
         rank_position=req.rank_position,
         price_inr=req.price_inr,
         category=req.category,
-        context=req.context
+        context=req.context,
+        mock_mode=mock_mode,
     )
     return {"status": "logged"}
 

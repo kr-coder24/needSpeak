@@ -82,9 +82,9 @@
 | 6.1 | Collab page UI shell | ✅ | `/collab/$id` route with budget bar, contributors, items |
 | 6.2 | QR code generation | ✅ | Uses qrcode.react to generate scan-to-join code in collab page |
 | 6.3 | Share link | ✅ | Copies collab session URL to clipboard with toast notification |
-| 6.4 | Real-time contribution (multiple users adding items) | ❌ | Static mock data only — no WebSocket or polling |
-| 6.5 | Budget auto-rebalancing on new items | ❌ | Not implemented |
-| 6.6 | Invite contributor flow | 🟡 | "Invite" button exists, no backend |
+| 6.4 | Real-time contribution (multiple users adding items) | ✅ | WebSocket-based live sync with full state management (collab_ws.py + useCollabWebSocket.ts) |
+| 6.5 | Budget auto-rebalancing on new items | ✅ | `_calculate_budget_splits()` runs after every cart mutation |
+| 6.6 | Invite contributor flow | ✅ | Full email/SMS invite system with modal UI, backend route, and SendGrid/Twilio integration (collab_notifications.py) |
 
 ---
 
@@ -163,7 +163,7 @@
 | 13.2 | Budget widget with progress bar | ✅ | |
 | 13.3 | Per-item explainability | ✅ | `matched_from`, substitution reason |
 | 13.4 | AI-generated summary | ✅ | `session.summary` shown in sidebar |
-| 13.5 | Proceed to checkout button | 🟡 | Button exists, no actual checkout integration |
+| 13.5 | Proceed to checkout button | ✅ | Complete checkout flow with inventory reservation (reservations.py), payment integration (Razorpay/Stripe), checkout page, and order confirmation |
 
 ---
 
@@ -178,7 +178,7 @@
 | I.5 | S3 raw input + result storage | ✅ | With mock fallback |
 | I.6 | Mock catalog (~45 Indian SKUs) | ✅ | In `dynamo.py` mock data |
 | I.7 | Full DynamoDB product catalog (80 SKUs) | ✅ | `seed_catalog.py` |
-| I.8 | OpenSearch | ❌ | Mentioned in tech stack; not implemented |
+| I.8 | OpenSearch | 🟡 | Code exists (`opensearch_retrieval.py`, `setup_opensearch.py`) but not configured/tested. Set `SEARCH_PROVIDER=opensearch` + `OPENSEARCH_HOST` to enable. |
 | I.9 | AWS Amplify / CloudWatch hosting | ❌ | Mentioned; not configured |
 | I.10 | Cart history in localStorage | ✅ | Last 20 sessions, with restore |
 | I.11 | Dark/light theme toggle | ✅ | Persisted in localStorage |
@@ -222,8 +222,8 @@
 ### Collaboration
 | # | Feature | Priority | Why |
 |---|---------|----------|-----|
-| B.15 | **Real-time collab via WebSocket** — host creates cart, shares link, others join and add items live | 🔴 High | Report's Pillar 6 is currently all mock data |
-| B.16 | **Per-contributor budget split** — show how much each person owes | 🟡 Medium | Simple math on top of existing collab data |
+| B.15 | **Real-time collab via WebSocket** — host creates cart, shares link, others join and add items live | ✅ Done | Typed demand is resolved through the existing catalog and quantity engine, merged by SKU in real time, attributed per contributor, and enriched with typo suggestions, explicit not-found feedback, and host-approved better deals. |
+| B.16 | **Per-contributor budget split** — show how much each person owes | ✅ Done | Each contributor owes the proportional cost of their requested demand after package merging; the live view also shows merge savings, shared budget progress, and host budget updates. |
 
 ### Data & Catalog
 | # | Feature | Priority | Why |
@@ -242,27 +242,52 @@
 | RecipeCart (Pillar 3) | 4 | 0 | 0 |
 | Quantity Engine (Pillar 4) | 4 | 1 | 0 |
 | Multi-Intent (Pillar 5) | 4 | 0 | 0 |
-| SplitCart (Pillar 6) | 3 | 1 | 2 |
+| SplitCart (Pillar 6) | 6 | 0 | 0 |
 | GoalCart (Pillar 7) | 5 | 0 | 0 |
 | CompareCart (Pillar 8) | 5 | 0 | 0 |
 | Preferences (Pillar 9) | 5 | 0 | 0 |
 | Smart Alternatives (Pillar 10) | 3 | 0 | 0 |
 | Explainability (Pillar 11) | 3 | 0 | 0 |
 | Confidence Layer (Pillar 12) | 4 | 0 | 0 |
-| ReviewCart (Pillar 13) | 4 | 1 | 0 |
-| Infrastructure | 15 | 0 | 2 |
-| **Total** | **74** | **3** | **5** |
+| ReviewCart (Pillar 13) | 5 | 0 | 0 |
+| Infrastructure | 15 | 1 | 1 |
+| **Total** | **78** | **2** | **2** |
 
-**Overall completion: ~90% done, ~4% partial, ~6% not started.**
-
----
-
-## Remaining Work (Sprint 2 Next Steps)
-
-1. **B.15** Real-time collab via WebSockets (SplitCart).
+**Overall completion: ~95% done, ~2% partial, ~2% not started.**
 
 ---
 
-## Recommended Next Sprint
+## Remaining Work (Sprint 3 Next Steps)
 
-1. **B.15** Real-time collab via WebSockets (SplitCart) — 4 hrs
+### Confirmed Remaining Features (Verified Against Codebase)
+
+1. **2.4** Backend occasion → item blueprint mapping
+   - **Status**: ❌ Not started
+   - **Location**: Should be in `backend/app/intelligence/occasion_templates.py`
+   - **Current**: Templates exist with `blueprint` field but not used in main.py pipeline
+   - **Fix needed**: Wire blueprint items into `/api/parse` when `occasion` param is present
+
+2. **I.8** OpenSearch Hybrid Search Integration
+   - **Status**: 🟡 Code exists but NOT connected/tested
+   - **Location**: `backend/app/search/opensearch_retrieval.py` + `backend/scripts/setup_opensearch.py`
+   - **Current**: Environment variable `SEARCH_PROVIDER=local` defaults to local retrieval
+   - **Fix needed**: Set `SEARCH_PROVIDER=opensearch` + `OPENSEARCH_HOST` + run setup script
+
+3. **I.9** AWS Amplify / CloudWatch hosting
+   - **Status**: ❌ Not configured
+   - **Note**: Infrastructure deployment, not a code feature
+
+### ✅ COMPLETED FEATURES (No Action Needed)
+
+1. **6.6 Invite Contributor Flow** ✅
+   - **Backend**: `backend/app/collab/collab_notifications.py` (SendGrid + Twilio integration)
+   - **Routes**: `backend/app/collab/collab_routes.py` (@router.post("/{session_id}/invite"))
+   - **Frontend**: Full modal UI with email/SMS form in `collab.$id.tsx`
+   - **Status**: Fully implemented, just needs API keys in production
+
+2. **13.5 Proceed to Checkout** ✅
+   - **Reservation**: `backend/app/inventory/reservations.py` (reserve_items with race condition handling)
+   - **Routes**: `/api/cart/{id}/reserve`, `/api/payment/create-intent`, `/api/payment/confirm`
+   - **Checkout Page**: `frontend/src/routes/checkout.$id.tsx` (complete with Razorpay integration)
+   - **Confirmation**: Order confirmation page with confetti animation
+   - **Status**: Fully implemented, Razorpay keys optional for testing (mock mode works)

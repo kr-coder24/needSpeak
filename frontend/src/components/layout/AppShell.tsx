@@ -1,18 +1,29 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
-import { ShoppingCart, Sliders, Sun, Moon, Bell, Sparkles } from "lucide-react";
+import { ChevronDown, History, LogOut, ShoppingCart, Sliders, Sun, Moon, User, Users, Bell, Sparkles } from "lucide-react";
 import logo from "@/assets/needspeak-logo.png";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
 import { getStoredAuth } from "@/routes/login";
+import { createCollabSession } from "@/lib/collab-api";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CreateCollabCard } from "@/components/collab/CreateCollabCard";
+import { CursorGlow } from "@/components/effects/CursorGlow";
 import { Footer } from "./Footer";
 
 const nav = [
   { to: "/chat", label: "Chat" },
   { to: "/occasions", label: "Occasions" },
   { to: "/recipe", label: "Recipe" },
-  { to: "/collab/ipl-finals-10", label: "Collab" },
 ];
 
 export function AppShell({
@@ -63,17 +74,38 @@ export function AppShell({
     };
   }, []);
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreatingCollab, setIsCreatingCollab] = useState(false);
+
+  const handleCreateCollab = async (data: { name: string; hostName: string; budget: number }) => {
+    setIsCreatingCollab(true);
+    try {
+      const { session, contributor } = await createCollabSession(data.name, data.hostName, data.budget);
+      localStorage.setItem(`collab_${session.session_id}_contributor`, contributor.id);
+      setIsDialogOpen(false);
+      navigate({ to: `/collab/${session.session_id}` });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create collab session");
+    } finally {
+      setIsCreatingCollab(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("needspeak-auth");
+    setAuth(null);
+    navigate({ to: "/login" });
+  };
+
   return (
-    <div
-      className={`flex flex-col bg-background relative z-0 ${isAppLayout ? "h-screen overflow-hidden" : "min-h-screen"}`}
-    >
+    <div className={`flex flex-col bg-background relative z-0 ${isAppLayout ? "h-screen overflow-hidden" : "min-h-screen"}`}>
+      <CursorGlow />
       <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <img src={logo} alt="NeedSpeak" className="h-8 w-8" />
-            <span className="font-display text-2xl font-bold tracking-tight uppercase">
-              NEEDSPEAK
-            </span>
+            <span className="font-display text-2xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -93,6 +125,22 @@ export function AppShell({
                 </Link>
               );
             })}
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <button className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-all hover:border-foreground/40 hover:bg-surface hover:shadow-soft">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  Start a group cart
+                </button>
+              </DialogTrigger>
+              <DialogContent className="p-0 bg-transparent border-none shadow-none w-[calc(100vw-2rem)] max-w-2xl sm:max-w-2xl outline-none [&>button]:hidden">
+                <CreateCollabCard
+                  onSubmit={handleCreateCollab}
+                  onCancel={() => setIsDialogOpen(false)}
+                  isCreating={isCreatingCollab}
+                />
+              </DialogContent>
+            </Dialog>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -172,34 +220,61 @@ export function AppShell({
 
             {/* User Auth */}
             {auth && auth.user ? (
-              <div className="flex items-center gap-3 ml-2 border-l border-border pl-4">
-                <div className="flex items-center gap-2">
-                  {auth.user.avatar_url ? (
-                    <img
-                      src={auth.user.avatar_url}
-                      alt=""
-                      className="w-7 h-7 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-medium text-brand-foreground">
-                      {auth.user.name?.charAt(0).toUpperCase()}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="ml-2 inline-flex h-9 max-w-[210px] items-center gap-2 rounded-full border border-border bg-card px-2.5 text-sm transition-colors hover:bg-surface">
+                    {auth.user.avatar_url ? (
+                      <img src={auth.user.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-medium text-brand-foreground">
+                        {(auth.user.name || auth.user.email || "U").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="hidden min-w-0 truncate font-medium md:inline">
+                      {auth.user.name || auth.user.email || "Account"}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>
+                    <div className="flex min-w-0 items-center gap-3">
+                      {auth.user.avatar_url ? (
+                        <img src={auth.user.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-brand-foreground">
+                          {(auth.user.name || auth.user.email || "U").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{auth.user.name || "NeedSpeak user"}</div>
+                        <div className="truncate text-xs font-normal text-muted-foreground">{auth.user.email || "Signed in"}</div>
+                      </div>
                     </div>
-                  )}
-                  <span className="text-sm font-medium hidden md:inline-block">
-                    {auth.user.name}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("needspeak-auth");
-                    setAuth(null);
-                    window.location.reload();
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                >
-                  Logout
-                </button>
-              </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/preferences">
+                      <User className="h-4 w-4" />
+                      Profile preferences
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/history">
+                      <History className="h-4 w-4" />
+                      Cart history
+                      {historyCount > 0 && (
+                        <span className="ml-auto rounded bg-brand px-1.5 text-xs text-brand-foreground">{historyCount}</span>
+                      )}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <div className="ml-2 border-l border-border pl-4">
                 <Link

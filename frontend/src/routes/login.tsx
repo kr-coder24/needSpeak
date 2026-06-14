@@ -53,7 +53,7 @@ function analyzePassword(pw: string): PasswordStrength {
   const colors = [
     "bg-destructive",
     "bg-destructive/70",
-    "bg-yellow-500",
+    "bg-muted-foreground/60",
     "bg-success",
     "bg-success",
   ];

@@ -29,7 +29,7 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <AppShell>
-      <CursorGlow />
+      
       <div className="relative z-10">
         <HeroPrompt />
         <div className="bg-surface/50 border-t border-border">
@@ -38,7 +38,7 @@ function Landing() {
         <div className="bg-background border-t border-border">
           <HowItWorks />
         </div>
-        <div className="border-t border-border" style={{ background: "#8A5A44" }}>
+        <div className="bg-surface border-t border-border">
           <LiveExample />
         </div>
         <div className="bg-background border-t border-border">

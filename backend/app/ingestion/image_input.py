@@ -76,32 +76,25 @@ def extract_text_from_image(image_bytes: bytes, mime_type: str) -> str:
     )
 
     client = get_gemini_client()
-    encoded = base64.b64encode(image_bytes).decode("utf-8")
+    from google.genai import types
 
     response = client.models.generate_content(
         model=config.GEMINI_MODEL_ID,
         contents=[
-            {
-                "role": "user",
-                "parts": [
-                    {"inline_data": {"mime_type": normalized_mime, "data": encoded}},
-                    {
-                        "text": (
-                            "Look at this image carefully. Extract ALL food items, "
-                            "ingredients, groceries, or shopping items you can see. "
-                            "Include approximate quantities if visible (e.g. '2 kg rice', "
-                            "'500g chicken'). If the image shows a handwritten list, "
-                            "transcribe every item. If it shows food products or a "
-                            "recipe, list every ingredient.\n\n"
-                            "Return them as a simple comma-separated list.\n"
-                            "Example: milk 2L, basmati rice 1kg, onions 500g, "
-                            "chicken breast 1kg, tomatoes 6 pieces\n\n"
-                            "If the image does not contain any food items or shopping "
-                            "items, respond with exactly: NO_ITEMS_FOUND"
-                        )
-                    },
-                ],
-            }
+            types.Part.from_bytes(data=image_bytes, mime_type=normalized_mime),
+            (
+                "Look at this image carefully. Extract ALL food items, "
+                "ingredients, groceries, or shopping items you can see. "
+                "Include approximate quantities if visible (e.g. '2 kg rice', "
+                "'500g chicken'). If the image shows a handwritten list, "
+                "transcribe every item. If it shows food products or a "
+                "recipe, list every ingredient.\n\n"
+                "Return them as a simple comma-separated list.\n"
+                "Example: milk 2L, basmati rice 1kg, onions 500g, "
+                "chicken breast 1kg, tomatoes 6 pieces\n\n"
+                "If the image does not contain any food items or shopping "
+                "items, respond with exactly: NO_ITEMS_FOUND"
+            )
         ],
     )
 

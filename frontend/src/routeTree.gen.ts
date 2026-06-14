@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RecipeRouteImport } from './routes/recipe'
 import { Route as PreferencesRouteImport } from './routes/preferences'
+import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as OccasionsRouteImport } from './routes/occasions'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoryRouteImport } from './routes/history'
@@ -19,6 +20,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
+import { Route as CollabJoinCodeRouteImport } from './routes/collab.join.$code'
 
 const RecipeRoute = RecipeRouteImport.update({
   id: '/recipe',
@@ -28,6 +30,11 @@ const RecipeRoute = RecipeRouteImport.update({
 const PreferencesRoute = PreferencesRouteImport.update({
   id: '/preferences',
   path: '/preferences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
+  id: '/order-confirmed',
+  path: '/order-confirmed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OccasionsRoute = OccasionsRouteImport.update({
@@ -70,6 +77,11 @@ const CartIdRoute = CartIdRouteImport.update({
   path: '/cart/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollabJoinCodeRoute = CollabJoinCodeRouteImport.update({
+  id: '/collab/join/$code',
+  path: '/collab/join/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -77,11 +89,13 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,11 +103,13 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,11 +118,13 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/occasions': typeof OccasionsRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,11 +134,13 @@ export interface FileRouteTypes {
     | '/history'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/collab/join/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,11 +148,13 @@ export interface FileRouteTypes {
     | '/history'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/collab/join/$code'
   id:
     | '__root__'
     | '/'
@@ -140,11 +162,13 @@ export interface FileRouteTypes {
     | '/history'
     | '/login'
     | '/occasions'
+    | '/order-confirmed'
     | '/preferences'
     | '/recipe'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/collab/join/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -153,11 +177,13 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   LoginRoute: typeof LoginRoute
   OccasionsRoute: typeof OccasionsRoute
+  OrderConfirmedRoute: typeof OrderConfirmedRoute
   PreferencesRoute: typeof PreferencesRoute
   RecipeRoute: typeof RecipeRoute
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
+  CollabJoinCodeRoute: typeof CollabJoinCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -174,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/preferences'
       fullPath: '/preferences'
       preLoaderRoute: typeof PreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order-confirmed': {
+      id: '/order-confirmed'
+      path: '/order-confirmed'
+      fullPath: '/order-confirmed'
+      preLoaderRoute: typeof OrderConfirmedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/occasions': {
@@ -232,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collab/join/$code': {
+      id: '/collab/join/$code'
+      path: '/collab/join/$code'
+      fullPath: '/collab/join/$code'
+      preLoaderRoute: typeof CollabJoinCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -241,11 +281,13 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   LoginRoute: LoginRoute,
   OccasionsRoute: OccasionsRoute,
+  OrderConfirmedRoute: OrderConfirmedRoute,
   PreferencesRoute: PreferencesRoute,
   RecipeRoute: RecipeRoute,
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,
+  CollabJoinCodeRoute: CollabJoinCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

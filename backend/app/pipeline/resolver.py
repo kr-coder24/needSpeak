@@ -85,15 +85,18 @@ def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
             from app.search.opensearch_retrieval import OpenSearchRetriever
             host = os.getenv("OPENSEARCH_HOST", "")
             _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
-        elif provider == "local":
-            # Legacy local vector retrieval
+        elif provider in ("local", "local_vector", "vector"):
             from app.search.local_vector_retrieval import LocalVectorRetriever
+            logger.warning(
+                "SEARCH_PROVIDER=%s is experimental; default local BM25 is safer "
+                "unless real embeddings are available.",
+                provider,
+            )
             _retriever = LocalVectorRetriever(mock_mode=mock_mode)
         else:
             # Default: hybrid retriever (BM25 + synonyms + fuzzy matching)
             from app.search.hybrid_retrieval import HybridRetriever
             _retriever = HybridRetriever(mock_mode=mock_mode)
-            
     return _retriever
 
 
@@ -119,8 +122,11 @@ def _match_product_v2(
         category=item.category if item.category != "general" else None,
         dietary_filter=context.dietary_pref,
         max_price=context.remaining_budget,
+        occasion=context.occasion,
         preferred_brands=context.preferred_brands,
         avoided_brands=context.avoided_brands,
+        preferred_categories=context.preferred_categories,
+        avoided_categories=context.avoided_categories,
     )
     
     # Retrieve candidates (top 20 for ranking)
@@ -239,6 +245,10 @@ def _build_cart_item(
             "unit": alt.unit,
             "unit_quantity": alt.unit_quantity,
             "rating": alt.rating,
+            "purchase_likelihood": alt.purchase_likelihood,
+            "likely_rating": alt.likely_rating,
+            "score_breakdown": alt.score_breakdown,
+            "display_reason": alt.display_reason,
             "reason": f"Save ₹{savings:.0f}" if savings > 0 else (
                 f"Higher rated ({alt.rating}★)" if alt.rating > product.rating else "Alternative"
             ),
@@ -261,6 +271,9 @@ def _build_cart_item(
         alternatives=alt_list,
         reason_codes=product.reason_codes,
         display_reason=product.display_reason,
+        score_breakdown=product.score_breakdown,
+        purchase_likelihood=product.purchase_likelihood,
+        likely_rating=product.likely_rating,
         stock_status="available" if product.in_stock else "low_stock",
     )
 
@@ -336,7 +349,11 @@ def resolve_cart(
     dietary_pref: Optional[str] = None,
     preferred_brands: Optional[list[str]] = None,
     avoided_brands: Optional[list[str]] = None,
+    preferred_categories: Optional[list[str]] = None,
+    avoided_categories: Optional[list[str]] = None,
     budget_mode: str = "balanced",
+    quality_preference: str = "balanced",
+    pack_size_preference: str = "balanced",
     occasion: Optional[str] = None,
     implicit_preferences: Optional[any] = None,
 ) -> tuple[list[CartItem], list[UnavailableItem], float, bool]:
@@ -366,6 +383,10 @@ def resolve_cart(
         dietary_pref=dietary_pref,
         preferred_brands=preferred_brands or [],
         avoided_brands=avoided_brands or [],
+        preferred_categories=preferred_categories or [],
+        avoided_categories=avoided_categories or [],
+        quality_preference=quality_preference or "balanced",
+        pack_size_preference=pack_size_preference or "balanced",
         occasion=occasion,
         remaining_budget=remaining_budget,
         favorite_skus=implicit_preferences.favorite_skus if implicit_preferences else [],

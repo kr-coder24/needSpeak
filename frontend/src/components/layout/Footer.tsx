@@ -163,7 +163,7 @@ export function Footer() {
                   className="flex items-center gap-1.5 text-muted-foreground transition-colors duration-200 hover:text-foreground group"
                 >
                   System Status
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                  <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
                 </a>
               </li>
             </ul>

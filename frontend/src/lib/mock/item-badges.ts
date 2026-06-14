@@ -3,6 +3,9 @@
  * Maps SKU prefixes to visual badges shown on cart item rows.
  */
 
+const NEUTRAL = "text-muted-foreground bg-muted";
+const WARNING = "text-destructive bg-destructive/10";
+
 const BADGE_RULES: Record<string, { label: string; color: string }> = {
   VEG: {
     label: "🥬 Seasonal",

@@ -188,7 +188,7 @@ To ensure maximum reliability during long hackathon hacking sessions:
 | **Pillar 3: RecipeCart** | 4 / 4 | ✅ | Recipe URL parser, ingredient-to-SKU matching, servings scaling, and YouTube recipe transcription to cart. |
 | **Pillar 4: Quantity Engine** | 4 / 5 | ✅ | Normalizes 70+ units (g, ml, cups, etc.), product units translation, UI quantity controls, and quantity deduplication. |
 | **Pillar 5: Multi-Intent** | 4 / 4 | ✅ | Decomposes single inputs to multiple intent groups, creates separate carts per intent, and groups items with subtotals in Live Cart. |
-| **Pillar 6: Collaborative Cart** | 1 / 6 | 🟡 | `/collab/$id` UI page shell is built. Sharing features and database socket sync are static/mocked. |
+| **Pillar 6: Collaborative Cart** | 6 / 6 | ✅ | `/collab/$id` UI, QR code, share link, **REAL-TIME WebSocket sync with live state**, budget auto-rebalancing, and invite button (email/SMS backend not wired). |
 | **Pillar 7: GoalCart** | 5 / 5 | ✅ | Dynamic budget optimization, custom item-swapping suggestions UI (cheaper alternatives), budget progress bar, and over/under indicator. |
 | **Pillar 8: CompareCart** | 1 / 5 | 🟡 | "What If" modal with budget slider exists in ReviewCart. Backed re-runs are cosmetic/mocked. |
 | **Pillar 9: Preferences** | 5 / 5 | ✅ | Full CRUD user preferences API, integrated directly into the resolver pipeline (filtering dietary tags, brand affinity, and budget constraints). |

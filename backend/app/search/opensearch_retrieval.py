@@ -9,9 +9,8 @@ from typing import Optional, Any
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 
 from app.config import AWS_REGION
-from app.catalog.models import ProductQuery
+from app.catalog.models import ProductCandidate, ProductQuery
 from app.search.retrieval import ProductRetriever
-from app.catalog.models import RankedProduct
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class OpenSearchRetriever(ProductRetriever):
                 pool_maxsize=20
             )
 
-    def retrieve(self, query: ProductQuery, limit: int = 20) -> list[RankedProduct]:
+    def retrieve(self, query: ProductQuery, limit: int = 20) -> list[ProductCandidate]:
         """Execute hybrid search on OpenSearch."""
         if self.mock_mode or not self.client:
             logger.info("OpenSearch mock mode: falling back to empty list")
@@ -100,20 +99,24 @@ class OpenSearchRetriever(ProductRetriever):
             results = []
             for hit in hits:
                 source = hit["_source"]
-                results.append(RankedProduct(
+                results.append(ProductCandidate(
                     sku=source["sku"],
                     title=source["name"],
                     brand=source["brand"],
                     category=source["category"],
+                    subcategory=source.get("subcategory", ""),
                     price_inr=source["price_inr"],
                     unit=source.get("unit", "piece"),
                     unit_quantity=source.get("unit_quantity", 1.0),
                     rating=source.get("rating", 4.0),
                     in_stock=source.get("in_stock", True),
                     dietary_tags=set(source.get("dietary_tags", [])),
+                    occasion_tags=set(source.get("occasion_tags", [])),
+                    keywords=set(source.get("keywords", [])),
                     image_url=source.get("image_url", ""),
                     review_count=source.get("review_count", 0),
-                    score=hit["_score"]
+                    text_score=float(hit.get("_score", 0)),
+                    semantic_score=float(hit.get("_score", 0)),
                 ))
             return results
 

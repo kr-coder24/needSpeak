@@ -47,7 +47,7 @@ export function HeroBlob() {
     <div
       ref={ref}
       aria-hidden
-      className="pointer-events-none absolute left-0 top-0 -z-0 h-[640px] w-[640px] rounded-full opacity-70 blur-3xl motion-reduce:hidden"
+      className="pointer-events-none absolute left-0 top-0 -z-0 h-[640px] w-[640px] rounded-full opacity-70 dark:opacity-10 blur-3xl motion-reduce:hidden"
       style={{
         background:
           "radial-gradient(circle, oklch(from var(--glow) l c h / 0.55) 0%, oklch(from var(--glow) l c h / 0.18) 45%, transparent 70%)",

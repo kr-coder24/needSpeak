@@ -94,28 +94,27 @@
   --accent: oklch(0.89 0.018 75);
   --accent-foreground: oklch(0.15 0.005 60);
 
-  /* Anthropic uses a dark charcoal for CTAs, not a loud brand color.
-     We keep a subtle warm-clay accent for interactive highlights. */
-  --brand: oklch(0.55 0.1 40);
+  /* Muted warm taupe accent — never a loud brand color. */
+  --brand: #6d5b51;
   --brand-foreground: oklch(0.97 0.01 85);
 
-  --success: oklch(0.58 0.12 145);
+  --success: oklch(0.62 0.06 145);
 
-  --destructive: oklch(0.52 0.18 27);
+  --destructive: oklch(0.55 0.09 27);
   --destructive-foreground: oklch(0.97 0.01 85);
 
   --border: oklch(0.87 0.012 78);
   --input: oklch(0.87 0.012 78);
-  --ring: oklch(0.15 0.005 60); /* ring = ink color, not brand (Anthropic style) */
+  --ring: oklch(0.15 0.005 60);
 
-  /* Cursor glow tint — warm clay/orange from brand family */
-  --glow: oklch(0.88 0.095 55);
+  /* Cursor glow tint — visible warm cream, never bold */
+  --glow: oklch(0.9 0.06 65);
 
-  --chart-1: oklch(0.55 0.1 40);
-  --chart-2: oklch(0.5 0.08 220);
-  --chart-3: oklch(0.58 0.12 145);
-  --chart-4: oklch(0.6 0.1 320);
-  --chart-5: oklch(0.35 0.03 60);
+  --chart-1: #6d5b51;
+  --chart-2: oklch(0.58 0.035 80);
+  --chart-3: oklch(0.62 0.04 110);
+  --chart-4: oklch(0.48 0.03 40);
+  --chart-5: oklch(0.35 0.02 60);
 
   --sidebar: oklch(0.94 0.014 83);
   --sidebar-foreground: oklch(0.15 0.005 60);
@@ -147,12 +146,12 @@
   --secondary-foreground: oklch(0.92 0.008 80);
 
   --muted: oklch(0.24 0.012 60);
-  --muted-foreground: oklch(0.65 0.01 70);
+  --muted-foreground: oklch(0.82 0.01 70);
 
   --accent: oklch(0.26 0.015 60);
   --accent-foreground: oklch(0.92 0.008 80);
 
-  --brand: oklch(0.65 0.1 40);
+  --brand: #6d5b51;
   --brand-foreground: oklch(0.16 0.01 65);
 
   --success: oklch(0.68 0.12 145);
@@ -164,7 +163,7 @@
   --ring: oklch(0.92 0.008 80);
 
   /* Cursor glow tint — warm ember in dark */
-  --glow: oklch(0.62 0.11 50);
+  --glow: #6d5b51;
 }
 
 @layer base {

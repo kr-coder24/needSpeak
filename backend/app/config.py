@@ -40,6 +40,7 @@ DYNAMODB_TABLE_EMAIL_LOCKS = os.getenv("DYNAMODB_TABLE_EMAIL_LOCKS", "NeedSpeakE
 DYNAMODB_TABLE_AUTH_SESSIONS = os.getenv("DYNAMODB_TABLE_AUTH_SESSIONS", "NeedSpeakAuthSessions")
 DYNAMODB_TABLE_PREFERENCES = os.getenv("DYNAMODB_TABLE_PREFERENCES", "NeedSpeakUserPreferences")
 DYNAMODB_TABLE_EVENTS = os.getenv("DYNAMODB_TABLE_EVENTS", "NeedSpeakUserEvents")
+DYNAMODB_TABLE_SHOPPER_PROFILES = os.getenv("DYNAMODB_TABLE_SHOPPER_PROFILES", "NeedSpeakShopperProfiles")
 
 # ---------------------------------------------------------------------------
 # Amazon S3

@@ -43,6 +43,8 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
+import { BudgetFingerprint } from "@/components/common/BudgetFingerprint";
+import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (search: Record<string, unknown>): { prompt?: string; occasion?: string } => ({
@@ -970,6 +972,20 @@ function ChatPage() {
 
           <Conversation className="flex-1 pb-32">
             <ConversationContent className="mx-auto w-full max-w-3xl pt-14">
+              {/* Smart Repeat suggestion banner */}
+              {phase !== "thinking" && (
+                <div className="mb-4">
+                  <SmartRepeatBanner
+                    onAccept={(prompt) => {
+                      setText(prompt);
+                      // Auto-submit the restock prompt
+                      onSubmit(prompt);
+                    }}
+                    hasActiveCart={!!cartData}
+                  />
+                </div>
+              )}
+
               {messages.map((m, i) => (
                 <Message key={i} from={m.role}>
                   {m.role === "assistant" ? (
@@ -1388,6 +1404,17 @@ function ChatPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Budget Fingerprint in Live Cart */}
+                {cartData.cart && cartData.cart.length >= 3 && (
+                  <div className="border-t border-border/40 px-4 py-3">
+                    <BudgetFingerprint
+                      cartItems={cartData.cart.filter((_: any, idx: number) => !removedKeys.includes(String(_.sku ?? idx)))}
+                      budget={budgetInput ? Number(budgetInput) : cartData.budget_inr}
+                      totalSpent={computedTotal}
+                    />
+                  </div>
+                )}
 
                 {/* Footer with total */}
                 <div className="border-t border-border/60 bg-gradient-to-t from-surface/80 to-surface/40 p-5">

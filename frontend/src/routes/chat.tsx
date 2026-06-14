@@ -43,7 +43,7 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
-import { BudgetFingerprint } from "@/components/common/BudgetFingerprint";
+
 import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
 import { detectOccasion, type OccasionSuggestion } from "@/lib/occasion-detector";
 
@@ -659,6 +659,14 @@ function ChatPage() {
       }, 0)
     : 0;
 
+  const mergeUniqueStrings = useCallback((str1: string | undefined, str2: string | undefined, sep = " | "): string => {
+    const parts = [
+      ...(str1 ? str1.split(/ \| | · |, /) : []),
+      ...(str2 ? str2.split(/ \| | · |, /) : [])
+    ].map(s => s.trim()).filter(Boolean);
+    return Array.from(new Set(parts)).join(sep);
+  }, []);
+
   const applyCartResponse = useCallback((data: any, budget?: number) => {
     const intents: any[] = data.intents ?? [];
     const allCartItems = intents.flatMap((g: any) => g.cart ?? []);
@@ -672,26 +680,44 @@ function ChatPage() {
       return;
     }
 
+    const prev = useChatStore.getState().cartData;
+    
+    let mergedCart = allCartItems;
+    let mergedUnavailable = allUnavailable;
+    let mergedTotal = data.total_price_inr || 0;
+    let mergedIntentType = intentType || "shopping";
+    let mergedContextSummary = contextSummary;
+
+
+    if (prev) {
+      mergedCart = [...(prev.cart || []), ...allCartItems];
+      mergedUnavailable = [...(prev.unavailable_items || []), ...allUnavailable];
+      mergedTotal = (prev.total_price_inr || 0) + mergedTotal;
+      mergedIntentType = mergeUniqueStrings(prev.intent_type, mergedIntentType, ", ");
+      mergedContextSummary = mergeUniqueStrings(prev.context_summary, mergedContextSummary, " · ");
+    }
+
     const normalized = {
       ...data,
-      cart: allCartItems,
-      unavailable_items: allUnavailable,
-      intent_type: intentType || "shopping",
-      context_summary: contextSummary,
+      cart: mergedCart,
+      unavailable_items: mergedUnavailable,
+      intent_type: mergedIntentType,
+      context_summary: mergedContextSummary,
+      total_price_inr: mergedTotal,
     };
 
     setCartData(normalized);
-    setIntentGroups(data.intents ?? []);
+    setIntentGroups((prevGroups: any[]) => [...(prevGroups || []), ...(data.intents ?? [])]);
 
     const entry: CartHistoryEntry = {
       session_id: data.session_id,
       saved_at: new Date().toISOString(),
-      intent_type: intentType || "shopping",
-      context_summary: contextSummary,
-      total_price_inr: data.total_price_inr,
-      item_count: allCartItems.length,
-      cart: allCartItems,
-      unavailable_items: allUnavailable,
+      intent_type: mergedIntentType,
+      context_summary: mergedContextSummary,
+      total_price_inr: mergedTotal,
+      item_count: mergedCart.length,
+      cart: mergedCart,
+      unavailable_items: mergedUnavailable,
       summary: data.summary || "",
       budget_inr: budget,
     };
@@ -889,20 +915,20 @@ function ChatPage() {
 
   const restoreFromHistory = (entry: CartHistoryEntry) => {
     // "Load in Chat" — append history cart to existing live cart (or set as new base)
-    if (cartData) {
+    const prev = useChatStore.getState().cartData;
+    if (prev) {
       // Append to existing cart
       const merged = {
-        ...cartData,
+        ...prev,
         session_id: entry.session_id, // use history entry's session_id for review page
-        cart: [...(cartData.cart || []), ...(entry.cart || [])],
+        cart: [...(prev.cart || []), ...(entry.cart || [])],
         unavailable_items: [
-          ...(cartData.unavailable_items || []),
+          ...(prev.unavailable_items || []),
           ...(entry.unavailable_items || []),
         ],
-        intent_type: cartData.intent_type + (entry.intent_type ? ", " + entry.intent_type : ""),
-        context_summary:
-          cartData.context_summary + (entry.context_summary ? " · " + entry.context_summary : ""),
-        total_price_inr: (cartData.total_price_inr || 0) + (entry.total_price_inr || 0),
+        intent_type: mergeUniqueStrings(prev.intent_type, entry.intent_type, ", "),
+        context_summary: mergeUniqueStrings(prev.context_summary, entry.context_summary, " · "),
+        total_price_inr: (prev.total_price_inr || 0) + (entry.total_price_inr || 0),
       };
       setCartData(merged);
       // Save merged cart to history
@@ -957,7 +983,7 @@ function ChatPage() {
     
     // Use saved groups, or fallback to a single group representing the old flat cart
     const restoredGroups = entry.intents?.length ? entry.intents : [restoredGroup];
-    setIntentGroups((prev) => (cartData ? [...prev, ...restoredGroups] : restoredGroups));
+    setIntentGroups((prevGroups) => (prev ? [...(prevGroups || []), ...restoredGroups] : restoredGroups));
     if (entry.budget_inr) setBudgetInput(String(entry.budget_inr));
     setPhase("cart");
   };
@@ -1462,16 +1488,7 @@ function ChatPage() {
                   )}
                 </div>
 
-                {/* Budget Fingerprint in Live Cart */}
-                {cartData.cart && cartData.cart.length >= 3 && (
-                  <div className="border-t border-border/40 px-4 py-3">
-                    <BudgetFingerprint
-                      cartItems={cartData.cart.filter((_: any, idx: number) => !removedKeys.includes(String(_.sku ?? idx)))}
-                      budget={budgetInput ? Number(budgetInput) : cartData.budget_inr}
-                      totalSpent={computedTotal}
-                    />
-                  </div>
-                )}
+
 
                 {/* Footer with total */}
                 <div className="border-t border-border/60 bg-gradient-to-t from-surface/80 to-surface/40 p-5">

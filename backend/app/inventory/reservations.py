@@ -172,8 +172,10 @@ def reserve_items(
             "session_id": session_id,
             "user_id": user_id,
             "items": items,
-            "expires_at": expires_at,
-            "created_at": datetime.now(timezone.utc)
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "total_amount": total_amount,
+            "status": "reserved"
         }
 
         metadata = {
@@ -254,6 +256,16 @@ def reserve_items(
                 "reservation_id": reservation_id,
                 "metadata": metadata
             }
+
+        _reservation_metadata[reservation_id] = {
+            "session_id": session_id,
+            "user_id": user_id,
+            "items": items,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "total_amount": total_amount,
+            "status": "reserved"
+        }
         
         logger.info(f"DynamoDB: Successfully reserved items for {reservation_id}")
         return True, [], reservation_id, metadata
@@ -426,6 +438,10 @@ def commit_reservation(
 
 def get_reservation_metadata(reservation_id: str) -> Optional[dict]:
     """Get reservation metadata (for mock mode tracking)."""
+    return _reservation_metadata.get(reservation_id)
+
+def get_reservation(reservation_id: str) -> Optional[dict]:
+    """Get a reservation by ID."""
     return _reservation_metadata.get(reservation_id)
 
 

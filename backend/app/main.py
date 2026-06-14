@@ -951,7 +951,7 @@ async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Requ
     
     user_id = request.headers.get("X-User-ID", "demo_user")  # TODO: use real auth
     
-    result = reserve_items(
+    success, failed_skus, res_id, metadata = reserve_items(
         items=[item.model_dump() for item in req.items],
         session_id=session_id,
         user_id=user_id,
@@ -959,7 +959,13 @@ async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Requ
         mock_mode=mock_mode,
     )
     
-    return ReservationResponse(**result)
+    status = "reserved" if success else ("partial_failed" if metadata.get("reserved_items") else "failed")
+    response_data = {
+        "reservation_id": res_id or "failed",
+        "status": status,
+        **metadata
+    }
+    return ReservationResponse(**response_data)
 
 
 @app.get("/api/reservation/{reservation_id}")

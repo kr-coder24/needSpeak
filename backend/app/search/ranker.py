@@ -42,6 +42,7 @@ class RankingContext:
     avoided_brands: list[str] = field(default_factory=list)
     occasion: Optional[str] = None
     remaining_budget: Optional[float] = None
+    favorite_skus: list[str] = field(default_factory=list)
 
 
 def _get_weights(budget_mode: str) -> dict[str, float]:
@@ -133,7 +134,7 @@ def _price_fit_score(
     # Penalty if price exceeds remaining budget
     if remaining_budget is not None and price > remaining_budget:
         over_ratio = (price - remaining_budget) / max(remaining_budget, 1)
-        penalty = min(0.5, over_ratio * 0.5)
+        penalty = min(0.3, over_ratio * 0.2)
         score = max(0.0, score - penalty)
 
     return score
@@ -253,6 +254,8 @@ def rank_candidates(
         )
         popularity = _popularity_score(candidate.review_count, max_review_count)
         occasion = _occasion_match_score(candidate, context.occasion)
+        
+        is_favorite = candidate.sku in context.favorite_skus
 
         # Weighted sum
         score = (
@@ -264,9 +267,14 @@ def rank_candidates(
             + weights["popularity"] * popularity
             + weights["occasion_match"] * occasion
         )
+        
+        if is_favorite:
+            score += 2.0  # Massive boost to ensure it ranks #1
 
         # Build reason codes
         reason_codes: list[str] = []
+        if is_favorite:
+            reason_codes.append("favorite")
         if text_rel > 0.7:
             reason_codes.append("keyword_match")
         if brand_pref == 1.0:
@@ -323,9 +331,11 @@ def _build_display_reason(reason_codes: list[str], candidate: ProductCandidate) 
     """Build a concise human-readable reason for product selection."""
     parts: list[str] = []
 
-    if "preferred_brand" in reason_codes:
+    if "favorite" in reason_codes:
+        parts.append("Your favourite")
+    elif "preferred_brand" in reason_codes:
         parts.append(f"Your preferred brand ({candidate.brand})")
-    if "popular_choice" in reason_codes and "preferred_brand" not in reason_codes:
+    if "popular_choice" in reason_codes and "preferred_brand" not in reason_codes and "favorite" not in reason_codes:
         parts.append("Most popular in category")
     if "keyword_match" in reason_codes:
         parts.append("Matched your request")

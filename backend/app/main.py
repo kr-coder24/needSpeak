@@ -323,6 +323,7 @@ async def parse_content(req: ParseRequest, request: Request):
                 avoided_brands=req.avoided_brands,
                 budget_mode=req.budget_mode or "balanced",
                 occasion=req.occasion,
+                implicit_preferences=implicit_prefs,
             )
             global_total_price += intent_total_price
             global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
@@ -937,7 +938,8 @@ async def parse_pdf(
                     mock_mode=mock_mode,
                     dietary_pref=dietary_pref,
                     preferred_brands=brands_list,
-                    budget_style=budget_style,
+                    budget_mode=budget_style,
+                    implicit_preferences=implicit_prefs,
                 )
                 global_total_price += intent_total_price
                 global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded

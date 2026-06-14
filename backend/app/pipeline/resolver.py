@@ -340,6 +340,7 @@ def resolve_cart(
     avoided_brands: Optional[list[str]] = None,
     budget_mode: str = "balanced",
     occasion: Optional[str] = None,
+    implicit_preferences: Optional[any] = None,
 ) -> tuple[list[CartItem], list[UnavailableItem], float, bool]:
     """
     Resolve extracted items to real products using retrieval + ranking.
@@ -369,6 +370,7 @@ def resolve_cart(
         avoided_brands=avoided_brands or [],
         occasion=occasion,
         remaining_budget=remaining_budget,
+        favorite_skus=implicit_preferences.favorite_skus if implicit_preferences else [],
     )
 
     for item in items:

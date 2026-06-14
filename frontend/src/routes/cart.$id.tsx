@@ -1053,20 +1053,7 @@ function CartPage() {
                 </div>
               )}
 
-              {/* Summary */}
-              {session.summary && (
-                <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-brand/5 to-background/50 p-5 shadow-lg backdrop-blur-md">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm">
-                      <Sparkles className="h-4 w-4 text-brand" />
-                    </div>
-                    <span className="text-sm font-bold text-foreground">AI Summary</span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground font-medium">
-                    {session.summary}
-                  </p>
-                </div>
-              )}
+              
 
               <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
                 <div className="flex items-center gap-2.5 mb-4">

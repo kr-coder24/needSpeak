@@ -473,10 +473,9 @@ class HybridRetriever:
         for rank, item in enumerate(product_scores, 1):
             item["semantic_rank"] = rank
 
-        # Calculate RRF score
-        k = 60
+        # Calculate final score (falling back purely to text score since semantic is mocked)
         for item in product_scores:
-            item["rrf_score"] = (1.0 / (k + item["text_rank"])) + (1.0 / (k + item["semantic_rank"]))
+            item["rrf_score"] = item["text_score"]
 
         # Sort by final RRF score
         product_scores.sort(key=lambda x: x["rrf_score"], reverse=True)

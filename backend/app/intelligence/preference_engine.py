@@ -45,6 +45,10 @@ class UserPreferences(BaseModel):
         default_factory=list,
         description="Allergens to avoid: nuts, gluten, dairy, soy, etc."
     )
+    favorite_skus: list[str] = Field(
+        default_factory=list,
+        description="SKUs of frequently purchased items"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -79,25 +83,28 @@ ALLERGY_KEYWORDS = {
 # Core Functions
 # ---------------------------------------------------------------------------
 def build_implicit_preferences(user_events: list[dict]) -> UserPreferences:
-    """Analyze purchase events to build implicit brand preferences."""
+    """Analyze purchase events to build implicit brand preferences and favorite SKUs."""
     from app.db.dynamo import get_product_by_sku
     from collections import Counter
     
     brand_counts = Counter()
+    sku_counts = Counter()
     for event in user_events:
         sku = event.get("sku")
         if sku:
+            sku_counts[sku] += 1
             product = get_product_by_sku(sku)
             if product and "brand" in product and product["brand"].lower() not in ("generic", "fresh"):
                 brand_counts[product["brand"]] += 1
                 
     # Threshold: at least 2 purchases to become preferred
     preferred_brands = [brand for brand, count in brand_counts.items() if count >= 2]
+    favorite_skus = [sku for sku, count in sku_counts.items() if count >= 2]
     
-    if preferred_brands:
-        logger.info(f"Implicit preferred brands built from {len(user_events)} events: {preferred_brands}")
+    if preferred_brands or favorite_skus:
+        logger.info(f"Implicit preferences built from {len(user_events)} events: brands={preferred_brands}, skus={favorite_skus}")
         
-    return UserPreferences(preferred_brands=preferred_brands)
+    return UserPreferences(preferred_brands=preferred_brands, favorite_skus=favorite_skus)
 
 
 def apply_preferences(

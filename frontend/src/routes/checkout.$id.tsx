@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { loadHistory } from "@/lib/cart-history";
+import { useChatStore } from "@/store/useChatStore";
 
 export const Route = createFileRoute("/checkout/$id")({
   head: () => ({
@@ -66,7 +68,36 @@ function CheckoutPage() {
         if (!res.ok) {
           throw new Error(res.status === 404 ? "Session not found" : `Error ${res.status}`);
         }
-        const data = await res.json();
+        let data = await res.json();
+        
+        // 1. Try global store first (contains latest optimizations/swaps and appends)
+        const state = useChatStore.getState();
+        if (state.cartData && String(state.cartData.session_id) === String(sessionId)) {
+           data = {
+             ...data,
+             cart: state.cartData.cart,
+             cart_items: state.cartData.cart,
+             unavailable_items: state.cartData.unavailable_items,
+             total_price_inr: state.cartData.total_price_inr,
+             resolved_intents: [], // clear to force flat cart usage
+           };
+        } 
+        // 2. Try history fallback
+        else {
+          const history = loadHistory();
+          const historyEntry = history.find((h) => h.session_id === sessionId);
+          if (historyEntry) {
+            data = {
+              ...data,
+              cart: historyEntry.cart,
+              cart_items: historyEntry.cart,
+              unavailable_items: historyEntry.unavailable_items,
+              total_price_inr: historyEntry.total_price_inr,
+              resolved_intents: [],
+            };
+          }
+        }
+        
         setSession(data);
       } catch (e: any) {
         setError(e.message || "Failed to load order items");

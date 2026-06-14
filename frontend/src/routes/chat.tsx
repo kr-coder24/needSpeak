@@ -390,50 +390,31 @@ function ChatPage() {
     },
   });
 
-  // Auto-restore the most recent cart from history on mount (if no prefill prompt)
-  const hasRestoredRef = useRef(false);
-  useEffect(() => {
-    if (hasRestoredRef.current) return;
-    if (prefillPrompt) return; // Don't restore if coming from an occasion tile
-    const history = loadHistory();
-    if (history.length > 0) {
-      hasRestoredRef.current = true;
-      const latest = history[0];
-      const normalized = {
-        session_id: latest.session_id,
-        cart: latest.cart,
-        unavailable_items: latest.unavailable_items,
-        intent_type: latest.intent_type,
-        context_summary: latest.context_summary,
-        total_price_inr: latest.total_price_inr,
-        budget_exceeded: false,
-        summary: latest.summary,
-      };
-      setCartData(normalized);
-      setIntentGroups([]);
-      if (latest.budget_inr) setBudgetInput(String(latest.budget_inr));
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: `Restored your last cart: ${latest.context_summary || latest.intent_type} — ₹${latest.total_price_inr}` },
-      ]);
-      setPhase("cart");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No auto-restore — chat page always starts fresh.
+  // Users can still access past carts via the History panel.
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, phase]);
 
-  // When cartData changes, reset quantity overrides to backend-resolved values.
+  // When cartData changes, add new quantity overrides without resetting existing ones.
   useEffect(() => {
-    if (!cartData?.cart) return;
-    const initial: Record<string, number> = {};
-    cartData.cart.forEach((item: any, idx: number) => {
-      initial[item.sku ?? idx] = item.quantity_units;
+    if (!cartData?.cart) {
+      setQuantities({});
+      setRemovedKeys(new Set());
+      return;
+    }
+    setQuantities((prev) => {
+      const next = { ...prev };
+      cartData.cart.forEach((item: any, idx: number) => {
+        const key = String(item.sku ?? idx);
+        if (next[key] === undefined) {
+          next[key] = item.quantity_units;
+        }
+      });
+      return next;
     });
-    setQuantities(initial);
-    setRemovedKeys(new Set());
+    // Do not clear removedKeys so that previously removed items stay removed.
   }, [cartData]);
 
   const adjustQty = useCallback((key: string, delta: number) => {
@@ -605,7 +586,15 @@ function ChatPage() {
         return;
       }
 
-      const normalized = {
+      const newCartData = cartData ? {
+        ...cartData,
+        session_id: data.session_id, // Always use latest session_id so Review page finds the accumulated cart
+        cart: [...(cartData.cart || []), ...allCartItems],
+        unavailable_items: [...(cartData.unavailable_items || []), ...allUnavailable],
+        intent_type: cartData.intent_type + (intentType ? ", " + intentType : ""),
+        context_summary: cartData.context_summary + (contextSummary ? " · " + contextSummary : ""),
+        total_price_inr: (cartData.total_price_inr || 0) + data.total_price_inr,
+      } : {
         ...data,
         cart: allCartItems,
         unavailable_items: allUnavailable,
@@ -613,19 +602,20 @@ function ChatPage() {
         context_summary: contextSummary,
       };
 
-      setCartData(normalized);
-      setIntentGroups(data.intents ?? []);
+      // We no longer reset quantities and removedKeys here, so custom quantities are kept.
+      setCartData(newCartData);
+      setIntentGroups((prev) => [...prev, ...(data.intents ?? [])]);
 
       // Save to localStorage history.
       const entry: CartHistoryEntry = {
-        session_id: data.session_id,
+        session_id: data.session_id, // Use latest session ID
         saved_at: new Date().toISOString(),
-        intent_type: intentType || "shopping",
-        context_summary: contextSummary,
-        total_price_inr: data.total_price_inr,
-        item_count: allCartItems.length,
-        cart: allCartItems,
-        unavailable_items: allUnavailable,
+        intent_type: newCartData.intent_type || "shopping",
+        context_summary: newCartData.context_summary,
+        total_price_inr: newCartData.total_price_inr,
+        item_count: newCartData.cart.length,
+        cart: newCartData.cart,
+        unavailable_items: newCartData.unavailable_items,
         summary: data.summary || "",
         budget_inr: budget,
       };
@@ -935,13 +925,28 @@ function ChatPage() {
               <>
                 {/* Header */}
                 <div className="border-b border-border/60 bg-gradient-to-b from-surface/80 to-surface/40 px-5 py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand/10">
-                      <ShoppingCart className="h-4 w-4 text-brand" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand/10">
+                        <ShoppingCart className="h-4 w-4 text-brand" />
+                      </div>
+                      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Live Cart
+                      </div>
                     </div>
-                    <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Live Cart
-                    </div>
+                    <button
+                      onClick={() => {
+                        setCartData(null);
+                        setIntentGroups([]);
+                        setQuantities({});
+                        setRemovedKeys(new Set());
+                        setPhase("idle");
+                      }}
+                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear Cart
+                    </button>
                   </div>
                   <div className="mt-3 font-display text-xl font-semibold tracking-tight capitalize">{cartData.intent_type}</div>
                   <div className="mt-1 text-sm text-muted-foreground">{cartData.context_summary}</div>

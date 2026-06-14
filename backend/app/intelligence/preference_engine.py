@@ -78,9 +78,32 @@ ALLERGY_KEYWORDS = {
 # ---------------------------------------------------------------------------
 # Core Functions
 # ---------------------------------------------------------------------------
+def build_implicit_preferences(user_events: list[dict]) -> UserPreferences:
+    """Analyze purchase events to build implicit brand preferences."""
+    from app.db.dynamo import get_product_by_sku
+    from collections import Counter
+    
+    brand_counts = Counter()
+    for event in user_events:
+        sku = event.get("sku")
+        if sku:
+            product = get_product_by_sku(sku)
+            if product and "brand" in product and product["brand"].lower() not in ("generic", "fresh"):
+                brand_counts[product["brand"]] += 1
+                
+    # Threshold: at least 2 purchases to become preferred
+    preferred_brands = [brand for brand, count in brand_counts.items() if count >= 2]
+    
+    if preferred_brands:
+        logger.info(f"Implicit preferred brands built from {len(user_events)} events: {preferred_brands}")
+        
+    return UserPreferences(preferred_brands=preferred_brands)
+
+
 def apply_preferences(
     extraction: ExtractionResult,
     preferences: UserPreferences,
+    implicit_preferences: Optional[UserPreferences] = None
 ) -> ExtractionResult:
     """
     Apply user preferences to the extraction result.
@@ -91,20 +114,27 @@ def apply_preferences(
 
     Returns the modified ExtractionResult.
     """
-    if not preferences:
+    if not preferences and not implicit_preferences:
         return extraction
+        
+    active_dietary = preferences.dietary if preferences else []
+    active_brands = set(preferences.preferred_brands) if preferences else set()
+    if implicit_preferences and implicit_preferences.preferred_brands:
+        active_brands.update(implicit_preferences.preferred_brands)
+        
+    preferred_brands_list = list(active_brands)
 
     for intent in extraction.intents:
         filtered_items = []
         for item in intent.items:
             # Check dietary restrictions
-            if _should_exclude(item, preferences):
+            if preferences and _should_exclude(item, preferences):
                 logger.info(f"Excluded '{item.name}' due to dietary preference: {preferences.dietary}")
                 continue
 
-            # Add brand preference notes
-            if preferences.preferred_brands:
-                brands_str = ", ".join(preferences.preferred_brands)
+            # Add brand preference notes (merged explicit + implicit)
+            if preferred_brands_list:
+                brands_str = ", ".join(preferred_brands_list)
                 existing_notes = item.notes or ""
                 item.notes = f"{existing_notes} [Preferred brands: {brands_str}]".strip()
 

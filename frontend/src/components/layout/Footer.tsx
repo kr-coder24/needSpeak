@@ -97,7 +97,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/collab/ipl-finals-10" className="text-muted-foreground transition-colors duration-200 hover:text-foreground">
+                <Link
+                  to="/collab/$id"
+                  params={{ id: "ipl-finals-10" }}
+                  className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                >
                   Collaboration
                 </Link>
               </li>

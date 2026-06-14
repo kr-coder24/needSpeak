@@ -18,6 +18,8 @@ class InputType(str, Enum):
     URL = "url"
     WHATSAPP = "whatsapp"
     IMAGE = "image"
+    PDF = "pdf"
+    PRESCRIPTION = "prescription"
 
 
 class IntentType(str, Enum):
@@ -56,7 +58,15 @@ class ParseRequest(BaseModel):
     avoided_brands: Optional[list[str]] = Field(default=None, description="Brands to filter out")
     budget_mode: Optional[str] = Field(default="balanced", description="value, balanced, or premium")
     occasion: Optional[str] = Field(default=None, description="Occasion tag for relevance boosting")
+    user_id: Optional[str] = Field(default="demo_user", description="User ID for preference fetching")
 
+class PreferenceExtractRequest(BaseModel):
+    text: str = Field(..., description="Natural language preference description")
+
+class PreferenceExtractResponse(BaseModel):
+    dietary: str = Field(default="any")
+    budget_mode: str = Field(default="balanced")
+    preferred_brands: list[str] = Field(default_factory=list)
 
 # ---------------------------------------------------------------------------
 # Extraction Models (Bedrock Stage 1 output)

@@ -757,4 +757,22 @@ def save_event(event_data: dict, mock_mode: Optional[bool] = None) -> None:
     item = json.loads(json.dumps(event_data, default=str), parse_float=Decimal)
     table.put_item(Item=item)
 
-
+def get_user_events(user_id: str, event_type: str = "purchase", limit: int = 50, mock_mode: Optional[bool] = None) -> list[dict]:
+    is_mock = MOCK_AWS or (mock_mode if mock_mode is not None else False)
+    if is_mock:
+        events = [e for e in _mock_events_store if e.get("user_id") == user_id and e.get("event_type") == event_type]
+        return sorted(events, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
+    
+    table = _get_events_table()
+    try:
+        response = table.query(
+            KeyConditionExpression=Key("user_id").eq(user_id),
+            ScanIndexForward=False, # get newest first
+            Limit=limit
+        )
+        items = response.get("Items", [])
+        events = _decimal_to_native(items)
+        return [e for e in events if e.get("event_type") == event_type]
+    except Exception as e:
+        logger.error(f"Error getting events for {user_id}: {e}")
+        return []

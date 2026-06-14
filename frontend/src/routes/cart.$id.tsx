@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
-import { diffCarts, hasDiffChanges, type CartDiff } from "@/lib/cart-diff";
+import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 
 export const Route = createFileRoute("/cart/$id")({
   head: () => ({
@@ -36,6 +36,43 @@ export const Route = createFileRoute("/cart/$id")({
   component: CartPage,
 });
 
+function UnavailableItemRow({ item }: { item: any }) {
+  const reasonText = item.reason
+    ? item.reason.replace(/_/g, " ")
+    : "Unavailable";
+  
+  const isOutOfStock = item.reason === "out_of_stock";
+  const badgeBg = isOutOfStock
+    ? "bg-gradient-to-br from-amber-500/15 to-amber-600/10 text-amber-700 dark:text-amber-400 border-amber-500/25 shadow-sm shadow-amber-500/10"
+    : "bg-gradient-to-br from-destructive/15 to-destructive/10 text-destructive border-destructive/25 shadow-sm shadow-destructive/10";
+  const iconColor = isOutOfStock 
+    ? "bg-gradient-to-br from-amber-500/15 to-amber-600/10 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/5" 
+    : "bg-gradient-to-br from-destructive/15 to-destructive/10 text-destructive shadow-sm shadow-destructive/5";
+
+  return (
+    <div className="group rounded-2xl border border-border/60 bg-gradient-to-br from-background/70 to-background/40 p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-destructive/5 hover:border-destructive/40 hover:scale-[1.01]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${iconColor}`}>
+            <AlertTriangle className="h-4.5 w-4.5" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold capitalize text-foreground">{item.name}</div>
+            <div className="mt-0.5 text-xs font-medium text-muted-foreground">
+              Not added to cart
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0">
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold capitalize tracking-wide transition-transform duration-300 group-hover:scale-105 ${badgeBg}`}>
+            {reasonText}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CartPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -47,15 +84,11 @@ function CartPage() {
   const [whatIfAttendees, setWhatIfAttendees] = useState<number>(10);
   const [whatIfDietary, setWhatIfDietary] = useState<string>("any");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizationSummary, setOptimizationSummary] = useState<string | null>(null);
   const [reserving, setReserving] = useState(false);
   const [reservationStatus, setReservationStatus] = useState<"idle" | "success" | "error">("idle");
   const [reservationMessage, setReservationMessage] = useState<string>("");
-
-  // CompareCart states
-  const [comparing, setComparing] = useState(false);
-  const [diffResult, setDiffResult] = useState<CartDiff | null>(null);
-  const [newCartTotal, setNewCartTotal] = useState<number | null>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch session data from the backend
   useEffect(() => {
@@ -67,11 +100,7 @@ function CartPage() {
         }
         const data = await res.json();
         setSession(data);
-        if (data.budget_inr) setWhatIfBudget(data.budget_inr);
-        // Extract attendees from context if available
-        const contextText = data.context_summary || data.original_input || "";
-        const attendeeMatch = contextText.match(/(\d+)\s*(people|guests|attendees|persons?)/i);
-        if (attendeeMatch) setWhatIfAttendees(parseInt(attendeeMatch[1], 10));
+        setSession(data);
       } catch (e: any) {
         setError(e.message || "Failed to load session");
       } finally {
@@ -99,72 +128,110 @@ function CartPage() {
     .map((g: any) => g.intent_type)
     .filter(Boolean)
     .join(", ");
-  const budget = session?.budget_inr || 1500;
+  const budget = session?.budget_inr || null;
   const total =
     session?.total_price_inr ||
     cartItems.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
-  const budgetPct = Math.min(100, (total / budget) * 100);
+  const budgetPct = budget ? Math.min(100, (total / budget) * 100) : 0;
 
-  // Run CompareCart — calls /api/recompare to re-resolve same items with new params (no LLM)
-  const runCompare = useCallback(async (newBudget: number, attendees: number, dietary: string) => {
+  const runAutoOptimize = async () => {
     if (!session) return;
-
-    setComparing(true);
-
-    // Determine original servings from session context
-    const contextText = session.context_summary || session.original_input || "";
-    const attendeeMatch = contextText.match(/(\d+)\s*(people|guests|attendees|persons?)/i);
-    const originalServings = attendeeMatch ? parseInt(attendeeMatch[1], 10) : undefined;
-
+    setOptimizing(true);
+    setOptimizationSummary(null);
     try {
+      // Artificial delay to showcase the semantic search loader
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
       const res = await fetch("/api/recompare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: session.session_id,
-          budget_inr: newBudget,
-          servings_override: attendees,
-          original_servings: originalServings,
-          dietary_pref: dietary !== "any" ? dietary : null,
-          budget_mode: "balanced",
+          budget_inr: budget,
+          budget_mode: "value",
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Compare failed");
+      if (!res.ok) throw new Error("Auto-optimize failed");
+      
+      const data = await res.json();
+      const oldTotal = total;
+      const newTotal = data.total_price_inr;
+      const savings = oldTotal - newTotal;
+
+      if (savings > 0) {
+        setOptimizationSummary(`✨ Successfully optimized! Saved ₹${savings} by swapping items for better value alternatives.`);
+      } else {
+        setOptimizationSummary("✨ Cart is already fully optimized for the best value.");
       }
 
-      const data = await res.json();
-      const newCart = (data.intents ?? []).flatMap((g: any) => g.cart ?? []);
-      const newTotal = newCart.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
-      setNewCartTotal(newTotal);
-      setDiffResult(diffCarts(cartItems, newCart));
+      setSession((prev: any) => ({
+        ...prev,
+        resolved_intents: data.intents,
+        total_price_inr: data.total_price_inr,
+      }));
+
     } catch (err) {
-      console.error("Compare error:", err);
-      setDiffResult(null);
-      setNewCartTotal(null);
+      console.error("Optimize error:", err);
     } finally {
-      setComparing(false);
+      setOptimizing(false);
     }
-  }, [session, cartItems]);
+  };
 
-  // Debounced compare on parameter change
-  const debouncedCompare = useCallback((budget: number, attendees: number, dietary: string) => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(() => {
-      runCompare(budget, attendees, dietary);
-    }, 600);
-  }, [runCompare]);
+  const handleSwap = (currentSku: string, alt: any) => {
+    setSession((prev: any) => {
+      if (!prev) return prev;
+      const newSession = JSON.parse(JSON.stringify(prev)); // deep copy
+      let newTotal = prev.total_price_inr;
+      let found = false;
 
-  // Reset diff when modal closes
-  useEffect(() => {
-    if (!compareOpen) {
-      setDiffResult(null);
-      setNewCartTotal(null);
-    }
-  }, [compareOpen]);
+      if (newSession.resolved_intents) {
+        for (const group of newSession.resolved_intents) {
+          if (!group.cart) continue;
+          const itemIdx = group.cart.findIndex((i: any) => i.sku === currentSku);
+          if (itemIdx !== -1) {
+            const oldItem = group.cart[itemIdx];
+            newTotal = newTotal - (oldItem.total_price_inr || 0) + (alt.total_price_inr || 0);
+            group.cart[itemIdx] = {
+              ...oldItem,
+              sku: alt.sku,
+              name: alt.name,
+              brand: alt.brand,
+              price_per_unit_inr: alt.price_per_unit_inr,
+              total_price_inr: alt.total_price_inr,
+              rating: alt.rating,
+              substituted: true,
+              substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`
+            };
+            found = true;
+            break;
+          }
+        }
+      }
+
+      if (!found && newSession.cart_items) {
+        const itemIdx = newSession.cart_items.findIndex((i: any) => i.sku === currentSku);
+        if (itemIdx !== -1) {
+          const oldItem = newSession.cart_items[itemIdx];
+          newTotal = newTotal - (oldItem.total_price_inr || 0) + (alt.total_price_inr || 0);
+          newSession.cart_items[itemIdx] = {
+            ...oldItem,
+            sku: alt.sku,
+            name: alt.name,
+            brand: alt.brand,
+            price_per_unit_inr: alt.price_per_unit_inr,
+            total_price_inr: alt.total_price_inr,
+            rating: alt.rating,
+            substituted: true,
+            substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`
+          };
+        }
+      }
+
+      newSession.total_price_inr = newTotal;
+      return newSession;
+    });
+  };
 
   const handleReserve = async () => {
     if (!session || reserving) return;
@@ -245,166 +312,329 @@ function CartPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">ReviewCart</div>
-            <h1 className="mt-1 truncate text-3xl font-semibold tracking-tight">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand/15 to-brand/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-brand shadow-sm shadow-brand/10 border border-brand/20">
+              <Sparkles className="h-3 w-3 animate-pulse" /> ReviewCart
+            </div>
+            <h1 className="mt-4 truncate bg-gradient-to-br from-foreground via-foreground/90 to-foreground/60 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
               {intentSummary || intentTypeLabel || "Your Cart"}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {cartItems.length} items · budget ₹{budget} · total ₹{total}
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-surface/80 to-surface/40 px-3 py-1.5 backdrop-blur-sm border border-border/40 shadow-sm">
+                <span className="text-foreground font-semibold">{cartItems.length}</span> items
+              </span>
+              {budget && (
+                <>
+                  <span className="text-border">·</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-surface/80 to-surface/40 px-3 py-1.5 backdrop-blur-sm border border-border/40 shadow-sm">
+                    budget <span className="text-foreground font-semibold">₹{budget}</span>
+                  </span>
+                </>
+              )}
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-brand/10 to-brand/5 px-3 py-1.5 backdrop-blur-sm border border-brand/20 text-foreground font-semibold shadow-sm shadow-brand/5">
+                total <span className="text-brand">₹{total}</span>
+              </span>
             </p>
           </div>
           <button
             onClick={() => setCompareOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm hover:border-foreground"
+            className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border-2 border-border/60 bg-gradient-to-br from-card to-background/50 px-4 text-sm font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:scale-105 active:scale-100"
           >
-            <ArrowLeftRight className="h-4 w-4" />
+            <ArrowLeftRight className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
             <span className="hidden sm:inline">CompareCart</span>
           </button>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
           {/* Items */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             {cartItems.map((it: any, idx: number) => (
-              <div key={it.sku || idx} className="rounded-2xl border border-border bg-card">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 p-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{it.brand}</span>
+              <div 
+                key={it.sku || idx} 
+                className="group rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 via-background/60 to-background/40 shadow-md backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-brand/5 hover:border-brand/40 hover:scale-[1.02] active:scale-100"
+                style={{
+                  animationDelay: `${idx * 50}ms`,
+                  animationFillMode: 'backwards'
+                }}
+              >
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-5 p-5">
+                  <div className="min-w-0 space-y-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-surface/80 to-surface/40 px-2.5 py-1 text-xs font-semibold text-foreground/70 border border-border/40 shadow-sm">
+                        {it.brand}
+                      </span>
                       {it.substituted && (
-                        <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success">
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-success/20 to-success/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-success border border-success/30 shadow-sm shadow-success/10">
+                          <Check className="h-3 w-3" />
                           Substituted
                         </span>
                       )}
                     </div>
-                    <div className="mt-0.5 truncate text-base font-medium">{it.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {it.quantity_units} × {it.unit_quantity}
-                      {it.unit}
+                    <div className="truncate text-lg font-bold text-foreground leading-tight">{it.name}</div>
+                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-surface/60 px-2 py-0.5 border border-border/30">
+                        <span className="font-semibold text-foreground">{it.quantity_units}</span> × {it.unit_quantity}{it.unit}
+                      </span>
                     </div>
 
                     {/* Why */}
-                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs text-muted-foreground">
-                      <Info className="h-3.5 w-3.5 text-brand" />
-                      {it.substituted
-                        ? `Substituted: ${it.substitution_reason || "better match"}`
-                        : it.matched_from?.length > 0
-                          ? `Matched from: ${it.matched_from.join(", ")}`
-                          : "Matched from catalog"}
+                    <div className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-brand/10 to-brand/5 px-3 py-2 text-xs font-medium text-foreground/80 border border-brand/20 shadow-sm">
+                      <Info className="h-4 w-4 text-brand flex-shrink-0" />
+                      <span className="line-clamp-2">
+                        {it.substituted
+                          ? `Substituted: ${it.substitution_reason || "better match"}`
+                          : it.matched_from?.length > 0
+                            ? `Matched from: ${it.matched_from.join(", ")}`
+                            : "Matched from catalog"}
+                      </span>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <div className="text-lg font-semibold">₹{it.total_price_inr}</div>
-                    <div className="text-xs text-muted-foreground">
+                  <div className="shrink-0 text-right space-y-1.5">
+                    <div className="text-2xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">
+                      ₹{it.total_price_inr}
+                    </div>
+                    <div className="inline-flex items-center gap-1 rounded-md bg-surface/60 px-2 py-1 text-[10px] font-medium text-muted-foreground border border-border/30">
                       ₹{it.price_per_unit_inr}/unit
                     </div>
                   </div>
                 </div>
+
+                {/* Alternatives */}
+                {it.alternatives && it.alternatives.length > 0 && (
+                  <div className="border-t border-border/30 bg-surface/30 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Alternatives
+                      </span>
+                      <div className="h-px flex-1 bg-border/40" />
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {it.alternatives.map((alt: any, altIdx: number) => (
+                        <div
+                          key={altIdx}
+                          onClick={() => handleSwap(it.sku, alt)}
+                          className="group relative flex cursor-pointer flex-col gap-1.5 rounded-xl border border-border/40 bg-background/50 p-3 shadow-sm transition-all hover:border-brand/40 hover:bg-brand/5 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="truncate text-sm font-semibold text-foreground group-hover:text-brand transition-colors">
+                              {alt.name}
+                            </span>
+                            <span className="shrink-0 text-sm font-bold text-foreground">
+                              ₹{alt.total_price_inr}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/50">
+                              {alt.brand}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand">
+                              Swap →
+                            </span>
+                          </div>
+                          {alt.reason && (
+                            <div className="mt-1 text-[10px] font-medium text-muted-foreground line-clamp-1">
+                              {alt.reason}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
             {/* Unavailable items */}
             {unavailableItems.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
-                <div className="mb-3 text-xs font-medium uppercase tracking-wider text-destructive">
-                  Unavailable items
-                </div>
-                {unavailableItems.map((it: any, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2 py-1.5 text-sm">
-                    <span className="font-medium">{it.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      — {it.reason?.replace(/_/g, " ")}
-                    </span>
+              <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-destructive/5 to-amber-500/5 border-2 border-dashed border-destructive/20">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-destructive/15 to-destructive/10 shadow-sm">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
                   </div>
-                ))}
+                  <div>
+                    <div className="text-sm font-bold text-foreground uppercase tracking-wide">
+                      Unavailable Items
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {unavailableItems.length} item{unavailableItems.length !== 1 ? 's' : ''} could not be added
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {unavailableItems.map((it: any, idx: number) => (
+                    <UnavailableItemRow key={idx} item={it} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
           {/* Sidebar: budget + review */}
-          <aside className="space-y-4">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex items-center gap-2 text-sm">
-                <Wallet className="h-4 w-4 text-brand" />
-                <span className="font-medium">Budget</span>
-              </div>
-              <div className="mt-3 flex items-baseline justify-between">
-                <span className="text-2xl font-semibold">₹{total}</span>
-                <span className="text-sm text-muted-foreground">/ ₹{budget}</span>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
-                <div
-                  className={`h-full ${total > budget ? "bg-destructive" : "bg-brand"}`}
-                  style={{ width: `${budgetPct}%` }}
-                />
-              </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                {total > budget ? `₹${total - budget} over budget` : `₹${budget - total} remaining`}
-              </div>
-            </div>
-
-            {/* Summary */}
-            {session.summary && (
-              <div className="rounded-2xl border border-border bg-card p-5">
-                <div className="flex items-center gap-2 text-sm">
-                  <Sparkles className="h-4 w-4 text-brand" />
-                  <span className="font-medium">Summary</span>
+          <aside className="space-y-5">
+            <div className="sticky top-6 space-y-5">
+              {optimizationSummary && (
+                <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success shadow-sm animate-fade-in">
+                  {optimizationSummary}
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {session.summary}
-                </p>
-              </div>
-            )}
+              )}
 
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="text-sm font-medium">Final review</div>
-              <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+              {budget ? (
+                <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm shadow-brand/10">
+                      <Wallet className="h-4.5 w-4.5 text-brand" />
+                    </div>
+                    <span className="text-sm font-bold text-foreground">Budget Tracker</span>
+                  </div>
+                  <div className="flex items-baseline justify-between mb-4">
+                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">₹{total}</span>
+                    <span className="text-sm font-medium text-muted-foreground">of ₹{budget}</span>
+                  </div>
+                  <div className="relative h-3 overflow-hidden rounded-full bg-gradient-to-r from-surface/80 to-surface/40 shadow-inner">
+                    <div
+                      className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
+                        total > budget 
+                          ? "bg-gradient-to-r from-destructive to-destructive/80 shadow-lg shadow-destructive/20" 
+                          : "bg-gradient-to-r from-brand to-brand/80 shadow-lg shadow-brand/20"
+                      }`}
+                      style={{ width: `${budgetPct}%` }}
+                    />
+                  </div>
+                  <div className={`mt-3 flex items-center justify-between text-xs font-bold ${
+                    total > budget ? "text-destructive" : "text-success"
+                  }`}>
+                    <div className="flex items-center gap-1.5">
+                      {total > budget ? (
+                        <>
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          ₹{total - budget} over budget
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                        ₹{budget - total} remaining
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={runAutoOptimize}
+                    disabled={optimizing}
+                    className="flex items-center gap-1 text-brand hover:text-brand/80 transition-colors disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Auto-Optimize
+                  </button>
+                </div>
+              </div>
+              ) : (
+                <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm shadow-brand/10">
+                      <Wallet className="h-4.5 w-4.5 text-brand" />
+                    </div>
+                    <span className="text-sm font-bold text-foreground">Cart Total</span>
+                  </div>
+                  <div className="mb-2">
+                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">₹{total}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground font-medium">
+                    No budget constraint
+                  </div>
+                </div>
+              )}
+
+              {/* Summary */}
+              {session.summary && (
+                <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-brand/5 to-background/50 p-5 shadow-lg backdrop-blur-md">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm">
+                      <Sparkles className="h-4 w-4 text-brand" />
+                    </div>
+                    <span className="text-sm font-bold text-foreground">AI Summary</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground font-medium">
+                    {session.summary}
+                  </p>
+                </div>
+              )}
+
+            <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-success/20 to-success/10 shadow-sm">
+                  <Check className="h-4 w-4 text-success" />
+                </div>
+                <span className="text-sm font-bold text-foreground">Final Review</span>
+              </div>
+              <ul className="space-y-3 text-xs font-medium text-muted-foreground">
                 {[
                   "Assumptions look right",
                   "Quantities match attendees",
                   "Budget within range",
                   "Reviewed alternatives",
-                ].map((q) => (
-                  <li key={q} className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-brand" />
-                    {q}
+                ].map((q, i) => (
+                  <li 
+                    key={q} 
+                    className="flex items-center gap-2.5 p-2 rounded-lg bg-surface/40 border border-border/30 transition-all duration-300 hover:bg-surface/60 hover:border-success/30"
+                    style={{
+                      animationDelay: `${i * 100}ms`,
+                    }}
+                  >
+                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-success/20 to-success/10 shadow-sm">
+                      <Check className="h-3 w-3 text-success" />
+                    </div>
+                    <span className="text-foreground/80">{q}</span>
                   </li>
                 ))}
               </ul>
               {reservationStatus === "error" && (
-                <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  {reservationMessage}
+                <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-destructive/15 to-destructive/10 px-4 py-3 text-xs font-semibold text-destructive border-2 border-destructive/30 shadow-lg shadow-destructive/10 animate-shake">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <span>{reservationMessage}</span>
                 </div>
               )}
               {reservationStatus === "success" && (
-                <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-xs text-success">
-                  <Check className="h-3.5 w-3.5" />
-                  {reservationMessage}
+                <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-success/15 to-success/10 px-4 py-3 text-xs font-semibold text-success border-2 border-success/30 shadow-lg shadow-success/10 animate-bounce-in">
+                  <Check className="h-4 w-4 flex-shrink-0" />
+                  <span>{reservationMessage}</span>
                 </div>
               )}
               <button 
                 onClick={handleReserve}
                 disabled={reserving || reservationStatus === "success"}
-                className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-50"
+                className="group relative mt-6 inline-flex h-12 w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand via-brand to-brand/90 text-sm font-bold text-brand-foreground shadow-[0_4px_24px_rgba(var(--color-brand),0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(var(--color-brand),0.35)] active:scale-100 disabled:pointer-events-none disabled:opacity-60 disabled:grayscale"
               >
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
                 {reserving ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reserving...</>
+                  <>
+                    <Loader2 className="mr-2 h-4.5 w-4.5 animate-spin" /> 
+                    <span>Reserving...</span>
+                  </>
                 ) : reservationStatus === "success" ? (
-                  <><Check className="mr-2 h-4 w-4" /> Reserved</>
+                  <>
+                    <Check className="mr-2 h-4.5 w-4.5" /> 
+                    <span>Reserved</span>
+                  </>
                 ) : (
-                  "Proceed to checkout"
+                  <>
+                    <span>Proceed to Checkout</span>
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                  </>
                 )}
               </button>
             </div>
 
             {/* Export */}
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="text-sm font-medium">Export cart</div>
-              <div className="mt-3 flex gap-2">
+            <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm">
+                  <Share2 className="h-4 w-4 text-brand" />
+                </div>
+                <span className="text-sm font-bold text-foreground">Export Cart</span>
+              </div>
+              <div className="flex gap-3">
                 <button
                   onClick={async () => {
                     const exportData: ExportableCart = {
@@ -419,10 +649,17 @@ function CartPage() {
                       setTimeout(() => setCopySuccess(false), 2000);
                     }
                   }}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-xs hover:bg-surface"
+                  className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border/60 bg-gradient-to-br from-background to-surface/40 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-md hover:shadow-brand/10 hover:scale-105 active:scale-100"
                 >
-                  <Share2 className="h-3.5 w-3.5" />
-                  {copySuccess ? "Copied!" : "WhatsApp"}
+                  <Share2 className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
+                  {copySuccess ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-success" />
+                      <span className="text-success">Copied!</span>
+                    </>
+                  ) : (
+                    "WhatsApp"
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -434,241 +671,23 @@ function CartPage() {
                     };
                     downloadCSV(exportData);
                   }}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-xs hover:bg-surface"
+                  className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border/60 bg-gradient-to-br from-background to-surface/40 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-md hover:shadow-brand/10 hover:scale-105 active:scale-100"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
                   CSV
                 </button>
               </div>
             </div>
+          </div>
           </aside>
         </div>
       </div>
 
-      {/* CompareCart modal */}
-      {compareOpen && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 overflow-y-auto"
-          onClick={() => setCompareOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-pop my-8"
-          >
-            <div className="text-lg font-semibold">CompareCart — What if?</div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Adjust parameters to see how your cart would change.
-            </p>
-
-            {/* Budget slider */}
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Wallet className="h-3.5 w-3.5" />
-                  Budget
-                </span>
-                <span className="font-medium">₹{whatIfBudget}</span>
-              </div>
-              <input
-                type="range"
-                min={500}
-                max={5000}
-                step={100}
-                value={whatIfBudget}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setWhatIfBudget(val);
-                  debouncedCompare(val, whatIfAttendees, whatIfDietary);
-                }}
-                className="mt-2 w-full accent-[var(--color-brand)]"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                <span>₹500</span>
-                <span>₹5000</span>
-              </div>
-            </div>
-
-            {/* Attendees input */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Users className="h-3.5 w-3.5" />
-                  Attendees
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const val = Math.max(1, whatIfAttendees - 1);
-                      setWhatIfAttendees(val);
-                      debouncedCompare(whatIfBudget, val, whatIfDietary);
-                    }}
-                    className="h-6 w-6 rounded border border-border flex items-center justify-center hover:bg-surface"
-                  >
-                    <Minus className="h-3 w-3" />
-                  </button>
-                  <span className="font-medium w-8 text-center">{whatIfAttendees}</span>
-                  <button
-                    onClick={() => {
-                      const val = whatIfAttendees + 1;
-                      setWhatIfAttendees(val);
-                      debouncedCompare(whatIfBudget, val, whatIfDietary);
-                    }}
-                    className="h-6 w-6 rounded border border-border flex items-center justify-center hover:bg-surface"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Dietary preference */}
-            <div className="mt-4">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-                <Leaf className="h-3.5 w-3.5" />
-                Dietary preference
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {["any", "veg", "vegan", "jain"].map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => {
-                      setWhatIfDietary(opt);
-                      debouncedCompare(whatIfBudget, whatIfAttendees, opt);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
-                      whatIfDietary === opt
-                        ? "bg-brand text-brand-foreground border-brand"
-                        : "border-border hover:bg-surface"
-                    }`}
-                  >
-                    {opt === "any" ? "Any" : opt.charAt(0).toUpperCase() + opt.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Comparison results */}
-            <div className="mt-5 space-y-2 text-sm">
-              <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
-                <span className="text-muted-foreground">Current total</span>
-                <span className="font-semibold">₹{total}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
-                <span className="text-muted-foreground">New budget</span>
-                <span className="font-semibold">₹{whatIfBudget}</span>
-              </div>
-              {newCartTotal !== null && (
-                <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
-                  <span className="text-muted-foreground">New cart total</span>
-                  <span className="font-semibold">₹{newCartTotal}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2">
-                <span className="text-muted-foreground">Status</span>
-                {comparing ? (
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Comparing...
-                  </span>
-                ) : (
-                  <span
-                    className={`font-semibold ${(newCartTotal ?? total) > whatIfBudget ? "text-destructive" : "text-success"}`}
-                  >
-                    {(newCartTotal ?? total) > whatIfBudget
-                      ? `₹${(newCartTotal ?? total) - whatIfBudget} over`
-                      : `₹${whatIfBudget - (newCartTotal ?? total)} under`}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Diff view */}
-            {diffResult && hasDiffChanges(diffResult) && (
-              <div className="mt-4 border-t border-border pt-4">
-                <div className="text-xs font-medium text-muted-foreground mb-3">Cart Changes</div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {/* Added items */}
-                  {diffResult.added.map((item) => (
-                    <div
-                      key={item.sku}
-                      className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-xs"
-                    >
-                      <Plus className="h-3.5 w-3.5 text-success" />
-                      <span className="flex-1 truncate text-success">{item.name}</span>
-                      <span className="text-success font-medium">+₹{item.total_price_inr}</span>
-                    </div>
-                  ))}
-
-                  {/* Removed items */}
-                  {diffResult.removed.map((item) => (
-                    <div
-                      key={item.sku}
-                      className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs"
-                    >
-                      <Minus className="h-3.5 w-3.5 text-destructive" />
-                      <span className="flex-1 truncate text-destructive">{item.name}</span>
-                      <span className="text-destructive font-medium">−₹{item.total_price_inr}</span>
-                    </div>
-                  ))}
-
-                  {/* Swapped items */}
-                  {diffResult.swapped.map((swap) => (
-                    <div
-                      key={swap.new.sku}
-                      className="flex items-center gap-2 rounded-lg bg-brand/10 px-3 py-2 text-xs"
-                    >
-                      <ArrowRight className="h-3.5 w-3.5 text-brand" />
-                      <span className="flex-1 truncate">
-                        <span className="text-muted-foreground line-through">{swap.old.name}</span>
-                        <span className="mx-1">→</span>
-                        <span className="text-brand">{swap.new.name}</span>
-                      </span>
-                      <span className={`font-medium ${swap.savings > 0 ? "text-success" : swap.savings < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                        {swap.savings > 0 ? `Save ₹${swap.savings}` : swap.savings < 0 ? `+₹${Math.abs(swap.savings)}` : "Same"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Summary */}
-                {diffResult.summary.difference !== 0 && (
-                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Total savings</span>
-                    <span className={`font-semibold ${diffResult.summary.difference > 0 ? "text-success" : "text-destructive"}`}>
-                      {diffResult.summary.difference > 0 
-                        ? `Save ₹${diffResult.summary.difference}` 
-                        : `Spend ₹${Math.abs(diffResult.summary.difference)} more`}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* No changes message */}
-            {diffResult && !hasDiffChanges(diffResult) && !comparing && (
-              <div className="mt-4 text-center text-xs text-muted-foreground py-3 border-t border-border">
-                No changes with these parameters
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setCompareOpen(false)}
-                className="h-10 rounded-lg border border-border bg-background px-4 text-sm hover:bg-surface"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  // Trigger a fresh compare if needed
-                  runCompare(whatIfBudget, whatIfAttendees, whatIfDietary);
-                }}
-                disabled={comparing}
-                className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90 disabled:opacity-50"
-              >
-                {comparing ? "Comparing..." : "Compare Now"}
-              </button>
-            </div>
+      {optimizing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-2xl animate-in zoom-in-95">
+            <h3 className="mb-6 text-xl font-bold text-foreground">AI Auto-Optimizing...</h3>
+            <SemanticSearchSkeleton />
           </div>
         </div>
       )}

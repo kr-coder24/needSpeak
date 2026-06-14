@@ -47,7 +47,8 @@ def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
             host = os.getenv("OPENSEARCH_HOST", "")
             _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
         else:
-            _retriever = LocalRetriever(mock_mode=mock_mode)
+            from app.search.local_vector_retrieval import LocalVectorRetriever
+            _retriever = LocalVectorRetriever(mock_mode=mock_mode)
     return _retriever
 
 
@@ -186,9 +187,12 @@ def _build_cart_item(
             "sku": alt.sku,
             "name": alt.title,
             "brand": alt.brand,
+            "price_per_unit": alt.price_inr,
             "price_per_unit_inr": alt.price_inr,
             "quantity_units": alt_qty,
             "total_price_inr": alt_total,
+            "unit": alt.unit,
+            "unit_quantity": alt.unit_quantity,
             "rating": alt.rating,
             "reason": f"Save ₹{savings:.0f}" if savings > 0 else (
                 f"Higher rated ({alt.rating}★)" if alt.rating > product.rating else "Alternative"

@@ -46,7 +46,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"rice", "basmati", "long grain", "pulao", "biryani", "india gate", "chawal"},
+        "keywords": {"rice", "basmati", "long grain", "pulao", "biryani", "india gate", "chawal"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"biryani", "pulao", "everyday", "rice dish"},
     },
     {
@@ -60,7 +60,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"rice", "basmati", "rozana", "everyday", "daawat", "chawal", "pulao"},
+        "keywords": {"rice", "basmati", "rozana", "everyday", "daawat", "chawal", "pulao"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"biryani", "everyday", "budget"},
     },
     {
@@ -74,7 +74,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("5000"),
         "rating": Decimal("4.6"),
         "in_stock": True,
-        "keywords": {"atta", "wheat", "flour", "whole wheat", "roti", "chapati", "aashirvaad"},
+        "keywords": {"atta", "wheat", "flour", "whole wheat", "roti", "chapati", "aashirvaad"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "roti", "chapati", "breakfast"},
     },
     {
@@ -88,7 +88,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"atta", "multigrain", "flour", "healthy", "roti", "aashirvaad", "wheat"},
+        "keywords": {"atta", "multigrain", "flour", "healthy", "roti", "aashirvaad", "wheat"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"healthy", "everyday", "roti"},
     },
     {
@@ -102,7 +102,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"poha", "flattened rice", "chivda", "flakes", "mtr", "breakfast"},
+        "keywords": {"poha", "flattened rice", "chivda", "flakes", "mtr", "breakfast"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"breakfast", "snack", "quick meal"},
     },
     {
@@ -116,7 +116,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"sooji", "rava", "semolina", "suji", "upma", "halwa", "organic"},
+        "keywords": {"sooji", "rava", "semolina", "suji", "upma", "halwa", "organic"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"breakfast", "dessert", "upma", "halwa"},
     },
     {
@@ -130,7 +130,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"maida", "all purpose flour", "refined flour", "baking", "naan", "pillsbury"},
+        "keywords": {"maida", "all purpose flour", "refined flour", "baking", "naan", "pillsbury"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"baking", "naan", "paratha"},
     },
     {
@@ -144,7 +144,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"rice", "broken rice", "tukda", "khichdi", "porridge", "india gate"},
+        "keywords": {"rice", "broken rice", "tukda", "khichdi", "porridge", "india gate"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "khichdi", "budget"},
     },
 
@@ -162,7 +162,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"milk", "toned milk", "amul", "taaza", "dudh", "dairy"},
+        "keywords": {"milk", "toned milk", "amul", "taaza", "dudh", "dairy"}, "dietary": ["veg"],
         "tags": {"everyday", "breakfast", "tea", "coffee"},
     },
     {
@@ -176,7 +176,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.7"),
         "in_stock": True,
-        "keywords": {"butter", "amul", "makkhan", "spread", "dairy", "cooking"},
+        "keywords": {"butter", "amul", "makkhan", "spread", "dairy", "cooking"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "baking", "breakfast", "cooking"},
     },
     {
@@ -190,7 +190,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("200"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"paneer", "cottage cheese", "amul", "fresh", "tofu alternative", "protein"},
+        "keywords": {"paneer", "cottage cheese", "amul", "fresh", "tofu alternative", "protein"}, "dietary": ["veg"],
         "tags": {"curry", "tikka", "everyday", "protein"},
     },
     {
@@ -204,7 +204,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("400"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"curd", "dahi", "yogurt", "mother dairy", "raita", "probiotic"},
+        "keywords": {"curd", "dahi", "yogurt", "mother dairy", "raita", "probiotic"}, "dietary": ["veg"],
         "tags": {"everyday", "raita", "breakfast", "healthy"},
     },
     {
@@ -218,7 +218,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("200"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"cheese", "processed cheese", "amul", "slices", "sandwich", "toast"},
+        "keywords": {"cheese", "processed cheese", "amul", "slices", "sandwich", "toast"}, "dietary": ["veg"],
         "tags": {"sandwich", "snack", "breakfast"},
     },
     {
@@ -232,7 +232,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.6"),
         "in_stock": True,
-        "keywords": {"ghee", "clarified butter", "amul", "desi ghee", "pure ghee", "cooking"},
+        "keywords": {"ghee", "clarified butter", "amul", "desi ghee", "pure ghee", "cooking"}, "dietary": ["veg"],
         "tags": {"cooking", "biryani", "dal", "everyday"},
     },
     {
@@ -246,7 +246,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("400"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"condensed milk", "milkmaid", "nestle", "sweet", "dessert", "baking"},
+        "keywords": {"condensed milk", "milkmaid", "nestle", "sweet", "dessert", "baking"}, "dietary": ["veg"],
         "tags": {"dessert", "baking", "sweet"},
     },
 
@@ -264,7 +264,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"onion", "pyaaz", "kanda", "vegetable", "fresh", "cooking"},
+        "keywords": {"onion", "pyaaz", "kanda", "vegetable", "fresh", "cooking"}, "dietary": ["veg", "vegan"],
         "tags": {"everyday", "cooking", "base vegetable"},
     },
     {
@@ -278,7 +278,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"potato", "aloo", "vegetable", "fresh", "cooking", "starch"},
+        "keywords": {"potato", "aloo", "vegetable", "fresh", "cooking", "starch"}, "dietary": ["veg", "vegan"],
         "tags": {"everyday", "cooking", "curry", "fry"},
     },
     {
@@ -292,7 +292,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("3.9"),
         "in_stock": True,
-        "keywords": {"tomato", "tamatar", "vegetable", "fresh", "cooking", "gravy"},
+        "keywords": {"tomato", "tamatar", "vegetable", "fresh", "cooking", "gravy"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "base vegetable", "gravy"},
     },
     {
@@ -306,7 +306,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("250"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"garlic", "lehsun", "lahsun", "seasoning", "fresh", "clove"},
+        "keywords": {"garlic", "lehsun", "lahsun", "seasoning", "fresh", "clove"}, "dietary": ["veg", "vegan"],
         "tags": {"cooking", "seasoning", "everyday"},
     },
     {
@@ -320,7 +320,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"ginger", "adrak", "seasoning", "fresh", "root", "cooking"},
+        "keywords": {"ginger", "adrak", "seasoning", "fresh", "root", "cooking"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cooking", "tea", "seasoning", "everyday"},
     },
     {
@@ -334,7 +334,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("3.8"),
         "in_stock": True,
-        "keywords": {"green chili", "hari mirch", "chili", "chilli", "spicy", "fresh"},
+        "keywords": {"green chili", "hari mirch", "chili", "chilli", "spicy", "fresh"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cooking", "spicy", "everyday", "garnish"},
     },
 
@@ -352,7 +352,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("12"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"banana", "kela", "fruit", "fresh", "dozen", "yellow"},
+        "keywords": {"banana", "kela", "fruit", "fresh", "dozen", "yellow"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"breakfast", "healthy", "snack", "smoothie"},
     },
     {
@@ -366,7 +366,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"apple", "seb", "fruit", "fresh", "shimla", "red apple"},
+        "keywords": {"apple", "seb", "fruit", "fresh", "shimla", "red apple"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"healthy", "snack", "breakfast"},
     },
     {
@@ -380,7 +380,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("250"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"lemon", "nimbu", "lime", "citrus", "fresh", "juice"},
+        "keywords": {"lemon", "nimbu", "lime", "citrus", "fresh", "juice"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cooking", "garnish", "drink", "everyday"},
     },
     {
@@ -394,7 +394,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.7"),
         "in_stock": True,
-        "keywords": {"mango", "aam", "alphonso", "fruit", "fresh", "hapus"},
+        "keywords": {"mango", "aam", "alphonso", "fruit", "fresh", "hapus"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"seasonal", "dessert", "smoothie", "summer"},
     },
     {
@@ -408,7 +408,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"orange", "santra", "citrus", "fruit", "fresh", "nagpur", "juice"},
+        "keywords": {"orange", "santra", "citrus", "fruit", "fresh", "nagpur", "juice"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"healthy", "juice", "snack", "breakfast"},
     },
 
@@ -426,7 +426,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"turmeric", "haldi", "powder", "mdh", "spice", "yellow"},
+        "keywords": {"turmeric", "haldi", "powder", "mdh", "spice", "yellow"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "curry", "dal"},
     },
     {
@@ -440,7 +440,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"red chili", "lal mirch", "chili powder", "mdh", "spice", "hot"},
+        "keywords": {"red chili", "lal mirch", "chili powder", "mdh", "spice", "hot"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "spicy", "curry"},
     },
     {
@@ -454,7 +454,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"coriander", "dhaniya", "powder", "mdh", "spice", "ground"},
+        "keywords": {"coriander", "dhaniya", "powder", "mdh", "spice", "ground"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "curry", "dal"},
     },
     {
@@ -468,7 +468,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"cumin", "jeera", "powder", "everest", "spice", "ground cumin"},
+        "keywords": {"cumin", "jeera", "powder", "everest", "spice", "ground cumin"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "curry", "raita"},
     },
     {
@@ -482,7 +482,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"garam masala", "masala", "mdh", "spice blend", "mixed spice", "all spice"},
+        "keywords": {"garam masala", "masala", "mdh", "spice blend", "mixed spice", "all spice"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"curry", "biryani", "everyday", "gravy"},
     },
     {
@@ -496,7 +496,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("50"),
         "rating": Decimal("4.6"),
         "in_stock": True,
-        "keywords": {"biryani masala", "biryani", "masala", "everest", "spice", "rice masala"},
+        "keywords": {"biryani masala", "biryani", "masala", "everest", "spice", "rice masala"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"biryani", "pulao", "rice dish"},
     },
     {
@@ -510,7 +510,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("50"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"black pepper", "kali mirch", "pepper", "catch", "spice", "ground pepper"},
+        "keywords": {"black pepper", "kali mirch", "pepper", "catch", "spice", "ground pepper"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "seasoning", "soup", "salad"},
     },
     {
@@ -524,7 +524,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"cumin seeds", "jeera", "whole cumin", "catch", "spice", "tadka", "tempering"},
+        "keywords": {"cumin seeds", "jeera", "whole cumin", "catch", "spice", "tadka", "tempering"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "tadka", "dal", "cooking"},
     },
     {
@@ -538,7 +538,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"chana masala", "chole masala", "chickpea", "mdh", "masala", "spice"},
+        "keywords": {"chana masala", "chole masala", "chickpea", "mdh", "masala", "spice"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"curry", "chole", "chickpea", "north indian"},
     },
     {
@@ -552,7 +552,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.6"),
         "in_stock": True,
-        "keywords": {"salt", "namak", "tata", "iodized", "table salt", "cooking salt"},
+        "keywords": {"salt", "namak", "tata", "iodized", "table salt", "cooking salt"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "essential"},
     },
 
@@ -570,7 +570,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"sunflower oil", "refined oil", "cooking oil", "fortune", "vegetable oil", "frying"},
+        "keywords": {"sunflower oil", "refined oil", "cooking oil", "fortune", "vegetable oil", "frying"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "frying"},
     },
     {
@@ -584,7 +584,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"saffola", "blended oil", "cooking oil", "heart healthy", "gold", "vegetable oil"},
+        "keywords": {"saffola", "blended oil", "cooking oil", "heart healthy", "gold", "vegetable oil"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "healthy"},
     },
     {
@@ -598,7 +598,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("250"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"olive oil", "figaro", "extra virgin", "salad oil", "healthy oil", "cooking"},
+        "keywords": {"olive oil", "figaro", "extra virgin", "salad oil", "healthy oil", "cooking"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"salad", "healthy", "italian", "baking"},
     },
     {
@@ -612,7 +612,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"coconut oil", "nariyal tel", "klf", "cooking oil", "coconut", "south indian"},
+        "keywords": {"coconut oil", "nariyal tel", "klf", "cooking oil", "coconut", "south indian"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"south indian", "cooking", "hair", "everyday"},
     },
     {
@@ -626,7 +626,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"mustard oil", "sarson tel", "kachi ghani", "dhara", "cooking oil", "pickle"},
+        "keywords": {"mustard oil", "sarson tel", "kachi ghani", "dhara", "cooking oil", "pickle"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "cooking", "pickle", "north indian"},
     },
 
@@ -644,7 +644,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("750"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"coca cola", "coke", "cold drink", "soft drink", "soda", "carbonated", "cola"},
+        "keywords": {"coca cola", "coke", "cold drink", "soft drink", "soda", "carbonated", "cola"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "snack", "cold drink"},
     },
     {
@@ -658,7 +658,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("750"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"sprite", "lemon", "lime", "cold drink", "soft drink", "soda", "carbonated"},
+        "keywords": {"sprite", "lemon", "lime", "cold drink", "soft drink", "soda", "carbonated"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "cold drink", "refreshing"},
     },
     {
@@ -672,7 +672,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("200"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"paperboat", "aamras", "mango", "juice", "drink", "fruit drink"},
+        "keywords": {"paperboat", "aamras", "mango", "juice", "drink", "fruit drink"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "snack", "summer", "juice"},
     },
     {
@@ -686,7 +686,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"real", "mango juice", "fruit juice", "juice", "drink", "mango"},
+        "keywords": {"real", "mango juice", "fruit juice", "juice", "drink", "mango"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "breakfast", "juice", "healthy"},
     },
     {
@@ -700,7 +700,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"water", "mineral water", "bisleri", "drinking water", "packaged water", "paani"},
+        "keywords": {"water", "mineral water", "bisleri", "drinking water", "packaged water", "paani"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "essential"},
     },
     {
@@ -714,7 +714,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"tea", "chai", "tata tea", "gold", "black tea", "leaf tea"},
+        "keywords": {"tea", "chai", "tata tea", "gold", "black tea", "leaf tea"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "breakfast", "chai"},
     },
     {
@@ -728,7 +728,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("100"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"coffee", "nescafe", "instant coffee", "classic", "caffeine", "hot drink"},
+        "keywords": {"coffee", "nescafe", "instant coffee", "classic", "caffeine", "hot drink"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "breakfast", "office"},
     },
     {
@@ -742,7 +742,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"orange juice", "tropicana", "juice", "fruit juice", "citrus", "drink"},
+        "keywords": {"orange juice", "tropicana", "juice", "fruit juice", "citrus", "drink"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"breakfast", "healthy", "juice"},
     },
 
@@ -760,7 +760,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("200"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"bhujia", "aloo bhujia", "namkeen", "haldirams", "snack", "crispy", "sev"},
+        "keywords": {"bhujia", "aloo bhujia", "namkeen", "haldirams", "snack", "crispy", "sev"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "snack", "tea time", "namkeen"},
     },
     {
@@ -774,7 +774,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("52"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"chips", "lays", "potato chips", "salted", "crispy", "snack", "wafers"},
+        "keywords": {"chips", "lays", "potato chips", "salted", "crispy", "snack", "wafers"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "snack", "movie night"},
     },
     {
@@ -788,7 +788,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("800"),
         "rating": Decimal("4.6"),
         "in_stock": True,
-        "keywords": {"biscuit", "parle-g", "glucose", "parle", "cookies", "chai snack", "tea biscuit"},
+        "keywords": {"biscuit", "parle-g", "glucose", "parle", "cookies", "chai snack", "tea biscuit"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"everyday", "tea time", "breakfast", "snack"},
     },
     {
@@ -802,7 +802,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("90"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"kurkure", "masala", "snack", "crunchy", "munch", "puffed", "crispy"},
+        "keywords": {"kurkure", "masala", "snack", "crunchy", "munch", "puffed", "crispy"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "snack", "tea time"},
     },
     {
@@ -816,7 +816,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("600"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"biscuit", "cookies", "britannia", "good day", "butter", "snack"},
+        "keywords": {"biscuit", "cookies", "britannia", "good day", "butter", "snack"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"tea time", "snack", "everyday"},
     },
     {
@@ -830,7 +830,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("70"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"popcorn", "act ii", "microwave", "butter", "instant", "snack", "movie"},
+        "keywords": {"popcorn", "act ii", "microwave", "butter", "instant", "snack", "movie"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "movie night", "snack", "quick"},
     },
     {
@@ -844,7 +844,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("400"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"namkeen", "mixture", "haldirams", "snack", "farsan", "mixed", "savory"},
+        "keywords": {"namkeen", "mixture", "haldirams", "snack", "farsan", "mixed", "savory"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"party", "snack", "tea time", "diwali"},
     },
     {
@@ -858,7 +858,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("300"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"bourbon", "chocolate", "biscuit", "cream", "britannia", "cookies", "snack"},
+        "keywords": {"bourbon", "chocolate", "biscuit", "cream", "britannia", "cookies", "snack"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"snack", "tea time", "chocolate"},
     },
 
@@ -876,7 +876,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"detergent", "washing powder", "ariel", "matic", "laundry", "clothes wash"},
+        "keywords": {"detergent", "washing powder", "ariel", "matic", "laundry", "clothes wash"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cleaning", "laundry", "everyday"},
     },
     {
@@ -890,7 +890,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1000"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"detergent", "surf excel", "washing powder", "laundry", "clothes wash", "easy wash"},
+        "keywords": {"detergent", "surf excel", "washing powder", "laundry", "clothes wash", "easy wash"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cleaning", "laundry", "everyday"},
     },
     {
@@ -904,7 +904,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"dishwash", "vim", "dish soap", "gel", "utensil cleaner", "kitchen"},
+        "keywords": {"dishwash", "vim", "dish soap", "gel", "utensil cleaner", "kitchen"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cleaning", "kitchen", "everyday"},
     },
     {
@@ -918,7 +918,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"floor cleaner", "lizol", "disinfectant", "mopping", "surface cleaner", "citrus"},
+        "keywords": {"floor cleaner", "lizol", "disinfectant", "mopping", "surface cleaner", "citrus"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cleaning", "floor", "disinfect"},
     },
     {
@@ -932,7 +932,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("500"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"toilet cleaner", "harpic", "bathroom", "disinfectant", "commode", "cleaning"},
+        "keywords": {"toilet cleaner", "harpic", "bathroom", "disinfectant", "commode", "cleaning"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cleaning", "bathroom", "disinfect"},
     },
     {
@@ -946,7 +946,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("200"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"handwash", "dettol", "hand soap", "antibacterial", "hygiene", "liquid soap"},
+        "keywords": {"handwash", "dettol", "hand soap", "antibacterial", "hygiene", "liquid soap"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"cleaning", "hygiene", "everyday"},
     },
 
@@ -964,7 +964,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"notebook", "classmate", "ruled", "register", "copy", "writing", "long book"},
+        "keywords": {"notebook", "classmate", "ruled", "register", "copy", "writing", "long book"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "office", "writing"},
     },
     {
@@ -978,7 +978,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("10"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"pencil", "natraj", "hb", "writing", "school", "drawing", "lead pencil"},
+        "keywords": {"pencil", "natraj", "hb", "writing", "school", "drawing", "lead pencil"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "drawing", "writing"},
     },
     {
@@ -992,7 +992,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("5"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"pen", "ball pen", "cello", "butterflow", "blue pen", "writing"},
+        "keywords": {"pen", "ball pen", "cello", "butterflow", "blue pen", "writing"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "office", "writing", "exam"},
     },
     {
@@ -1006,7 +1006,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("5"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"eraser", "rubber", "apsara", "non-dust", "school", "clean erase"},
+        "keywords": {"eraser", "rubber", "apsara", "non-dust", "school", "clean erase"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "drawing", "writing"},
     },
     {
@@ -1020,7 +1020,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("5"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"sharpener", "pencil sharpener", "faber-castell", "school", "metal"},
+        "keywords": {"sharpener", "pencil sharpener", "faber-castell", "school", "metal"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "drawing"},
     },
     {
@@ -1034,7 +1034,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"geometry box", "compass", "protractor", "ruler", "camlin", "maths", "divider"},
+        "keywords": {"geometry box", "compass", "protractor", "ruler", "camlin", "maths", "divider"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "maths", "exam"},
     },
     {
@@ -1048,7 +1048,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("12"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"colour pencils", "coloring", "classmate", "art", "drawing", "crayons", "color"},
+        "keywords": {"colour pencils", "coloring", "classmate", "art", "drawing", "crayons", "color"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"school", "art", "drawing", "creative"},
     },
 
@@ -1066,7 +1066,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"screwdriver", "stanley", "tool set", "phillips", "flathead", "repair"},
+        "keywords": {"screwdriver", "stanley", "tool set", "phillips", "flathead", "repair"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"diy", "repair", "tools"},
     },
     {
@@ -1080,7 +1080,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1"),
         "rating": Decimal("4.4"),
         "in_stock": True,
-        "keywords": {"measuring tape", "tape measure", "bosch", "ruler", "5m", "measurement"},
+        "keywords": {"measuring tape", "tape measure", "bosch", "ruler", "5m", "measurement"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"diy", "measurement", "tools"},
     },
     {
@@ -1094,7 +1094,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1"),
         "rating": Decimal("3.8"),
         "in_stock": True,
-        "keywords": {"ptfe tape", "plumber tape", "teflon tape", "pipe tape", "sealing", "plumbing", "leak"},
+        "keywords": {"ptfe tape", "plumber tape", "teflon tape", "pipe tape", "sealing", "plumbing", "leak"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"diy", "plumbing", "repair", "leak fix"},
     },
     {
@@ -1108,7 +1108,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("1"),
         "rating": Decimal("4.0"),
         "in_stock": True,
-        "keywords": {"wrench", "adjustable wrench", "spanner", "plumbing", "nut", "bolt", "repair"},
+        "keywords": {"wrench", "adjustable wrench", "spanner", "plumbing", "nut", "bolt", "repair"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"diy", "plumbing", "repair", "tools"},
     },
     {
@@ -1122,7 +1122,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("3"),
         "rating": Decimal("4.1"),
         "in_stock": True,
-        "keywords": {"glue", "adhesive", "fevikwik", "super glue", "instant", "bond", "fix"},
+        "keywords": {"glue", "adhesive", "fevikwik", "super glue", "instant", "bond", "fix"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"diy", "repair", "craft"},
     },
 
@@ -1140,7 +1140,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("15"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"crocin", "paracetamol", "pain relief", "fever", "headache", "tablet", "medicine"},
+        "keywords": {"crocin", "paracetamol", "pain relief", "fever", "headache", "tablet", "medicine"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"medicine", "fever", "pain", "headache"},
     },
     {
@@ -1154,7 +1154,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("50"),
         "rating": Decimal("4.6"),
         "in_stock": True,
-        "keywords": {"vicks", "vaporub", "cold", "cough", "balm", "congestion", "rub"},
+        "keywords": {"vicks", "vaporub", "cold", "cough", "balm", "congestion", "rub"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"medicine", "cold", "winter", "cough"},
     },
     {
@@ -1168,7 +1168,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("4"),
         "rating": Decimal("4.3"),
         "in_stock": True,
-        "keywords": {"ors", "electral", "rehydration", "dehydration", "electrolyte", "sachet", "oral"},
+        "keywords": {"ors", "electral", "rehydration", "dehydration", "electrolyte", "sachet", "oral"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"medicine", "summer", "rehydration"},
     },
     {
@@ -1182,7 +1182,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("40"),
         "rating": Decimal("4.2"),
         "in_stock": True,
-        "keywords": {"volini", "pain relief", "spray", "muscle pain", "joint pain", "sprain", "backache"},
+        "keywords": {"volini", "pain relief", "spray", "muscle pain", "joint pain", "sprain", "backache"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"medicine", "pain", "sports", "muscle"},
     },
     {
@@ -1196,7 +1196,7 @@ PRODUCTS = [
         "unit_quantity": Decimal("250"),
         "rating": Decimal("4.5"),
         "in_stock": True,
-        "keywords": {"dettol", "antiseptic", "disinfectant", "wound", "first aid", "hygiene", "liquid"},
+        "keywords": {"dettol", "antiseptic", "disinfectant", "wound", "first aid", "hygiene", "liquid"}, "dietary": ["veg", "vegan", "jain"],
         "tags": {"medicine", "first aid", "hygiene", "cleaning"},
     },
 ]

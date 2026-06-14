@@ -163,8 +163,8 @@
   --destructive: oklch(0.62 0.16 27);
   --destructive-foreground: oklch(0.92 0.008 80);
 
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
+  --border: oklch(1 0 0 / 6%);
+  --input: oklch(1 0 0 / 8%);
   --ring: oklch(0.92 0.008 80);
 
   /* Cursor glow tint — warm ember in dark */
@@ -230,6 +230,84 @@
   50%  { transform: translate3d(-2%, 1%, 0) scale(1.05); opacity: 0.85; }
   100% { transform: translate3d(2%, -1%, 0) scale(1); opacity: 1; }
 }
+
+/* Cart page animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { 
+    opacity: 0; 
+    transform: scale(0.95);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+}
+
+@keyframes bounce-in {
+  0% { 
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% { 
+    transform: scale(1.05);
+  }
+  100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+/* Custom scrollbar styling for modal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(from var(--brand) l c h / 0.3);
+  border-radius: 999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(from var(--brand) l c h / 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
   [style*="ns-aurora"] { animation: none !important; }
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-bounce-in,
+  .animate-shake { 
+    animation: none !important; 
+  }
 }

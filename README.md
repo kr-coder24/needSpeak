@@ -1,120 +1,137 @@
-# Context-to-Cart | Amazon Hackon 2026
+# 🛒 NeedSpeak | Context-to-Cart (Amazon Hackon 2026)
 
-> **Idea 1 Foundation** — Paste any recipe, shopping list, or URL. AI extracts what you need, maps to real products, builds your cart instantly.
+NeedSpeak / Context-to-Cart is a state-of-the-art **Intent-Commerce Engine**. It converts messy, unstructured human context (recipes, shopping lists, voice recordings, planning descriptions, or URLs) into reliable, inventory-aware, and explainable shopping carts matching real product catalogs.
+
+---
+
+## 🌟 Key Features
+
+1. **Multi-Modality Input Gateway:**
+   * **Text & Voice Input:** Paste a shopping list, describe an event, or record voice instructions.
+   * **Recipe Ingestion:** Automatically parse recipes from AllRecipes, BBC Food, or YouTube transcripts.
+   * **Hindi/Hinglish Support:** Native support for Indian language contexts and code-mixed inputs.
+2. **"Magic Setup" Preference Engine:**
+   * Extract dietary restrictions (`veg`, `vegan`, `jain`), brand affinity, and budget constraints directly from freeform user descriptions.
+   * Real-time saving and loading of preferences, dynamically integrated into the search and ranking pipeline.
+3. **Smart Alternatives & Instant Swapping:**
+   * Every item in the resolved cart displays up to **3 intelligent alternatives** (cheaper options, higher ratings, etc.).
+   * One-click swap functionality instantly updates cart states, budget bars, and savings metrics in real time.
+4. **Fuzzy Quantity Engine:**
+   * Normalizes 70+ units (g, ml, cups, packets, bunches) into standard metric formats.
+   * Translates arbitrary quantities into exact catalog SKU quantities using unit normalization.
+5. **GoalCart (Budget Optimization):**
+   * Specify a strict budget constraint; if exceeded, the resolver dynamically swaps premium items with cheaper equivalents and flags them as "Substituted" in the UI.
+6. **Collaborative Sharing & Analytics:**
+   * Share cart links via WhatsApp or download them as CSV files.
+   * Full client-side telemetry tracking user actions (`impression`, `click`, `add_to_cart`, `purchase`, `substitution_accept`, `substitution_reject`) to train offline recommender models.
+
+---
+
+## 🏗️ System Architecture
+
+```text
+       User Input (Text / URL / Voice)
+                     │
+                     ▼
+             [Ingestion Layer]
+    (url_fetcher / youtube_fetcher / voice)
+                     │
+                     ▼
+       [Stage 1: Intent Extraction]
+      (Gemini / Claude Pydantic JSON)
+                     │
+                     ▼
+          [Stage 2: SKU Retrieval]
+   (OpenSearch Hybrid / Local Vector BM25)
+                     │
+                     ▼
+          [Stage 3: Hybrid Ranker]
+(Relevance + Price Fit + Quality + Brand Boost)
+                     │
+                     ▼
+       [Stage 4: Cart Optimization]
+   (Quantity Translation & Budget Swapping)
+                     │
+                     ▼
+          [Stage 5: Live Cart UI]
+     (Alternative Swapping & Telemetry)
+```
 
 ---
 
 ## 🚀 Quick Start (Local Development)
 
 ### Prerequisites
-- Python 3.11+ (with pip/venv)
-- Node.js 18+ (or Bun)
-- A Google Gemini API key **or** AWS CLI configured with credentials (`aws configure`)
+* **Python 3.11+** (with `pip`/`venv`)
+* **Node.js 18+** (with `npm`)
+* A Google Gemini API key or configured AWS CLI credentials (`aws configure`)
 
 > [!NOTE]
-> If using Gemini with `MOCK_AWS=1` you do **not** need any AWS account, DynamoDB tables, or S3 bucket.
+> Setting `MOCK_AWS=1` runs the catalog and session database locally in-memory, requiring **no AWS configuration** whatsoever.
 
-### 1. Install Backend Dependencies
-```bash
-cd backend
-pip install -r requirements.txt
-```
+---
 
-> **DynamoDB seed (Full AWS only):** If running with `MOCK_AWS=0`, seed the product catalog:
-> ```bash
-> python seed_catalog.py
-> ```
-> This writes 80 realistic Indian product SKUs to DynamoDB. Safe to re-run.  
-> With `MOCK_AWS=1` this step is unnecessary — the backend loads a built-in mock catalog automatically.
+### 1. Configure the Environment
 
-### 2. Configure Environment
-
-Create `backend/.env`. The project supports two LLM providers and an independent AWS mock toggle so you can mix-and-match.
+Create a `backend/.env` file in the root of the backend folder:
 
 ```env
-# ─────────────────────────────────────────────────────────────────────────────
-# LLM PROVIDER — Choose ONE: "gemini" or "bedrock"
-# ─────────────────────────────────────────────────────────────────────────────
+# Active LLM Provider: "gemini" or "bedrock"
 LLM_PROVIDER=gemini
 
-# ─── Option A: Google Gemini (default, no AWS needed) ────────────────────────
+# Google Gemini Configuration
+# NOTE: Defaulting to gemini-flash-latest handles 1,500 daily requests. 
+# gemini-2.5-flash is supported but limited to 20 daily requests on Google's Free Tier.
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL_ID=gemini-2.5-flash          # primary model (fallbacks: 2.5-flash-lite, 2.0-flash, 1.5-flash)
+GEMINI_MODEL_ID=gemini-flash-latest
 
-# ─── Option B: Amazon Bedrock (requires AWS credentials + inference profile) ─
-BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-6   # or the full inference profile ARN
-
-# ─────────────────────────────────────────────────────────────────────────────
-# AWS SERVICES (DynamoDB, S3)
-# ─────────────────────────────────────────────────────────────────────────────
+# AWS Configuration (Used if MOCK_AWS=0)
 AWS_REGION=us-east-1
 DYNAMODB_TABLE_PRODUCTS=ProductCatalog
 DYNAMODB_TABLE_SESSIONS=CartSessions
 S3_BUCKET=pulse-cart-sessions-shivam-2026
 
-# OpenSearch (Phase 7)
-SEARCH_PROVIDER=local                   # "local" or "opensearch"
+# Search Configuration: "local" (BM25) or "opensearch" (Hybrid vector + text)
+SEARCH_PROVIDER=local
 OPENSEARCH_HOST=your-opensearch-domain-endpoint.amazonaws.com
 
-# MOCK_AWS — Set to 1 to skip all DynamoDB/S3/Bedrock calls.
-# Uses an in-memory product catalog and session store instead.
-# Auto-detected as 1 if no AWS credentials are found on the machine.
-MOCK_AWS=1
-
-# ─────────────────────────────────────────────────────────────────────────────
-# MOCK_MODE — Set to 1 to bypass the LLM entirely (returns canned extractions)
-# Useful for UI development or offline demos where you don't want any API calls.
-# ─────────────────────────────────────────────────────────────────────────────
-MOCK_MODE=0
+# Mock Settings
+MOCK_AWS=1      # Set to 1 to skip DynamoDB/S3/Bedrock (runs in-memory mock catalog)
+MOCK_MODE=0     # Set to 1 to bypass the LLM and return static mock extractions
 ```
 
-#### Common team configurations
+---
 
-| Scenario | `LLM_PROVIDER` | `MOCK_AWS` | `MOCK_MODE` | Notes |
-|----------|---------------|------------|-------------|-------|
-| **Gemini + no AWS** (recommended) | `gemini` | `1` | `0` | Real AI extraction, mock product catalog. No AWS account needed. |
-| **Full AWS** (production-like) | `bedrock` | `0` | `0` | Needs `aws configure`, DynamoDB tables, S3 bucket, Bedrock profile. |
-| **Offline / UI dev only** | _(ignored)_ | `1` | `1` | Everything mocked, zero network calls. |
-| **Bedrock + mock DB** | `bedrock` | `1` | `0` | Real Bedrock LLM calls, but mock catalog/sessions. |
+### 2. Start the Backend
 
-### 3. Start the Backend
 ```bash
 cd backend
-pip install -r requirements.txt   # first time only
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
-The API is live at `http://localhost:8000`. OpenAPI docs at `http://localhost:8000/docs`.
+* API runs at `http://localhost:8000`.
+* OpenAPI interactive documentation is available at `http://localhost:8000/docs`.
 
-### 4. Start the Frontend
+---
+
+### 3. Start the Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-The UI is live at `http://localhost:5173`. API calls are proxied to the backend.
+* UI is live at `http://localhost:5173`.
+* Port-forwarding/proxy rules automatically route `/api/*` calls from frontend to backend.
 
 ---
 
-## 🏗️ Architecture
-
-```
-User Input (text/URL) 
-    |
-    v
-[Ingestion Layer] -- text_input / url_fetcher / youtube_fetcher / voice_input
-    |
-    v
-[Stage 1: AI Intent Extraction] -- Gemini 2.5 Flash / Claude Sonnet 4.6 -> structured JSON
-    |
-    v
-[Stage 2: SKU Resolution] -- pure code, zero AI, keyword matching (with budget optimization)
-    |
-    v
-[Stage 3: AI Cart Summary] -- Gemini 2.5 Flash / Claude Sonnet 4.6 -> plain English
-    |
-    v
-Cart Response -> Frontend
-```
+## 🛡️ Gemini API Quota & Fallbacks
+To ensure maximum reliability during long hackathon hacking sessions:
+1. **Model Choices:** Google AI Studio restricts `gemini-2.5-flash` to a low daily limit of 20 requests on the free tier. We default to `gemini-flash-latest` (Gemini 1.5 Flash), which grants **1,500 requests per day**.
+2. **Robust Fallbacks:** In `app/pipeline/extractor.py`, if the configured model hits a rate limit or error, the system automatically loops through reliable fallback models (`gemini-flash-latest` -> `gemini-2.5-flash-lite` -> `gemini-2.0-flash` -> `gemini-2.5-flash`) to ensure high availability.
 
 ---
 
@@ -165,36 +182,6 @@ Cart Response -> Frontend
 
 ---
 
-## ⚙️ Mock Mode
-
-There are two independent mock flags to ease local development and testing:
-
-| Flag | What it skips | When to use |
-|------|--------------|-------------|
-| `MOCK_AWS=1` | DynamoDB, S3, Bedrock health checks | Useful if you don't have AWS configured. The backend defaults to a local mock catalog (~45 Indian grocery SKUs) and caches sessions in memory. |
-| `MOCK_MODE=1` | All LLM calls (Gemini and Bedrock) | Ideal for offline work or debugging UI flows. Returns pre-determined canned responses instantly without hitches. |
-
-Both options are independent. For example, you can write real Gemini queries while bypassing AWS database configurations.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | FastAPI (Python 3.11) |
-| **Frontend** | React 18 (Vite 6) |
-| **Styling** | Tailwind CSS v4 (Vanilla CSS Customizations) |
-| **Animations** | Framer Motion |
-| **AI / LLMs** | Google Gemini 2.5 Flash (Default) / Amazon Bedrock (Claude Sonnet 4.6) |
-| **Database** | Amazon DynamoDB (or local mock catalog) |
-| **Storage** | Amazon S3 (or local memory session store) |
-| **Auth** | Secure CSV-based storage using bcrypt password hashing |
-| **Audio** | Hybrid Web Speech API (Client-side translation) + MediaRecorder fallback |
-| **Export** | Custom `cart-export.ts` utility (supports formatting WhatsApp-friendly text or CSV download) |
-
----
-
 ## 🔍 OpenSearch Hybrid Search (Phase 7)
 OpenSearch can be enabled for hybrid BM25 text match + KNN vector search.
 * **Setup Script:** `python scripts/setup_opensearch.py` initializes the `product-catalog` index with KNN vector dimensions.
@@ -205,4 +192,3 @@ OpenSearch can be enabled for hybrid BM25 text match + KNN vector search.
 ## 📊 Offline Recommendation Engine (Phase 8)
 * **Event Exporter:** Run `python scripts/export_events.py` to dump events from DynamoDB (or mock events if `MOCK_AWS=1`) to a local CSV (`data/exported_events.csv`).
 * **Baseline Training:** Run `python scripts/train_lightfm_baseline.py` to train a hybrid collaborative filtering model using `lightfm` on positive interactions (purchases/add to carts). Includes a mock fallback for local environments without compiler setups.
-

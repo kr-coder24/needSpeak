@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 # Load .env before importing config
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -43,6 +43,8 @@ from app.models import (
     InputType,
     ErrorCode,
     IntentGroup,
+    PreferenceExtractRequest,
+    PreferenceExtractResponse,
 )
 from app.pipeline.extractor import extract_items
 from app.pipeline.resolver import resolve_cart
@@ -50,9 +52,7 @@ from app.pipeline.summarizer import generate_summary
 from app.ingestion.text_input import process_text_input
 from app.ingestion.url_fetcher import (
     fetch_url_content,
-    is_supported_url,
     is_youtube_url,
-    get_unsupported_url_message,
 )
 from app.ingestion.youtube_fetcher import fetch_youtube_transcript
 from app.db.dynamo import (
@@ -168,17 +168,13 @@ async def parse_content(req: ParseRequest, request: Request):
             elif req.input_type == InputType.URL:
                 url = req.content.strip()
 
-                # Check if it's a YouTube URL
+                # Check if it's a YouTube URL first, then try any recipe URL
                 if is_youtube_url(url):
                     raw_text = fetch_youtube_transcript(url)
-                elif is_supported_url(url):
-                    raw_text = fetch_url_content(url)
                 else:
-                    error_msg = get_unsupported_url_message(url)
-                    raise HTTPException(
-                        status_code=400,
-                        detail={"error_code": ErrorCode.UNSUPPORTED_URL.value, "message": error_msg},
-                    )
+                    # fetch_url_content handles all HTTP(S) URLs via JSON-LD + body fallback
+                    # and raises ValueError for known JS-only sites (Instagram, Zomato, Swiggy)
+                    raw_text = fetch_url_content(url)
             else:
                 raise HTTPException(
                     status_code=400,
@@ -206,7 +202,7 @@ async def parse_content(req: ParseRequest, request: Request):
         logger.info(f"[{session_id}] Extracting items from text ({len(raw_text)} chars)...")
         extraction = extract_items(raw_text, req.servings_override, mock_mode=mock_mode)
 
-        if extraction.error == "no_shoppable_content":
+        if extraction.error == "no_shoppable_content" and not req.occasion:
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -225,6 +221,33 @@ async def parse_content(req: ParseRequest, request: Request):
                 },
             )
 
+        # Feature 2.4: OccasionCart Backend Blueprint Mapping
+        # If an occasion is provided, fetch its blueprint and merge with extraction
+        if req.occasion:
+            from app.intelligence.occasion_templates import get_template_by_id
+            from app.models import ExtractedItem, ExtractedIntent, IntentType
+            template = get_template_by_id(req.occasion)
+            if template and template.blueprint:
+                logger.info(f"[{session_id}] Merging hardcoded blueprint for occasion: {template.id}")
+                blueprint_items = [ExtractedItem(**b_item) for b_item in template.blueprint]
+                
+                # If extraction was empty, create a new intent
+                if not extraction.intents:
+                    extraction.intents = [
+                        ExtractedIntent(
+                            intent_type=IntentType.GENERAL,
+                            context_summary=f"{template.name} Essentials",
+                            items=blueprint_items
+                        )
+                    ]
+                    extraction.error = None # Clear any errors since we have blueprint items
+                else:
+                    # Merge into the first intent
+                    existing_names = {item.name.lower() for item in extraction.intents[0].items}
+                    for b_item in blueprint_items:
+                        if b_item.name.lower() not in existing_names:
+                            extraction.intents[0].items.append(b_item)
+
         if not extraction.intents and extraction.confidence != "low":
             raise HTTPException(
                 status_code=400,
@@ -236,6 +259,29 @@ async def parse_content(req: ParseRequest, request: Request):
 
         logger.info(f"[{session_id}] Extracted {len(extraction.intents)} intents")
 
+        # Feature 4.3: Deterministic Quantity Engine Scaling
+        if req.servings_override:
+            from app.intelligence.quantity_scaler import scale_quantities
+            # Determine base_servings, fallback to 4 if the LLM didn't extract any
+            base_servings = extraction.servings or 4
+            
+            # If an occasion template was used, and extraction didn't specify servings, use the occasion's default
+            if req.occasion and not extraction.servings:
+                from app.intelligence.occasion_templates import get_template_by_id
+                template = get_template_by_id(req.occasion)
+                if template:
+                    base_servings = template.default_attendees
+                    
+            logger.info(f"[{session_id}] Applying deterministic quantity scaling: {base_servings} -> {req.servings_override}")
+            for intent in extraction.intents:
+                intent.items = scale_quantities(
+                    items=intent.items, 
+                    target_attendees=req.servings_override, 
+                    base_servings=base_servings
+                )
+            # Update extraction servings to reflect the scaled amount
+            extraction.servings = req.servings_override
+
         # ── Step 3: Resolve ─────────────────────────────────────────────
         logger.info(f"[{session_id}] Resolving SKUs per intent...")
         
@@ -243,6 +289,28 @@ async def parse_content(req: ParseRequest, request: Request):
         global_total_price = 0.0
         global_budget_exceeded = False
         
+        # Apply preferences (Pillar 9)
+        from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
+        from app.db.dynamo import get_user_events
+        
+        dietary_list = []
+        if req.dietary_pref and req.dietary_pref.lower() not in ("any", "none"):
+            val = req.dietary_pref.lower()
+            dietary_list.append("vegetarian" if val == "veg" else val)
+        
+        prefs = UserPreferences(
+            dietary=dietary_list,
+            preferred_brands=req.preferred_brands or [],
+            budget_mode=req.budget_mode or "balanced"
+        )
+        
+        implicit_prefs = None
+        if req.user_id:
+            user_events = get_user_events(req.user_id, event_type="purchase", mock_mode=mock_mode)
+            implicit_prefs = build_implicit_preferences(user_events)
+            
+        extraction = apply_preferences(extraction, prefs, implicit_prefs)
+
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
                 items=intent.items,
@@ -551,11 +619,15 @@ async def _run_multimodal_pipeline(
 # ---------------------------------------------------------------------------
 # POST /api/ingest/image — Image OCR Pipeline
 # ---------------------------------------------------------------------------
+@app.post("/api/parse-image")
 @app.post("/api/ingest/image")
 async def ingest_image(
     request: Request,
     image: UploadFile = File(...),
-    budget_inr: float = None,
+    budget_inr: float = Form(None),
+    dietary_pref: Optional[str] = Form(None),
+    preferred_brands: Optional[str] = Form(None),
+    budget_style: Optional[str] = Form(None),
 ):
     """
     Accept an image, extract text via Gemini Vision, run through pipeline.
@@ -733,6 +805,333 @@ async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
 
 
 
+
+# ---------------------------------------------------------------------------
+# POST /api/parse-pdf — PDF Text Extraction Pipeline (Feature B.13)
+# ---------------------------------------------------------------------------
+@app.post("/api/parse-pdf")
+async def parse_pdf(
+    request: Request,
+    pdf: UploadFile = File(...),
+    budget_inr: float = Form(None),
+    dietary_pref: Optional[str] = Form(None),
+    preferred_brands: Optional[str] = Form(None),
+    budget_style: Optional[str] = Form(None),
+):
+    """
+    Accept a PDF file, extract text via pypdf, and run through the pipeline.
+    Returns both the extracted text and the full pipeline result.
+    """
+    session_id = str(uuid.uuid4())
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    pdf_bytes = await pdf.read()
+    
+    if len(pdf_bytes) < 100:
+        raise HTTPException(status_code=400, detail={"message": "PDF too small or empty."})
+
+    logger.info(f"[{session_id}] PDF upload: {len(pdf_bytes)} bytes")
+
+    if mock_mode:
+        return {
+            "extracted_text": "Sample mock text from PDF: milk 2L, bread 1 pack",
+            "session_id": session_id,
+            "hint": "Submit this text to /api/parse with input_type=text",
+        }
+
+    try:
+        from app.ingestion.pdf_input import extract_text_from_pdf
+        import uuid
+        from datetime import datetime, timezone
+        from app.models import ParseResponse, IntentGroup, ErrorCode
+        import asyncio
+        from starlette.concurrency import run_in_threadpool
+        from app.db.dynamo import save_session, store_cart_result
+        
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+
+        if not extracted_text or not extracted_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": ErrorCode.NO_CONTENT.value,
+                    "message": "No readable text found in the PDF. Ensure it is a text-based PDF.",
+                },
+            )
+
+        logger.info(f"[{session_id}] Extracted from PDF: '{extracted_text[:200]}'")
+
+        def run_pdf_pipeline():
+            from app.pipeline.extractor import extract_items
+            from app.pipeline.resolver import resolve_cart
+            from app.pipeline.summarizer import generate_summary
+
+            extraction = extract_items(extracted_text, None, mock_mode=mock_mode)
+
+            if extraction.error == "no_shoppable_content":
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error_code": ErrorCode.NO_CONTENT.value,
+                        "message": "No shoppable items found in the extracted text from the PDF.",
+                    },
+                )
+
+            if extraction.error in ("extraction_failed", "bedrock_timeout"):
+                error_code = (
+                    ErrorCode.BEDROCK_TIMEOUT
+                    if extraction.error == "bedrock_timeout"
+                    else ErrorCode.EXTRACTION_FAILED
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "error_code": error_code.value,
+                        "message": "AI extraction failed. Please try again.",
+                    },
+                )
+
+            resolved_intent_groups = []
+            global_total_price = 0.0
+            global_budget_exceeded = False
+
+            budget_int = int(budget_inr) if budget_inr else None
+
+            # Apply preferences (Pillar 9)
+            from app.intelligence.preference_engine import apply_preferences, build_implicit_preferences, UserPreferences
+            from app.db.dynamo import get_user_events
+            import json
+            
+            brands_list = []
+            if preferred_brands:
+                try:
+                    brands_list = json.loads(preferred_brands)
+                    if not isinstance(brands_list, list):
+                        brands_list = [brands_list]
+                except Exception:
+                    brands_list = [preferred_brands]
+
+            dietary_list = []
+            if dietary_pref and dietary_pref.lower() not in ("any", "none"):
+                val = dietary_pref.lower()
+                dietary_list.append("vegetarian" if val == "veg" else val)
+
+            prefs = UserPreferences(
+                dietary=dietary_list,
+                preferred_brands=brands_list,
+                budget_mode=budget_style or "balanced"
+            )
+            
+            implicit_prefs = None
+            if req.user_id:
+                user_events = get_user_events(req.user_id, event_type="purchase", mock_mode=mock_mode)
+                implicit_prefs = build_implicit_preferences(user_events)
+                
+            extraction = apply_preferences(extraction, prefs, implicit_prefs)
+
+            for intent in extraction.intents:
+                cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
+                    items=intent.items,
+                    budget_inr=budget_int,
+                    session_id=session_id,
+                    mock_mode=mock_mode,
+                    dietary_pref=dietary_pref,
+                    preferred_brands=brands_list,
+                    budget_style=budget_style,
+                )
+                global_total_price += intent_total_price
+                global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
+
+                resolved_intent_groups.append(IntentGroup(
+                    intent_type=intent.intent_type,
+                    context_summary=intent.context_summary,
+                    cart=cart_items,
+                    unavailable_items=unavailable_items,
+                ))
+
+            summary = generate_summary(
+                intent_groups=resolved_intent_groups,
+                total_price=global_total_price,
+                budget_inr=budget_int,
+                budget_exceeded=global_budget_exceeded,
+                mock_mode=mock_mode,
+            )
+
+            response_data = ParseResponse(
+                session_id=session_id,
+                confidence=extraction.confidence,
+                clarification_question=extraction.clarification_question,
+                intents=resolved_intent_groups,
+                total_price_inr=global_total_price,
+                budget_exceeded=global_budget_exceeded,
+                summary=summary,
+            )
+
+            session_data = {
+                "session_id": session_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "input_type": "text",
+                "confidence": extraction.confidence,
+                "extracted_text_from_pdf": extracted_text,
+                "resolved_intents": [g.model_dump() for g in resolved_intent_groups],
+                "total_price_inr": global_total_price,
+                "budget_inr": budget_int,
+                "budget_exceeded": global_budget_exceeded,
+                "summary": summary,
+                "status": "completed",
+            }
+            save_session(session_data, mock_mode=mock_mode)
+            store_cart_result(session_id, session_data, mock_mode=mock_mode)
+
+            return {
+                "extracted_text": extracted_text,
+                **response_data.model_dump(),
+            }
+
+        return await asyncio.wait_for(
+            run_in_threadpool(run_pdf_pipeline), timeout=45.0
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"[{session_id}] PDF pipeline timed out after 45 seconds.")
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error_code": ErrorCode.BEDROCK_TIMEOUT.value,
+                "message": "PDF processing timed out. Please try again.",
+            },
+        )
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"[{session_id}] PDF pipeline failed: {error_str}")
+
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            raise HTTPException(
+                status_code=429,
+                detail={"message": "API rate limit reached. Please wait a minute and try again."},
+            )
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": ErrorCode.INTERNAL_ERROR.value,
+                "message": f"PDF processing failed: {error_str}",
+            },
+        )
+
+# ---------------------------------------------------------------------------
+# POST /api/recompare — Re-resolve with new params (no LLM call)
+# ---------------------------------------------------------------------------
+class RecompareRequest(BaseModel):
+    """POST /api/recompare — re-resolve existing items with new parameters."""
+    session_id: str
+    budget_inr: int | None = Field(None, ge=50)
+    servings_override: int | None = Field(None, ge=1, le=50)
+    original_servings: int | None = Field(None, ge=1, le=50)
+    dietary_pref: str | None = None
+    preferred_brands: list[str] | None = None
+    avoided_brands: list[str] | None = None
+    budget_mode: str | None = "balanced"
+    occasion: str | None = None
+    user_id: str | None = "demo_user"
+
+@app.post("/api/recompare")
+async def recompare_cart(req: RecompareRequest, request: Request):
+    """
+    Re-resolve an existing session's extracted items with new parameters.
+    Skips the LLM extraction step entirely — just re-runs retrieval + ranking.
+    This is the backend for CompareCart "What If" feature.
+    """
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+
+    # Load the existing session
+    session = get_session(req.session_id, mock_mode=mock_mode)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Get extracted intents from the session
+    extracted_intents_raw = session.get("extracted_intents", [])
+    if not extracted_intents_raw:
+        raise HTTPException(
+            status_code=400,
+            detail="No extracted items found in session. Cannot recompare.",
+        )
+
+    logger.info(f"[recompare] Session {req.session_id}: re-resolving with budget={req.budget_inr}, dietary={req.dietary_pref}")
+
+    def run_recompare():
+        from app.models import ExtractedItem, IntentType
+
+        resolved_intent_groups = []
+        global_total_price = 0.0
+        global_budget_exceeded = False
+
+        for intent_data in extracted_intents_raw:
+            items_raw = intent_data.get("items", [])
+            items: list[ExtractedItem] = []
+            for item_raw in items_raw:
+                # Scale quantities if servings changed
+                quantity = item_raw.get("quantity", 1.0)
+                if req.servings_override and req.original_servings and req.original_servings > 0:
+                    scale_factor = req.servings_override / req.original_servings
+                    quantity = quantity * scale_factor
+
+                items.append(ExtractedItem(
+                    name=item_raw.get("name", "unknown"),
+                    quantity=quantity,
+                    unit=item_raw.get("unit", "piece"),
+                    category=item_raw.get("category", "general"),
+                    optional=item_raw.get("optional", False),
+                    notes=item_raw.get("notes"),
+                ))
+
+            # Re-resolve with new params
+            cart_items, unavailable_items, intent_total, intent_budget_exceeded = resolve_cart(
+                items=items,
+                budget_inr=req.budget_inr,
+                session_id=req.session_id,
+                mock_mode=mock_mode,
+                dietary_pref=req.dietary_pref,
+                preferred_brands=req.preferred_brands,
+                avoided_brands=req.avoided_brands,
+                budget_mode=req.budget_mode or "balanced",
+                occasion=req.occasion,
+            )
+
+            global_total_price += intent_total
+            global_budget_exceeded = global_budget_exceeded or intent_budget_exceeded
+
+            resolved_intent_groups.append(IntentGroup(
+                intent_type=IntentType(intent_data.get("intent_type", "general")),
+                context_summary=intent_data.get("context_summary", ""),
+                cart=cart_items,
+                unavailable_items=unavailable_items,
+            ))
+
+        return {
+            "session_id": req.session_id,
+            "intents": [g.model_dump() for g in resolved_intent_groups],
+            "total_price_inr": global_total_price,
+            "budget_exceeded": global_budget_exceeded,
+            "budget_inr": req.budget_inr,
+        }
+
+    try:
+        return await asyncio.wait_for(run_in_threadpool(run_recompare), timeout=15.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail={"error_code": "timeout", "message": "Recompare timed out."},
+        )
+
+
 # ---------------------------------------------------------------------------
 # GET /api/session/{session_id} — Reload Session
 # ---------------------------------------------------------------------------
@@ -836,6 +1235,54 @@ async def fetch_preferences(user_id: str, request: Request):
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
     prefs = get_user_preferences(user_id, mock_mode=mock_mode)
     return prefs or {}
+
+@app.post("/api/preferences/extract", response_model=PreferenceExtractResponse)
+async def extract_preferences(req: PreferenceExtractRequest):
+    """Use lightweight LLM to extract preferences from natural language."""
+    from google import genai
+    from google.genai import types
+    import os
+    import json
+    
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not set")
+        
+    client = genai.Client(api_key=api_key)
+    
+    prompt = f"""
+    You are a shopping preference extractor. Analyze the user's text and extract:
+    - dietary: "veg", "vegan", "jain", or "any" (default)
+    - budget_mode: "value", "balanced" (default), or "premium"
+    - preferred_brands: list of brand names they like
+    
+    Text: "{req.text}"
+    
+    Return ONLY valid JSON matching this schema:
+    {{
+        "dietary": "...",
+        "budget_mode": "...",
+        "preferred_brands": [...]
+    }}
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model=config.GEMINI_MODEL_ID,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        data = json.loads(response.text)
+        return PreferenceExtractResponse(
+            dietary=data.get("dietary", "any"),
+            budget_mode=data.get("budget_mode", "balanced"),
+            preferred_brands=data.get("preferred_brands", [])
+        )
+    except Exception as e:
+        logger.error(f"Failed to extract preferences: {e}")
+        raise HTTPException(status_code=500, detail="Failed to extract preferences")
 
 class EventRequest(BaseModel):
     user_id: str

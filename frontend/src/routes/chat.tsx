@@ -19,6 +19,9 @@ import {
   X,
   History,
   ShoppingCart,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import {
@@ -38,10 +41,13 @@ import { saveToHistory, loadHistory, type CartHistoryEntry } from "@/lib/cart-hi
 import { loadPreferences } from "@/lib/preferences";
 import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
+import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
+
 
 export const Route = createFileRoute("/chat")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { prompt?: string, occasion?: string } => ({
     prompt: typeof search.prompt === "string" ? search.prompt : undefined,
+    occasion: typeof search.occasion === "string" ? search.occasion : undefined,
   }),
   head: () => ({
     meta: [
@@ -76,22 +82,6 @@ function extractBudgetFromText(text: string): number | undefined {
     }
   }
   return undefined;
-}
-
-/**
- * Detect if the user input is a URL (YouTube, recipe site, etc.) or plain text.
- */
-function detectInputType(text: string): "text" | "url" {
-  const trimmed = text.trim();
-  try {
-    const url = new URL(trimmed);
-    if (["http:", "https:"].includes(url.protocol)) {
-      return "url";
-    }
-  } catch {
-    // Not a valid URL — treat as text
-  }
-  return "text";
 }
 
 // ─── QuantityControl ─────────────────────────────────────────────────────────
@@ -135,50 +125,155 @@ function CartItemRow({
   onDecrement,
   onIncrement,
   onRemove,
+  onSwap,
 }: {
   item: any;
   qty: number;
   onDecrement: () => void;
   onIncrement: () => void;
   onRemove: () => void;
+  onSwap?: (altSku: string) => void;
 }) {
   const effectiveTotal = (item.price_per_unit_inr * qty).toFixed(0);
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const alternatives = item.alternatives || [];
 
   return (
-    <div className="group rounded-xl border border-border bg-background p-3">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">{item.name}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>{item.brand} · {item.unit_quantity}{item.unit}</span>
-            {getItemBadge(item.sku) && (
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getItemBadge(item.sku)!.color}`}>
-                {getItemBadge(item.sku)!.label}
-              </span>
-            )}
+    <div className="rounded-xl border border-border/60 bg-background/50 shadow-sm transition-all hover:shadow-md hover:border-brand/30">
+      <div className="group p-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium capitalize">{item.name}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="capitalize">{item.brand}</span><span> · {item.unit_quantity}{item.unit}</span>
+              {getItemBadge(item.sku) && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getItemBadge(item.sku)!.color}`}>
+                  {getItemBadge(item.sku)!.label}
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <QuantityControl value={qty} onDecrement={onDecrement} onIncrement={onIncrement} />
+              <div className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[10px] text-muted-foreground">
+                <Check className="h-3 w-3 text-brand" />
+                {item.substituted
+                  ? item.substitution_reason || "Substituted"
+                  : item.matched_from?.length > 0
+                  ? item.matched_from.join(", ")
+                  : "Matched"}
+              </div>
+            </div>
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <QuantityControl value={qty} onDecrement={onDecrement} onIncrement={onIncrement} />
-            <div className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[10px] text-muted-foreground">
-              <Check className="h-3 w-3 text-brand" />
-              {item.substituted
-                ? item.substitution_reason || "Substituted"
-                : item.matched_from?.length > 0
-                ? item.matched_from.join(", ")
-                : "Matched"}
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={onRemove}
+              aria-label="Remove item"
+              className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <div className="text-sm font-semibold">₹{effectiveTotal}</div>
+            <div className="text-[10px] text-muted-foreground">₹{item.price_per_unit_inr}/unit</div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Alternatives toggle button */}
+      {alternatives.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowAlternatives(!showAlternatives)}
+            className="flex w-full items-center justify-center gap-1.5 border-t border-border/40 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-surface/50 hover:text-foreground"
+          >
+            <RefreshCw className="h-3 w-3" />
+            {showAlternatives ? "Hide" : "Show"} {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''}
+            {showAlternatives ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+          
+          {/* Alternatives list */}
+          {showAlternatives && (
+            <div className="border-t border-border/40 bg-surface/30 p-2 space-y-1.5">
+              {alternatives.slice(0, 4).map((alt: any) => {
+                const savings = item.total_price_inr - alt.total_price_inr;
+                const savingsPercent = ((savings / item.total_price_inr) * 100).toFixed(0);
+                
+                return (
+                  <div
+                    key={alt.sku}
+                    className="group/alt flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/60 p-2 transition-all hover:border-brand/40 hover:bg-background"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-medium capitalize">{alt.name}</span>
+                        {savings > 0 && (
+                          <span className="shrink-0 rounded-full bg-success/15 px-1.5 py-0.5 text-[9px] font-semibold text-success">
+                            Save {savingsPercent}%
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="capitalize">{alt.brand}</span>
+                        <span>·</span>
+                        <span>{alt.unit_quantity}{alt.unit}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="text-xs font-semibold">₹{alt.total_price_inr}</div>
+                        <div className="text-[9px] text-muted-foreground">₹{alt.price_per_unit}/unit</div>
+                      </div>
+                      {onSwap && (
+                        <button
+                          onClick={() => onSwap(alt.sku)}
+                          className="flex h-6 items-center gap-1 rounded-md bg-brand/10 px-2 text-[10px] font-medium text-brand opacity-0 transition-all hover:bg-brand hover:text-brand-foreground group-hover/alt:opacity-100"
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" />
+                          Swap
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── UnavailableItemRow ───────────────────────────────────────────────────────
+
+function UnavailableItemRow({ item }: { item: any }) {
+  const reasonText = item.reason
+    ? item.reason.replace(/_/g, " ")
+    : "Unavailable";
+  
+  const isOutOfStock = item.reason === "out_of_stock";
+  const badgeBg = isOutOfStock
+    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+    : "bg-destructive/10 text-destructive border-destructive/20";
+  const iconColor = isOutOfStock ? "bg-amber-500/10 text-amber-500" : "bg-destructive/10 text-destructive";
+
+  return (
+    <div className="group rounded-xl border border-border/60 bg-background/50 p-3 shadow-sm transition-all hover:shadow-md hover:border-destructive/30 hover:bg-background">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+            <AlertTriangle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium capitalize text-foreground/90">{item.name}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Not added to cart
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <button
-            onClick={onRemove}
-            aria-label="Remove item"
-            className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-          <div className="text-sm font-semibold">₹{effectiveTotal}</div>
-          <div className="text-[10px] text-muted-foreground">₹{item.price_per_unit_inr}/unit</div>
+        <div className="shrink-0">
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize tracking-wide ${badgeBg}`}>
+            {reasonText}
+          </span>
         </div>
       </div>
     </div>
@@ -263,7 +358,7 @@ function HistoryPanel({
 // ─── ChatPage ─────────────────────────────────────────────────────────────────
 
 function ChatPage() {
-  const { prompt: prefillPrompt } = Route.useSearch();
+  const { prompt: prefillPrompt, occasion: prefillOccasion } = Route.useSearch();
   const [phase, setPhase] = useState<Phase>("idle");
   const [text, setText] = useState(samplePrompts[0]);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
@@ -284,8 +379,8 @@ function ChatPage() {
   const [intentGroups, setIntentGroups] = useState<any[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadEndpoint, setUploadEndpoint] = useState<string>("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [inputType, setInputType] = useState<"text" | "whatsapp">("text");
 
   // Voice input via MediaRecorder + backend transcription
@@ -348,6 +443,80 @@ function ChatPage() {
     });
   }, []);
 
+  // Swap item with an alternative
+  const swapItem = useCallback((originalSku: string, altSku: string) => {
+    if (!cartData?.cart) return;
+    
+    setCartData((prev: any) => {
+      if (!prev?.cart) return prev;
+      
+      const newCart = prev.cart.map((item: any) => {
+        if (item.sku !== originalSku) return item;
+        
+        // Find the alternative
+        const alt = item.alternatives?.find((a: any) => a.sku === altSku);
+        if (!alt) return item;
+        
+        // Swap: the alternative becomes the main item, original goes to alternatives
+        const originalAsAlt = {
+          sku: item.sku,
+          name: item.name,
+          brand: item.brand,
+          unit_quantity: item.unit_quantity,
+          unit: item.unit,
+          price_per_unit: item.price_per_unit_inr,
+          total_price_inr: item.total_price_inr,
+        };
+        
+        // Build new alternatives list: remove the chosen alt, add the original
+        const newAlternatives = [
+          originalAsAlt,
+          ...item.alternatives.filter((a: any) => a.sku !== altSku),
+        ].slice(0, 5);
+        
+        return {
+          ...item,
+          sku: alt.sku,
+          name: alt.name,
+          brand: alt.brand,
+          unit_quantity: alt.unit_quantity,
+          unit: alt.unit,
+          price_per_unit_inr: alt.price_per_unit,
+          total_price_inr: alt.total_price_inr,
+          alternatives: newAlternatives,
+          substituted: true,
+          substitution_reason: "Swapped by user",
+        };
+      });
+      
+      // Recalculate total
+      const newTotal = newCart.reduce((sum: number, item: any) => sum + (item.total_price_inr || 0), 0);
+      
+      return {
+        ...prev,
+        cart: newCart,
+        total_price_inr: newTotal,
+      };
+    });
+    
+    // Update quantities map with new SKU
+    setQuantities((prev) => {
+      const oldQty = prev[originalSku] ?? 1;
+      const newQtys = { ...prev };
+      delete newQtys[originalSku];
+      newQtys[altSku] = oldQty;
+      return newQtys;
+    });
+    
+    // Update removed keys if needed
+    setRemovedKeys((prev) => {
+      if (!prev.has(originalSku)) return prev;
+      const newSet = new Set(prev);
+      newSet.delete(originalSku);
+      return newSet;
+    });
+  }, [cartData]);
+
   // Derived total based on quantity overrides (excludes removed items).
   const computedTotal = cartData?.cart
     ? cartData.cart.reduce((sum: number, item: any, idx: number) => {
@@ -358,11 +527,33 @@ function ChatPage() {
       }, 0)
     : 0;
 
-  const onSubmit = async (overrideText?: string, overrideType?: "text" | "whatsapp") => {
-    if ((!overrideText && !text.trim()) || phase === "thinking") return;
+  const onSubmit = async (
+    override?: string | { text: string },
+    overrideType?: any
+  ) => {
+    if (phase === "thinking") return;
 
-    const inputText = (overrideText || text).trim();
-    const currentInputType = overrideType || inputType;
+    let inputText = "";
+    if (typeof override === "string") {
+      inputText = override;
+    } else if (override && typeof override === "object" && "text" in override) {
+      inputText = override.text;
+    } else {
+      inputText = text;
+    }
+
+    inputText = inputText.trim();
+    if (!inputText) return;
+
+    // Auto-detect URL input: if it looks like a URL, set input_type to "url"
+    const detectedType = (() => {
+      try {
+        const url = new URL(inputText);
+        if (["http:", "https:"].includes(url.protocol)) return "url" as const;
+      } catch { /* not a URL */ }
+      return undefined;
+    })();
+    const currentInputType = detectedType || (typeof overrideType === "string" ? overrideType : null) || inputType;
     setMessages((m) => [...m, { role: "user", text: inputText }]);
     setPhase("thinking");
     setText("");
@@ -376,12 +567,12 @@ function ChatPage() {
 
     try {
       const prefs = loadPreferences();
-      const autoType = detectInputType(inputText);
-      const body: any = { content: inputText, input_type: autoType === "url" ? "url" : inputType };
+      const body: any = { content: inputText, input_type: currentInputType };
       if (budget) body.budget_inr = budget;
       if (prefs.dietary !== "any") body.dietary_pref = prefs.dietary;
       if (prefs.preferredBrands.length) body.preferred_brands = prefs.preferredBrands;
       if (prefs.budgetStyle !== "balanced") body.budget_style = prefs.budgetStyle;
+      if (prefillOccasion) body.occasion = prefillOccasion;
 
       const res = await fetch("/api/parse", {
         method: "POST",
@@ -459,99 +650,6 @@ function ChatPage() {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setPhase("thinking");
-    setErrorMsg(null);
-    setMessages((m) => [...m, { role: "user", text: `Uploaded file: ${file.name}` }]);
-
-    const formData = new FormData();
-    if (uploadEndpoint === "/api/ingest/image") {
-      formData.append("image", file);
-    } else {
-      formData.append("file", file);
-    }
-
-    const budgetFromField = budgetInput ? parseInt(budgetInput, 10) : undefined;
-    if (budgetFromField) {
-      formData.append("budget_inr", budgetFromField.toString());
-    }
-
-    try {
-      const res = await fetch(uploadEndpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        let errDetail = `Server error (${res.status})`;
-        try {
-          const errData = await res.json();
-          errDetail = errData.message || errData.detail || errDetail;
-        } catch { /* ignore */ }
-        throw new Error(errDetail);
-      }
-
-      const data = await res.json();
-
-      const intents: any[] = data.intents ?? [];
-      const allCartItems = intents.flatMap((g: any) => g.cart ?? []);
-      const allUnavailable = intents.flatMap((g: any) => g.unavailable_items ?? []);
-      const intentType = intents.map((g: any) => g.intent_type).filter(Boolean).join(", ");
-      const contextSummary = intents.map((g: any) => g.context_summary).filter(Boolean).join(" · ");
-
-      if (data.confidence === "low" && data.clarification_question) {
-        setMessages((m) => [...m, { role: "assistant", text: data.clarification_question }]);
-        setPhase("idle");
-        return;
-      }
-
-      const normalized = {
-        ...data,
-        cart: allCartItems,
-        unavailable_items: allUnavailable,
-        intent_type: intentType || "upload",
-        context_summary: contextSummary,
-      };
-
-      setCartData(normalized);
-      setIntentGroups(data.intents ?? []);
-
-      const entry: CartHistoryEntry = {
-        session_id: data.session_id,
-        saved_at: new Date().toISOString(),
-        intent_type: intentType || "upload",
-        context_summary: contextSummary,
-        total_price_inr: data.total_price_inr,
-        item_count: allCartItems.length,
-        cart: allCartItems,
-        unavailable_items: allUnavailable,
-        summary: data.summary || "",
-        budget_inr: budgetFromField,
-      };
-      saveToHistory(entry);
-      window.dispatchEvent(new Event("cart-history-updated"));
-
-      const itemCount = allCartItems.length;
-      const unavailCount = allUnavailable.length;
-      let summaryText =
-        data.summary ||
-        `I found ${itemCount} items from your upload, totaling ₹${data.total_price_inr}.`;
-      if (unavailCount > 0)
-        summaryText += ` (${unavailCount} item${unavailCount > 1 ? "s" : ""} unavailable)`;
-
-      setMessages((m) => [...m, { role: "assistant", text: summaryText }]);
-      setPhase("cart");
-    } catch (e: any) {
-      const msg = e.message || "Something went wrong processing your file.";
-      setErrorMsg(msg);
-      setMessages((m) => [...m, { role: "assistant", text: `⚠️ ${msg}` }]);
-      setPhase("idle");
-    }
-  };
-
   const restoreFromHistory = (entry: CartHistoryEntry) => {
     const normalized = {
       session_id: entry.session_id,
@@ -586,25 +684,21 @@ function ChatPage() {
         />
 
         {/* Left: conversation */}
-        <div className="flex min-h-0 flex-col border-r border-border">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-6 w-6 text-brand" />
-              <span className="font-display text-lg font-bold tracking-tight uppercase">CONTEXT-TO-CART</span>
-              <span className="text-sm text-muted-foreground mt-2">· Describe it, paste it, drop it</span>
-            </div>
+        {/* Left: conversation */}
+        <div className="relative flex min-h-0 flex-col border-r border-border">
+          <div className="absolute right-4 top-4 z-10">
             <button
               onClick={() => setHistoryOpen((o) => !o)}
               title="Cart history"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-xs text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-foreground hover:text-foreground"
             >
               <History className="h-3.5 w-3.5" />
               History
             </button>
           </div>
 
-          <Conversation className="flex-1">
-            <ConversationContent>
+          <Conversation className="flex-1 pb-32">
+            <ConversationContent className="mx-auto w-full max-w-3xl pt-14">
               {messages.map((m, i) => (
                 <Message key={i} from={m.role}>
                   {m.role === "assistant" ? (
@@ -620,7 +714,7 @@ function ChatPage() {
               {phase === "thinking" && (
                 <Message from="assistant">
                   <MessageContent>
-                    <Shimmer>Extracting intent and building your cart…</Shimmer>
+                    <SemanticSearchSkeleton />
                   </MessageContent>
                 </Message>
               )}
@@ -641,61 +735,55 @@ function ChatPage() {
             </div>
           )}
 
-          <div className="border-t border-border bg-background p-3 sm:p-4">
+          <div className="absolute bottom-6 left-0 right-0 z-20 mx-auto w-full max-w-3xl px-4 pointer-events-none">
+            <div className="pointer-events-auto flex flex-col gap-2 rounded-3xl border border-border/60 bg-background/95 p-3 shadow-pop backdrop-blur-xl dark:bg-[#252422]/90">
             {/* Budget input */}
-            <div className="mb-2 flex items-center gap-2">
-              <label
-                htmlFor="budget-input"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                <IndianRupee className="h-3.5 w-3.5" />
-                Budget
-              </label>
-              <input
-                id="budget-input"
-                type="number"
-                min={50}
-                step={100}
-                placeholder="optional"
-                value={budgetInput}
-                onChange={(e) => setBudgetInput(e.target.value)}
-                className="h-7 w-28 rounded-md border border-border bg-surface px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
-              />
-              {budgetInput && (
-                <span className="text-xs text-muted-foreground">
-                  ₹{parseInt(budgetInput || "0", 10).toLocaleString("en-IN")} limit
-                </span>
-              )}
-            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-2">
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="budget-input"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                >
+                  <IndianRupee className="h-3.5 w-3.5" />
+                  Budget
+                </label>
+                <input
+                  id="budget-input"
+                  type="number"
+                  min={50}
+                  step={100}
+                  placeholder="optional"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  className="h-7 w-24 rounded-full border border-border/50 bg-surface px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+                />
+                {budgetInput && (
+                  <span className="text-xs text-muted-foreground">
+                    ₹{parseInt(budgetInput || "0", 10).toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
 
             {/* Attachment chip strip */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: "none" }} 
-              onChange={handleFileChange} 
-            />
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {[
-                { i: ImageIcon, l: "Image", ep: "/api/ingest/image", acc: "image/*" },
-                { i: FileText, l: "PDF", ep: "/api/ingest/pdf", acc: "application/pdf" },
-                { i: Plus, l: "Prescription", ep: "/api/ingest/prescription", acc: "image/*,application/pdf" },
-              ].map((c) => (
-                <button
-                  key={c.l}
-                  onClick={() => {
-                    setUploadEndpoint(c.ep);
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = c.acc;
-                      fileInputRef.current.click();
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
-                >
-                  <c.i className="h-3.5 w-3.5" />
-                  {c.l}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                <LinkIcon className="mr-1.5 h-3.5 w-3.5" /> URL
+              </button>
+              
+              <button 
+                onClick={() => imageInputRef.current?.click()}
+                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Image
+              </button>
+
+              <button 
+                onClick={() => pdfInputRef.current?.click()}
+                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF
+              </button>
+
               <button 
                 onClick={() => {
                   const whatsappText = prompt("Paste your WhatsApp message:");
@@ -704,13 +792,84 @@ function ChatPage() {
                     setInputType("whatsapp");
                   }
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                <Paperclip className="h-3.5 w-3.5" /> WhatsApp
+                <Paperclip className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
               </button>
+              
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setPhase("thinking");
+                  setMessages(m => [...m, { role: "user", text: `📷 Uploaded: ${file.name}` }]);
+
+                  const prefs = loadPreferences();
+                  const formData = new FormData();
+                  formData.append("image", file);
+                  if (budgetInput) formData.append("budget_inr", budgetInput);
+                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
+
+                  try {
+                    const res = await fetch("/api/parse-image", { method: "POST", body: formData });
+                    if (!res.ok) throw new Error("Image parsing failed");
+                    const data = await res.json();
+                    if (data.extracted_text) {
+                      setText(data.extracted_text);
+                      setInputType("text");
+                      onSubmit(data.extracted_text, "text");
+                    }
+                  } catch (err: any) {
+                    setErrorMsg(err.message);
+                    setPhase("idle");
+                  }
+                }}
+              />
+
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setPhase("thinking");
+                  setMessages(m => [...m, { role: "user", text: `📄 Uploaded PDF: ${file.name}` }]);
+
+                  const prefs = loadPreferences();
+                  const formData = new FormData();
+                  formData.append("pdf", file);
+                  if (budgetInput) formData.append("budget_inr", budgetInput);
+                  if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
+                  if (prefs.preferredBrands.length) formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
+                  if (prefs.budgetStyle !== "balanced") formData.append("budget_style", prefs.budgetStyle);
+
+                  try {
+                    const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
+                    if (!res.ok) throw new Error("PDF parsing failed");
+                    const data = await res.json();
+                    if (data.extracted_text) {
+                      setText(data.extracted_text);
+                      setInputType("text");
+                      onSubmit(data.extracted_text, "text");
+                    }
+                  } catch (err: any) {
+                    setErrorMsg(err.message);
+                    setPhase("idle");
+                  }
+                }}
+              />
+            </div>
             </div>
 
-            <PromptInput onSubmit={onSubmit}>
+            <PromptInput onSubmit={onSubmit} className="border-0 bg-transparent shadow-none ring-0">
               <PromptInputTextarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -765,6 +924,7 @@ function ChatPage() {
                 <PromptInputSubmit status={phase === "thinking" ? "submitted" : undefined} />
               </div>
             </PromptInput>
+            </div>
           </div>
         </div>
 
@@ -783,7 +943,7 @@ function ChatPage() {
                       Live Cart
                     </div>
                   </div>
-                  <div className="mt-3 font-display text-xl font-semibold tracking-tight">{cartData.intent_type}</div>
+                  <div className="mt-3 font-display text-xl font-semibold tracking-tight capitalize">{cartData.intent_type}</div>
                   <div className="mt-1 text-sm text-muted-foreground">{cartData.context_summary}</div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1">
@@ -853,19 +1013,16 @@ function ChatPage() {
                                     onDecrement={() => adjustQty(key, -1)}
                                     onIncrement={() => adjustQty(key, 1)}
                                     onRemove={() => setRemovedKeys((prev) => new Set([...prev, key]))}
+                                    onSwap={(altSku) => swapItem(item.sku, altSku)}
                                   />
                                 );
                               })}
                             </div>
                             {/* Per-group unavailable */}
                             {group.unavailable_items?.length > 0 && (
-                              <div className="mt-2 space-y-1">
+                              <div className="mt-3 space-y-2">
                                 {group.unavailable_items.map((it: any, idx: number) => (
-                                  <div key={idx} className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs">
-                                    <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />
-                                    <span className="font-medium">{it.name}</span>
-                                    <span className="text-muted-foreground">— {it.reason?.replace(/_/g, " ")}</span>
-                                  </div>
+                                  <UnavailableItemRow key={idx} item={it} />
                                 ))}
                               </div>
                             )}
@@ -894,6 +1051,7 @@ function ChatPage() {
                             onDecrement={() => adjustQty(key, -1)}
                             onIncrement={() => adjustQty(key, 1)}
                             onRemove={() => setRemovedKeys((prev) => new Set([...prev, key]))}
+                            onSwap={(altSku) => swapItem(item.sku, altSku)}
                           />
                         );
                       })}
@@ -908,16 +1066,7 @@ function ChatPage() {
                       </div>
                       <div className="space-y-2">
                         {cartData.unavailable_items.map((it: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-xs"
-                          >
-                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                            <span className="font-medium">{it.name}</span>
-                            <span className="text-muted-foreground">
-                              — {it.reason?.replace(/_/g, " ")}
-                            </span>
-                          </div>
+                          <UnavailableItemRow key={idx} item={it} />
                         ))}
                       </div>
                     </div>

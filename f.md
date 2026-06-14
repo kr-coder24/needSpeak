@@ -222,8 +222,8 @@
 ### Collaboration
 | # | Feature | Priority | Why |
 |---|---------|----------|-----|
-| B.15 | **Real-time collab via WebSocket** — host creates cart, shares link, others join and add items live | 🔴 High | Report's Pillar 6 is currently all mock data |
-| B.16 | **Per-contributor budget split** — show how much each person owes | 🟡 Medium | Simple math on top of existing collab data |
+| B.15 | **Real-time collab via WebSocket** — host creates cart, shares link, others join and add items live | ✅ Done | Typed demand is resolved through the existing catalog and quantity engine, merged by SKU in real time, attributed per contributor, and enriched with typo suggestions, explicit not-found feedback, and host-approved better deals. |
+| B.16 | **Per-contributor budget split** — show how much each person owes | ✅ Done | Each contributor owes the proportional cost of their requested demand after package merging; the live view also shows merge savings, shared budget progress, and host budget updates. |
 
 ### Data & Catalog
 | # | Feature | Priority | Why |
@@ -242,7 +242,7 @@
 | RecipeCart (Pillar 3) | 4 | 0 | 0 |
 | Quantity Engine (Pillar 4) | 4 | 1 | 0 |
 | Multi-Intent (Pillar 5) | 4 | 0 | 0 |
-| SplitCart (Pillar 6) | 3 | 1 | 2 |
+| SplitCart (Pillar 6) | 5 | 0 | 1 |
 | GoalCart (Pillar 7) | 5 | 0 | 0 |
 | CompareCart (Pillar 8) | 5 | 0 | 0 |
 | Preferences (Pillar 9) | 5 | 0 | 0 |
@@ -251,18 +251,13 @@
 | Confidence Layer (Pillar 12) | 4 | 0 | 0 |
 | ReviewCart (Pillar 13) | 4 | 1 | 0 |
 | Infrastructure | 15 | 0 | 2 |
-| **Total** | **74** | **3** | **5** |
+| **Total** | **76** | **2** | **4** |
 
-**Overall completion: ~90% done, ~4% partial, ~6% not started.**
-
----
-
-## Remaining Work (Sprint 2 Next Steps)
-
-1. **B.15** Real-time collab via WebSockets (SplitCart).
+**Overall completion: ~93% done, ~3% partial, ~4% not started.**
 
 ---
 
-## Recommended Next Sprint
+## Remaining Work (Sprint 3 Next Steps)
 
-1. **B.15** Real-time collab via WebSockets (SplitCart) — 4 hrs
+1. **2.4** Backend occasion -> item blueprint mapping.
+2. **6.6** Invite contributor flow (email/sms integration).

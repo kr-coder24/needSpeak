@@ -66,6 +66,7 @@ from app.db.dynamo import (
 from app.intelligence.event_logger import log_event
 from app.db.s3 import store_raw_input, store_cart_result, check_s3_health
 from app.auth.auth_routes import router as auth_router
+from app.collab.collab_routes import router as collab_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -119,6 +120,9 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -127,6 +131,9 @@ app.add_middleware(
 
 # Auth routes
 app.include_router(auth_router)
+
+# Collab routes
+app.include_router(collab_router)
 
 
 # ---------------------------------------------------------------------------

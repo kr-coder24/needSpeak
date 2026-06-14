@@ -9,11 +9,11 @@ export function LiveExample() {
     <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <div className="grid items-start gap-8 lg:grid-cols-2">
         <div className="lg:sticky lg:top-24">
-          <div className="text-xs uppercase tracking-widest text-black">A live example</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">A live example</div>
           <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight">
             From one sentence to a full cart.
           </h2>
-          <p className="mt-3 text-black">
+          <p className="mt-3 text-muted-foreground">
             The prompt below produced this cart in seconds — quantities scaled to attendees,
             alternatives surfaced, every line explained.
           </p>

@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { useTheme } from "@/hooks/use-theme";
 
 /**
  * Global subtle ambient light that follows the cursor.
@@ -7,6 +9,8 @@ import { useEffect } from "react";
  * beige/ink palette — nothing bright.
  */
 export function CursorGlow() {
+  const { theme } = useTheme();
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -39,13 +43,26 @@ export function CursorGlow() {
     };
   }, []);
 
+  let o1, o2, o3;
+  if (theme === "dark") {
+    // Way more subtle for dark mode
+    o1 = 0.05;
+    o2 = 0.02;
+    o3 = 0.005;
+  } else {
+    // Light mode values
+    o1 = 0.20;
+    o2 = 0.08;
+    o3 = 0.02;
+  }
+
   return (
     <div
       aria-hidden
       className="pointer-events-none fixed inset-0 z-0 transition-opacity"
       style={{
         background:
-          "radial-gradient(520px circle at var(--cursor-x, 50%) var(--cursor-y, 30%), oklch(from var(--glow) l c h / 0.4), oklch(from var(--glow) l c h / 0.14) 35%, transparent 65%)",
+          `radial-gradient(640px circle at var(--cursor-x, 50%) var(--cursor-y, 30%), oklch(from var(--glow) l c h / ${o1}), oklch(from var(--glow) l c h / ${o2}) 30%, oklch(from var(--glow) l c h / ${o3}) 55%, transparent 72%)`,
       }}
     />
   );

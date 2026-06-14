@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
+import { Route as CollabJoinCodeRouteImport } from './routes/collab.join.$code'
 
 const RecipeRoute = RecipeRouteImport.update({
   id: '/recipe',
@@ -64,6 +65,11 @@ const CartIdRoute = CartIdRouteImport.update({
   path: '/cart/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollabJoinCodeRoute = CollabJoinCodeRouteImport.update({
+  id: '/collab/join/$code',
+  path: '/collab/join/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/collab/join/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/collab/join/$code'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/collab/join/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
+  CollabJoinCodeRoute: typeof CollabJoinCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collab/join/$code': {
+      id: '/collab/join/$code'
+      path: '/collab/join/$code'
+      fullPath: '/collab/join/$code'
+      preLoaderRoute: typeof CollabJoinCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,
+  CollabJoinCodeRoute: CollabJoinCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

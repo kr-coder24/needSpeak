@@ -170,7 +170,9 @@ app.add_middleware(
         "http://127.0.0.1:8080",
         "http://localhost:8081",
         "http://127.0.0.1:8081",
-        "*"
+        # Add production domains here when deploying
+        # "https://needspeak.app",
+        # "https://www.needspeak.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

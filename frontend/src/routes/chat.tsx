@@ -506,9 +506,14 @@ function CartItemRow({
   const effHealthBadge = getFakeHealthBadge(item);
   const healthInfo = effHealthBadge ? getHealthBadgeInfo(effHealthBadge) : null;
   const productBadge = getFakeProductBadge(item);
+  const priceAdvice = getFakePriceAdvice(item);
 
   return (
-    <div className="rounded-xl border border-border/50 bg-background/80 shadow-sm transition-all hover:shadow-md hover:border-brand/20 hover:bg-background">
+    <div className={`rounded-xl border shadow-sm transition-all hover:shadow-md hover:bg-background ${
+      effHealthBadge === "excellent" ? "border-green-200/60 bg-green-50/30" :
+      effHealthBadge === "poor" ? "border-orange-200/60 bg-orange-50/20" :
+      "border-border/50 bg-background/80"
+    } hover:border-brand/20`}>
       <div className="group p-3.5">
         {/* Top row: Name + Price */}
         <div className="flex items-start justify-between gap-3">
@@ -542,42 +547,47 @@ function CartItemRow({
               <PriceHistoryTooltip item={item} />
             </div>
             <span className="text-[10px] text-muted-foreground tabular-nums">₹{item.price_per_unit_inr} × {qty}</span>
+            {/* Price trend micro-indicator */}
+            <span className={`mt-0.5 text-[9px] font-semibold ${priceAdvice.color}`}>
+              {priceAdvice.trend === "buy" ? "📉 Best price" : priceAdvice.trend === "wait" ? "📈 Wait" : "→ Stable"}
+            </span>
           </div>
         </div>
 
-        {/* Middle row: Badges */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {/* Middle row: Badges — more expressive with larger size and icons */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {healthInfo && (
             <span
-              className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${healthInfo.color}`}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${healthInfo.color}`}
               title={`Health Score: ${item.health_score || getFakeHealthScore(effHealthBadge) || 'N/A'}/100`}
             >
-              {healthInfo.icon} {healthInfo.label}
+              <span className="text-sm">{effHealthBadge === "excellent" ? "🥗" : effHealthBadge === "good" ? "👍" : effHealthBadge === "moderate" ? "⚠️" : "🚫"}</span>
+              {healthInfo.label}
             </span>
           )}
           {!healthInfo && productBadge && (
             <span
-              className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${productBadge.color}`}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${productBadge.color}`}
             >
-              {productBadge.icon} {productBadge.label}
+              <span className="text-sm">{productBadge.icon}</span> {productBadge.label}
             </span>
           )}
           {typeof item.likely_rating === "number" && item.likely_rating > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-brand/8 px-2 py-0.5 text-[10px] font-medium text-brand">
-              <Sparkles className="h-2.5 w-2.5" /> {Math.round(item.likely_rating)}% match
+            <span className="inline-flex items-center gap-1 rounded-lg bg-brand/10 border border-brand/20 px-2.5 py-1 text-[11px] font-semibold text-brand shadow-sm">
+              <Sparkles className="h-3 w-3" /> {Math.round(item.likely_rating)}% match
             </span>
           )}
           {getItemBadge(item.sku) && (
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getItemBadge(item.sku)!.color}`}>
+            <span className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${getItemBadge(item.sku)!.color}`}>
               {getItemBadge(item.sku)!.label}
             </span>
           )}
         </div>
 
         {/* Bottom row: Quantity control + match info */}
-        <div className="mt-2.5 flex items-center justify-between gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2">
           <QuantityControl value={qty} onDecrement={onDecrement} onIncrement={onIncrement} />
-          <div className="inline-flex items-center gap-1 rounded-full bg-surface/80 px-2 py-0.5 text-[10px] text-muted-foreground">
+          <div className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-[10px] text-muted-foreground border border-border/30">
             <Check className="h-3 w-3 text-success" />
             <span className="truncate max-w-[140px]">
               {item.substituted

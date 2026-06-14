@@ -6,6 +6,7 @@ import {
   FileText,
   Image as ImageIcon,
   IndianRupee,
+  Info,
   Link as LinkIcon,
   Mic,
   MicOff,
@@ -366,6 +367,85 @@ function getFakeProductBadge(item: any): { label: string; color: string; icon: s
   return null;
 }
 
+// ─── Fake Price History for Demo ──────────────────────────────────────────────
+
+function getFakePriceAdvice(item: any): { trend: "buy" | "wait" | "good"; label: string; detail: string; color: string } {
+  const price = item.price_per_unit_inr || 0;
+  const name = (item.name || "").toLowerCase();
+  
+  // Deterministic "random" based on SKU/name hash for consistent results
+  const hash = (item.sku || item.name || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+  const variant = hash % 3;
+  
+  if (variant === 0) {
+    const lowPrice = Math.round(price * 0.82);
+    return {
+      trend: "buy",
+      label: "Buy Now",
+      detail: `Lowest in 30 days! Was ₹${Math.round(price * 1.15)} last week. Current price is ${Math.round((1 - 0.82) * 100)}% below avg.`,
+      color: "text-green-600"
+    };
+  }
+  if (variant === 1) {
+    return {
+      trend: "good",
+      label: "Fair Price",
+      detail: `Price is stable. Avg ₹${Math.round(price * 1.03)} over last 90 days. No major sale expected soon.`,
+      color: "text-blue-600"
+    };
+  }
+  return {
+    trend: "wait",
+    label: "Wait if possible",
+    detail: `Price rose 12% this week. Usually drops during month-end sales. Lowest was ₹${Math.round(price * 0.75)} last month.`,
+    color: "text-amber-600"
+  };
+}
+
+function PriceHistoryTooltip({ item }: { item: any }) {
+  const [open, setOpen] = useState(false);
+  const advice = getFakePriceAdvice(item);
+  const trendIcon = advice.trend === "buy" ? "📉" : advice.trend === "wait" ? "📈" : "➡️";
+
+  return (
+    <div className="relative inline-flex">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex h-5 w-5 items-center justify-center rounded-full bg-surface hover:bg-brand/10 text-muted-foreground hover:text-brand transition-colors"
+        title="Price history & advice"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-7 z-50 w-56 rounded-xl border border-border bg-background p-3 shadow-lg shadow-black/10 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-sm">{trendIcon}</span>
+              <span className={`text-xs font-bold ${advice.color}`}>{advice.label}</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">{advice.detail}</p>
+            <div className="mt-2 flex gap-1">
+              {[65, 70, 82, 75, 90, 85, 100].map((h, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div
+                    className={`w-full rounded-sm ${i === 6 ? "bg-brand" : "bg-muted-foreground/20"}`}
+                    style={{ height: `${h * 0.2}px` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-1 flex justify-between text-[9px] text-muted-foreground">
+              <span>30d ago</span>
+              <span>Now</span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── CartItem row ─────────────────────────────────────────────────────────────
 
 function CartItemRow({
@@ -457,7 +537,10 @@ function CartItemRow({
             </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
-            <span className="text-base font-bold tabular-nums text-foreground">₹{effectiveTotal}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-base font-bold tabular-nums text-foreground">₹{effectiveTotal}</span>
+              <PriceHistoryTooltip item={item} />
+            </div>
             <span className="text-[10px] text-muted-foreground tabular-nums">₹{item.price_per_unit_inr} × {qty}</span>
           </div>
         </div>

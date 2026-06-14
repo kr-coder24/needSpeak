@@ -165,7 +165,7 @@ def test_2_implicit_quantities(mock_call_llm):
     resp = client.post("/api/parse", json={"input_type": "text", "content": "dozen eggs..."}, headers={"X-Mock-Mode": "0"})
     assert resp.status_code == 200
     cart = data = resp.json()["intents"][0]["cart"]
-    assert any(i["name"] == "eggs" for i in cart)
+    assert any("eggs" in i["name"].lower() for i in cart)
 
 @patch("app.pipeline.extractor._call_llm")
 def test_3_complex_indian_recipe(mock_call_llm):

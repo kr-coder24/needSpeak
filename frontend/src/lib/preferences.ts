@@ -1,7 +1,13 @@
 export interface UserPreferences {
   dietary: "any" | "veg" | "vegan" | "jain"
   preferredBrands: string[]
+  avoidedBrands: string[]
+  preferredCategories: string[]
+  avoidedCategories: string[]
+  allergies: string[]
   budgetStyle: "value" | "balanced" | "premium"
+  qualityPreference: "value" | "balanced" | "quality"
+  packSizePreference: "small" | "balanced" | "bulk"
 }
 
 const STORAGE_KEY = "needspeak-preferences"
@@ -9,7 +15,13 @@ const STORAGE_KEY = "needspeak-preferences"
 const DEFAULTS: UserPreferences = {
   dietary: "any",
   preferredBrands: [],
+  avoidedBrands: [],
+  preferredCategories: [],
+  avoidedCategories: [],
+  allergies: [],
   budgetStyle: "balanced",
+  qualityPreference: "balanced",
+  packSizePreference: "balanced",
 }
 
 export function loadPreferences(): UserPreferences {

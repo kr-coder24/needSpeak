@@ -120,14 +120,15 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> str:
     
     # Try the configured model first, followed by reliable fallbacks
     models_to_try = [GEMINI_MODEL_ID]
-    for m in ["gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash"]:
+    for m in ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-flash-latest"]:
         if m not in models_to_try:
             models_to_try.append(m)
             
     last_error = None
     for model in models_to_try:
-        # Retry up to 3 times per model for transient errors
-        for attempt in range(3):
+        # Retry twice per model for transient errors. The route-level timeout
+        # bounds total latency for long URL/PDF/YouTube inputs.
+        for attempt in range(2):
             try:
                 logger.info(f"Attempting Gemini call with model={model} (attempt {attempt + 1})...")
                 response = client.models.generate_content(
@@ -149,7 +150,7 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> str:
                 last_error = e
                 logger.warning(f"Gemini model={model} attempt {attempt + 1} failed: {e}")
                 # Wait before retrying (exponential backoff)
-                time.sleep(1 * (attempt + 1))
+                time.sleep(0.8 * (attempt + 1))
                 
     # If all models/attempts failed, raise the final exception
     raise last_error or RuntimeError("Gemini API call failed for all models")
@@ -180,12 +181,6 @@ def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
 
     response_body = json.loads(response["body"].read())
     return response_body["content"][0]["text"]
-
-def _call_llm(system_prompt: str, user_prompt: str) -> str:
-    if config.LLM_PROVIDER == "gemini":
-        return _call_gemini(system_prompt, user_prompt)
-    return _call_bedrock(system_prompt, user_prompt)
-
 
 def _call_llm(system_prompt: str, user_prompt: str) -> str:
     """Route intent extraction call to either Gemini or Bedrock."""

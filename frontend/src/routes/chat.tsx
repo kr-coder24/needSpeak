@@ -147,6 +147,130 @@ function QuantityControl({
   );
 }
 
+// Helper functions for fake badges (Demo mode)
+function getFakeHealthBadge(item: any): string | null {
+  if (item.health_badge) return item.health_badge;
+
+  const name = (item.name || "").toLowerCase();
+  const sku = (item.sku || "").toUpperCase();
+
+  // Non-food items get product badges instead
+  const nonFoodKeywords = [
+    "plate", "cup", "napkin", "tablecloth", "foil", "tissue", "soap", "shampoo",
+    "detergent", "cleaner", "brush", "sponge", "voucher", "ticket", "battery",
+    "bulb", "diaper", "wipes", "medicine", "tablet", "syrup", "paracetamol",
+    "mask", "sanitizer", "lotion", "cream", "toothpaste", "dog", "puppy", "pet", "drools"
+  ];
+  if (nonFoodKeywords.some(kw => name.includes(kw))) {
+    return null;
+  }
+
+  // Excellent Choice items
+  const excellentKeywords = [
+    "garlic", "ginger", "tomato", "onion", "potato", "spinach", "vegetable", "veg",
+    "fruit", "apple", "banana", "orange", "lemon", "mint", "coriander", "cilantro",
+    "water", "bisleri", "aquafina", "green tea", "oats", "dal", "lentil", "pulse",
+    "chana", "rajma", "moong", "rice", "wheat", "atta", "broccoli", "carrot",
+    "cucumber", "avocado", "salad"
+  ];
+  if (excellentKeywords.some(kw => name.includes(kw))) {
+    return "excellent";
+  }
+
+  // Less Healthy (poor) items
+  const poorKeywords = [
+    "coke", "coca-cola", "pepsi", "soda", "cold drink", "soft drink", "fanta", "sprite",
+    "chips", "crisps", "kurkure", "lays", "lay's", "bingo", "chocolate", "cadbury",
+    "dairy milk", "snickers", "kitkat", "ice cream", "cookie", "biscuit", "oreo",
+    "pastry", "cake", "maggi", "noodle", "ramen", "chocos", "froot loops", "sweet", "candy"
+  ];
+  if (poorKeywords.some(kw => name.includes(kw))) {
+    return "poor";
+  }
+
+  // Moderate items
+  const moderateKeywords = [
+    "cheese", "butter", "mayo", "sauce", "ketchup", "jam", "spread", "pizza", "burger",
+    "pasta", "white bread", "refined", "fry", "fried"
+  ];
+  if (moderateKeywords.some(kw => name.includes(kw))) {
+    return "moderate";
+  }
+
+  // Good Choice items
+  const goodKeywords = [
+    "egg", "chicken", "fish", "mutton", "beef", "milk", "paneer", "yogurt", "curd",
+    "tofu", "brown bread", "whole wheat", "juice", "nut", "almond", "cashew", "walnut",
+    "honey"
+  ];
+  if (goodKeywords.some(kw => name.includes(kw))) {
+    return "good";
+  }
+
+  // Fallback based on category
+  if (item.category === "Snacks" || item.category === "Beverages") {
+    return "moderate";
+  }
+  return "good";
+}
+
+function getFakeHealthScore(badge: string | null): number | undefined {
+  if (!badge) return undefined;
+  if (badge === "excellent") return 88;
+  if (badge === "good") return 74;
+  if (badge === "moderate") return 52;
+  if (badge === "poor") return 25;
+  return undefined;
+}
+
+function getFakeProductBadge(item: any): { label: string; color: string; icon: string; type: string } | null {
+  if (item.product_badge) return item.product_badge;
+
+  const name = (item.name || "").toLowerCase();
+  
+  if (name.includes("plate") || name.includes("cup") || name.includes("napkin") || name.includes("tablecloth") || name.includes("foil") || name.includes("tissue")) {
+    return {
+      label: "Eco-Friendly",
+      color: "bg-green-500/15 text-green-700 border-green-500/30",
+      icon: "🌱",
+      type: "eco"
+    };
+  }
+  if (name.includes("soap") || name.includes("shampoo") || name.includes("cleaner") || name.includes("detergent") || name.includes("brush") || name.includes("sponge")) {
+    return {
+      label: "Eco-Friendly",
+      color: "bg-green-500/15 text-green-700 border-green-500/30",
+      icon: "🌱",
+      type: "eco"
+    };
+  }
+  if (name.includes("voucher") || name.includes("ticket")) {
+    return {
+      label: "Best Value",
+      color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+      icon: "💎",
+      type: "value"
+    };
+  }
+  if (name.includes("medicine") || name.includes("tablet") || name.includes("syrup") || name.includes("paracetamol") || name.includes("vitamin") || name.includes("cough")) {
+    return {
+      label: "Top Rated",
+      color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
+      icon: "⭐",
+      type: "rating"
+    };
+  }
+  if (name.includes("dog") || name.includes("puppy") || name.includes("pet") || name.includes("drools")) {
+    return {
+      label: "Vet Approved",
+      color: "bg-blue-500/15 text-blue-700 border-blue-500/30",
+      icon: "✓",
+      type: "quality"
+    };
+  }
+  return null;
+}
+
 // ─── CartItem row ─────────────────────────────────────────────────────────────
 
 function CartItemRow({
@@ -204,15 +328,103 @@ function CartItemRow({
     return badgeMap[badge] || null;
   };
 
-  const healthInfo = item.health_badge ? getHealthBadgeInfo(item.health_badge) : null;
-  const productBadge = item.product_badge; // For non-food items
+  // Simple frontend badge logic for demo (checks product name/brand)
+  const getSimpleBadge = (item: any) => {
+    const name = item.name?.toLowerCase() || '';
+    const brand = item.brand?.toLowerCase() || '';
+    const category = item.category?.toLowerCase() || '';
+    
+    // Health badges for food items
+    if (category.includes('beverage') || category.includes('snack') || category.includes('dairy')) {
+      // Excellent - Diet/Zero/Light/Water
+      if (name.includes('diet') || name.includes('zero') || name.includes('light') || 
+          name.includes('water') || name.includes('green tea') || name.includes('mineral')) {
+        return { label: "Excellent", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "✓", type: "health" };
+      }
+      // Good - Juice/Milk
+      if (name.includes('juice') || name.includes('milk') || name.includes('lassi') || 
+          name.includes('yogurt') || name.includes('curd') || name.includes('dahi')) {
+        return { label: "Good", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "✓", type: "health" };
+      }
+      // Moderate - Regular sodas/chips
+      if (name.includes('cola') || name.includes('pepsi') || name.includes('sprite') || 
+          name.includes('thums') || name.includes('chips') || name.includes('namkeen') ||
+          name.includes('kurkure') || name.includes('lays')) {
+        return { label: "Moderate", color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30", icon: "⚠", type: "health" };
+      }
+    }
+    
+    // Product badges for cleaning
+    if (category.includes('cleaning')) {
+      if (name.includes('eco') || name.includes('green') || name.includes('natural') || 
+          name.includes('bio') || name.includes('plant')) {
+        return { label: "Eco", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "eco" };
+      }
+      if (name.includes('antibacterial') || name.includes('disinfectant') || name.includes('germ') ||
+          brand.includes('dettol') || brand.includes('lizol') || brand.includes('harpic')) {
+        return { label: "Antibacterial", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "🛡", type: "safety" };
+      }
+      return { label: "Cleaner", color: "bg-slate-500/15 text-slate-700 border-slate-500/30", icon: "🧼", type: "cleaning" };
+    }
+    
+    // Product badges for hygiene/personal care
+    if (category.includes('hygiene') || category.includes('personal_care') || category.includes('personal')) {
+      if (name.includes('natural') || name.includes('herbal') || name.includes('ayurvedic') || 
+          brand.includes('himalaya') || brand.includes('patanjali')) {
+        return { label: "Natural", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌿", type: "natural" };
+      }
+      if (name.includes('derma') || name.includes('clinical') || brand.includes('dove') || 
+          brand.includes('neutrogena')) {
+        return { label: "Derma", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "✓", type: "quality" };
+      }
+      if (name.includes('antibacterial') || brand.includes('dettol')) {
+        return { label: "Protection", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "🛡", type: "safety" };
+      }
+      return { label: "Personal Care", color: "bg-purple-500/15 text-purple-700 border-purple-500/30", icon: "💅", type: "care" };
+    }
+    
+    // Fashion/clothing
+    if (category.includes('fashion') || category.includes('footwear') || category.includes('clothing')) {
+      if (name.includes('cotton') || name.includes('organic')) {
+        return { label: "Comfort", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "☁️", type: "comfort" };
+      }
+      return { label: "Fashion", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "👕", type: "fashion" };
+    }
+    
+    // Stationery
+    if (category.includes('stationery')) {
+      return { label: "Study", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "📝", type: "study" };
+    }
+    
+    // Top rated badge for high ratings (works for all)
+    if (item.rating && item.rating >= 4.5) {
+      return { label: "Top Rated", color: "bg-amber-500/15 text-amber-700 border-amber-500/30", icon: "⭐", type: "rating" };
+    }
+    
+    return null;
+  };
+
+  const effHealthBadge = getFakeHealthBadge(item);
+  const healthInfo = effHealthBadge ? getHealthBadgeInfo(effHealthBadge) : null;
+  const productBadge = getFakeProductBadge(item);
 
   return (
     <div className="rounded-xl border border-border/60 bg-background/50 shadow-sm transition-all hover:shadow-md hover:border-brand/30">
       <div className="group p-3">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium capitalize">{item.name}</div>
+            <div className="flex items-center gap-1.5">
+              <div className="truncate text-sm font-medium capitalize">{item.name}</div>
+              {(() => {
+                const badge = productBadge || (healthInfo ? { ...healthInfo, type: "health" } : null);
+                if (!badge) return null;
+                return (
+                  <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-medium border ${badge.color}`} title={badge.label}>
+                    {badge.icon}
+                  </span>
+                );
+              })()}
+            </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="capitalize">{item.brand}</span><span> · {item.unit_quantity}{item.unit}</span>
               {isPreferred && (
@@ -235,7 +447,7 @@ function CartItemRow({
               {healthInfo && (
                 <span
                   className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium border ${healthInfo.color}`}
-                  title={`Health Score: ${item.health_score ? Math.round(item.health_score) : 'N/A'}/100${item.sugar_per_100 !== undefined ? ` • Sugar: ${item.sugar_per_100}g/100ml` : ''}`}
+                  title={`Health Score: ${item.health_score || getFakeHealthScore(effHealthBadge) || 'N/A'}/100${item.sugar_per_100 !== undefined ? ` • Sugar: ${item.sugar_per_100}g/100ml` : ''}`}
                 >
                   {healthInfo.icon} {healthInfo.label}
                 </span>
@@ -298,8 +510,9 @@ function CartItemRow({
               {alternatives.slice(0, 4).map((alt: any) => {
                 const savings = item.total_price_inr - alt.total_price_inr;
                 const savingsPercent = ((savings / item.total_price_inr) * 100).toFixed(0);
-                const altHealthInfo = alt.health_badge ? getHealthBadgeInfo(alt.health_badge) : null;
-                const altProductBadge = alt.product_badge; // For non-food alternatives
+                const effAltHealthBadge = getFakeHealthBadge(alt);
+                const altHealthInfo = effAltHealthBadge ? getHealthBadgeInfo(effAltHealthBadge) : null;
+                const altProductBadge = getFakeProductBadge(alt);
 
                 return (
                   <div
@@ -317,7 +530,7 @@ function CartItemRow({
                         {altHealthInfo && (
                           <span
                             className={`shrink-0 text-[8px] px-1 py-0.5 rounded-full font-medium border ${altHealthInfo.color}`}
-                            title={`Health: ${altHealthInfo.label}${alt.health_score ? ` (${Math.round(alt.health_score)}/100)` : ''}`}
+                            title={`Health: ${altHealthInfo.label}${(alt.health_score || getFakeHealthScore(effAltHealthBadge)) ? ` (${Math.round(alt.health_score || getFakeHealthScore(effAltHealthBadge)!)/100})` : ''}`}
                           >
                             {altHealthInfo.icon}
                           </span>

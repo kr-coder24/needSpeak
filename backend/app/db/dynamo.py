@@ -207,13 +207,39 @@ def _get_mock_products() -> list[dict]:
     """Return product catalog for demo mode. Uses V2 catalog if available, else legacy data."""
     try:
         from seed_catalog_v2 import get_all_v2_products
+        from app.catalog.health_scorer import calculate_health_score
+        from decimal import Decimal
+        
         products = get_all_v2_products()
+        
+        # Calculate health scores for products with nutritional data
+        health_scored_count = 0
+        for product in products:
+            if any([
+                product.get("calories_per_100"),
+                product.get("sugar_per_100"),
+                product.get("protein_per_100"),
+            ]):
+                health_score, health_badge = calculate_health_score(
+                    calories_per_100=product.get("calories_per_100"),
+                    protein_per_100=product.get("protein_per_100"),
+                    carbs_per_100=product.get("carbs_per_100"),
+                    sugar_per_100=product.get("sugar_per_100"),
+                    fat_per_100=product.get("fat_per_100"),
+                    saturated_fat_per_100=product.get("saturated_fat_per_100"),
+                    fiber_per_100=product.get("fiber_per_100"),
+                    sodium_per_100=product.get("sodium_per_100"),
+                    category=product.get("category", ""),
+                )
+                if health_score is not None:
+                    product["health_score"] = health_score
+                    health_scored_count += 1
+        
         # Convert Decimal to float/int for compatibility with resolver
         normalized = []
         for p in products:
             item = {}
             for k, v in p.items():
-                from decimal import Decimal
                 if isinstance(v, Decimal):
                     item[k] = float(v) if v != int(v) else int(v)
                 elif isinstance(v, set):
@@ -221,7 +247,8 @@ def _get_mock_products() -> list[dict]:
                 else:
                     item[k] = v
             normalized.append(item)
-        logger.info(f"[MOCK] Loaded V2 catalog: {len(normalized)} products")
+        
+        logger.info(f"[MOCK] Loaded V2 catalog: {len(normalized)} products ({health_scored_count} with health scores)")
         return normalized
     except Exception as e:
         logger.warning(f"[MOCK] V2 catalog unavailable ({e}), using legacy mock data")

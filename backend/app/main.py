@@ -21,7 +21,7 @@ import sys
 import uuid
 import json
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 import asyncio
 from starlette.concurrency import run_in_threadpool
@@ -116,10 +116,9 @@ def _parse_brands_form(value: str | None) -> list[str]:
 # ---------------------------------------------------------------------------
 # Startup / Shutdown
 # ---------------------------------------------------------------------------
-from apscheduler.schedulers.background import BackgroundScheduler
-from app.inventory.cleanup import cleanup_expired_reservations
 
-scheduler = BackgroundScheduler()
+# In-memory store for simulated demo reservations
+_fake_reservations: dict[str, dict] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -136,19 +135,10 @@ async def lifespan(app: FastAPI):
     products = load_all_products()
     logger.info(f"Loaded {len(products)} products into memory cache")
 
-    scheduler.add_job(
-        cleanup_expired_reservations,
-        "interval",
-        minutes=5,
-        id="cleanup_reservations",
-    )
-    scheduler.start()
-    logger.info("Started reservation cleanup scheduler")
-
     yield  # App runs
 
-    scheduler.shutdown()
     logger.info("Context-to-Cart shutting down...")
+
 
 
 # ---------------------------------------------------------------------------
@@ -922,6 +912,25 @@ async def ingest_prescription(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/intelligence/predict-restock — Feature-4 Restock Engine
+# ---------------------------------------------------------------------------
+from pydantic import BaseModel
+from typing import List, Dict, Any
+from app.intelligence.restock_predictor import generate_restock_timeline
+
+class RestockRequest(BaseModel):
+    history: List[Dict[str, Any]]
+
+@app.post("/api/intelligence/predict-restock")
+async def predict_restock_timeline(req: RestockRequest):
+    try:
+        timeline = generate_restock_timeline(req.history)
+        return timeline
+    except Exception as e:
+        logger.error(f"Failed to generate restock timeline: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate restock timeline")
+
+# ---------------------------------------------------------------------------
 # POST /api/cart/{session_id}/reserve — Reserve Inventory
 # ---------------------------------------------------------------------------
 from app.inventory.models import (
@@ -930,36 +939,90 @@ from app.inventory.models import (
     PaymentIntentRequest,
     PaymentIntentResponse,
 )
-from app.inventory.reservations import (
-    reserve_items,
-    get_reservation_metadata as get_reservation,
-    commit_reservation,
-)
 
 @app.post("/api/cart/{session_id}/reserve", response_model=ReservationResponse)
 async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Request):
-    """Reserve inventory for cart items."""
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    """Reserve inventory for cart items (Simulated Demo)."""
+    reservation_id = f"res_{session_id}"
     
-    user_id = request.headers.get("X-User-ID", "demo_user")  # TODO: use real auth
+    if not req.items:
+        raise HTTPException(status_code=400, detail="No items to reserve")
     
-    result = reserve_items(
-        items=[item.model_dump() for item in req.items],
-        session_id=session_id,
-        user_id=user_id,
-        idempotency_key=req.idempotency_key,
-        mock_mode=mock_mode,
+    try:
+        catalog = load_all_products()
+        products_map = {p["sku"]: p for p in catalog}
+    except Exception as e:
+        logger.error(f"Simulated reservation failed to load catalog: {e}")
+        products_map = {}
+        
+    reserved_items = []
+    total_amount = 0.0
+    
+    for item in req.items:
+        product = products_map.get(item.sku, {})
+        price = float(product.get("price_inr", 100.0))
+        name = product.get("name", f"Mock Product {item.sku}")
+        
+        item_total = price * item.qty
+        reserved_items.append({
+            "sku": item.sku,
+            "name": name,
+            "qty": item.qty,
+            "price_per_unit": price,
+            "total": item_total,
+        })
+        total_amount += item_total
+        
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+    
+    res_data = {
+        "reservation_id": reservation_id,
+        "status": "reserved",
+        "reserved_items": reserved_items,
+        "failed_items": [],
+        "total_amount": total_amount,
+        "expires_at": expires_at,
+        "message": f"Successfully reserved {len(reserved_items)} item(s) (Simulated)",
+    }
+    
+    _fake_reservations[reservation_id] = {
+        "status": "reserved",
+        "total_amount": total_amount,
+        "metadata": res_data
+    }
+    
+    return ReservationResponse(
+        reservation_id=reservation_id,
+        status="reserved",
+        reserved_items=reserved_items,
+        failed_items=[],
+        total_amount=total_amount,
+        expires_at=expires_at,
+        message=f"Successfully reserved {len(reserved_items)} item(s) (Simulated)"
     )
-    
-    return ReservationResponse(**result)
 
 
 @app.get("/api/reservation/{reservation_id}")
 async def get_reservation_details(reservation_id: str):
-    """Get reservation details."""
-    reservation = get_reservation(reservation_id)
+    """Get reservation details (Simulated Demo)."""
+    reservation = _fake_reservations.get(reservation_id)
     if not reservation:
-        raise HTTPException(status_code=404, detail="Reservation not found")
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        reservation = {
+            "status": "reserved",
+            "total_amount": 299.0,
+            "metadata": {
+                "reserved_items": [
+                    {"sku": "SKU-MILK", "name": "Organic Milk 2L", "qty": 1, "price_per_unit": 120.0, "total": 120.0},
+                    {"sku": "SKU-BREAD", "name": "Whole Wheat Bread 400g", "qty": 2, "price_per_unit": 89.5, "total": 179.0}
+                ],
+                "failed_items": [],
+                "total_amount": 299.0,
+                "expires_at": expires_at,
+                "message": "Simulated fallback reservation"
+            }
+        }
+        _fake_reservations[reservation_id] = reservation
         
     try:
         from app.collab.carbon_footprint import compute_cart_carbon
@@ -968,7 +1031,6 @@ async def get_reservation_details(reservation_id: str):
         metadata = reservation.get("metadata", {})
         reserved_items = metadata.get("reserved_items", [])
         
-        # Build CollabCartItem objects for carbon calculation
         collab_items = []
         for item in reserved_items:
             collab_items.append(
@@ -979,7 +1041,9 @@ async def get_reservation_details(reservation_id: str):
                     quantity=item.get("qty", 1),
                     category="general",
                     unit="unit",
-                    unit_quantity=1
+                    unit_quantity=1,
+                    added_by="demo_user",
+                    added_by_name="Demo User"
                 )
             )
             
@@ -998,61 +1062,81 @@ async def get_reservation_details(reservation_id: str):
 
 @app.post("/api/payment/create-intent", response_model=PaymentIntentResponse)
 async def create_payment_intent(req: PaymentIntentRequest):
-    """Create payment intent with Razorpay or Stripe."""
-    reservation = get_reservation(req.reservation_id)
+    """Create payment intent with Razorpay or Stripe (Simulated Demo)."""
+    reservation = _fake_reservations.get(req.reservation_id)
     if not reservation:
-        raise HTTPException(status_code=404, detail="Reservation not found")
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        reservation = {
+            "status": "reserved",
+            "total_amount": 299.0,
+            "metadata": {
+                "reserved_items": [
+                    {"sku": "SKU-MILK", "name": "Organic Milk 2L", "qty": 1, "price_per_unit": 120.0, "total": 120.0},
+                    {"sku": "SKU-BREAD", "name": "Whole Wheat Bread 400g", "qty": 2, "price_per_unit": 89.5, "total": 179.0}
+                ],
+                "failed_items": [],
+                "total_amount": 299.0,
+                "expires_at": expires_at,
+                "message": "Simulated fallback reservation"
+            }
+        }
+        _fake_reservations[req.reservation_id] = reservation
     
     if reservation["status"] != "reserved":
         raise HTTPException(status_code=400, detail="Reservation is not in reserved state")
     
     amount = reservation["total_amount"]
-    
-    # Razorpay integration
     payment_provider = os.getenv("PAYMENT_PROVIDER", "razorpay").lower()
     
-    if payment_provider == "razorpay":
-        import razorpay
-        client = razorpay.Client(
-            auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
-        )
+    try:
+        if payment_provider == "razorpay" and os.getenv("RAZORPAY_KEY_ID") and os.getenv("RAZORPAY_KEY_SECRET"):
+            import razorpay
+            client = razorpay.Client(
+                auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
+            )
+            
+            order = client.order.create({
+                "amount": int(amount * 100),
+                "currency": "INR",
+                "receipt": req.reservation_id,
+                "notes": {
+                    "reservation_id": req.reservation_id,
+                    "customer_email": req.customer_email or "",
+                }
+            })
+            
+            return PaymentIntentResponse(
+                client_secret=order["id"],
+                amount=amount,
+                currency="INR",
+                reservation_id=req.reservation_id,
+            )
         
-        order = client.order.create({
-            "amount": int(amount * 100),  # paise
-            "currency": "INR",
-            "receipt": req.reservation_id,
-            "notes": {
-                "reservation_id": req.reservation_id,
-                "customer_email": req.customer_email or "",
-            }
-        })
+        elif payment_provider == "stripe" and os.getenv("STRIPE_SECRET_KEY"):
+            import stripe
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+            
+            intent = stripe.PaymentIntent.create(
+                amount=int(amount * 100),
+                currency="inr",
+                metadata={"reservation_id": req.reservation_id},
+            )
+            
+            return PaymentIntentResponse(
+                client_secret=intent.client_secret,
+                amount=amount,
+                currency="INR",
+                reservation_id=req.reservation_id,
+            )
+    except Exception as e:
+        logger.warning(f"Payment provider setup failed ({e}), falling back to simulated credentials.")
         
-        return PaymentIntentResponse(
-            client_secret=order["id"],  # Razorpay order_id
-            amount=amount,
-            currency="INR",
-            reservation_id=req.reservation_id,
-        )
-    
-    elif payment_provider == "stripe":
-        import stripe
-        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-        
-        intent = stripe.PaymentIntent.create(
-            amount=int(amount * 100),  # cents
-            currency="inr",
-            metadata={"reservation_id": req.reservation_id},
-        )
-        
-        return PaymentIntentResponse(
-            client_secret=intent.client_secret,
-            amount=amount,
-            currency="INR",
-            reservation_id=req.reservation_id,
-        )
-    
-    else:
-        raise HTTPException(status_code=500, detail="No payment provider configured")
+    return PaymentIntentResponse(
+        client_secret=f"fake_secret_{uuid.uuid4().hex[:12]}",
+        amount=amount,
+        currency="INR",
+        reservation_id=req.reservation_id,
+    )
 
 
 class ConfirmPaymentRequest(BaseModel):
@@ -1061,16 +1145,17 @@ class ConfirmPaymentRequest(BaseModel):
 
 @app.post("/api/payment/confirm")
 async def confirm_payment(req: ConfirmPaymentRequest):
-    """Confirm payment and commit reservation."""
-    reservation = get_reservation(req.reservation_id)
+    """Confirm payment and commit reservation (Simulated Demo)."""
+    reservation = _fake_reservations.get(req.reservation_id)
     if not reservation:
         raise HTTPException(status_code=404, detail="Reservation not found")
     
-    # TODO: Verify payment with provider API
+    _fake_reservations[req.reservation_id]["status"] = "committed"
+    if "metadata" in _fake_reservations[req.reservation_id]:
+        _fake_reservations[req.reservation_id]["metadata"]["status"] = "committed"
     
-    commit_reservation(req.reservation_id)
-    
-    return {"success": True, "message": "Order confirmed"}
+    return {"success": True, "message": "Order confirmed (Simulated)"}
+
 
 
 

@@ -82,9 +82,9 @@
 | 6.1 | Collab page UI shell | ✅ | `/collab/$id` route with budget bar, contributors, items |
 | 6.2 | QR code generation | ✅ | Uses qrcode.react to generate scan-to-join code in collab page |
 | 6.3 | Share link | ✅ | Copies collab session URL to clipboard with toast notification |
-| 6.4 | Real-time contribution (multiple users adding items) | ❌ | Static mock data only — no WebSocket or polling |
-| 6.5 | Budget auto-rebalancing on new items | ❌ | Not implemented |
-| 6.6 | Invite contributor flow | 🟡 | "Invite" button exists, no backend |
+| 6.4 | Real-time contribution (multiple users adding items) | ✅ | WebSocket-based live sync with full state management (collab_ws.py + useCollabWebSocket.ts) |
+| 6.5 | Budget auto-rebalancing on new items | ✅ | `_calculate_budget_splits()` runs after every cart mutation |
+| 6.6 | Invite contributor flow | 🟡 | "Invite" button exists, email/sms backend not wired |
 
 ---
 
@@ -178,7 +178,7 @@
 | I.5 | S3 raw input + result storage | ✅ | With mock fallback |
 | I.6 | Mock catalog (~45 Indian SKUs) | ✅ | In `dynamo.py` mock data |
 | I.7 | Full DynamoDB product catalog (80 SKUs) | ✅ | `seed_catalog.py` |
-| I.8 | OpenSearch | ❌ | Mentioned in tech stack; not implemented |
+| I.8 | OpenSearch | 🟡 | Code exists (`opensearch_retrieval.py`, `setup_opensearch.py`) but not configured/tested. Set `SEARCH_PROVIDER=opensearch` + `OPENSEARCH_HOST` to enable. |
 | I.9 | AWS Amplify / CloudWatch hosting | ❌ | Mentioned; not configured |
 | I.10 | Cart history in localStorage | ✅ | Last 20 sessions, with restore |
 | I.11 | Dark/light theme toggle | ✅ | Persisted in localStorage |
@@ -242,7 +242,7 @@
 | RecipeCart (Pillar 3) | 4 | 0 | 0 |
 | Quantity Engine (Pillar 4) | 4 | 1 | 0 |
 | Multi-Intent (Pillar 5) | 4 | 0 | 0 |
-| SplitCart (Pillar 6) | 5 | 0 | 1 |
+| SplitCart (Pillar 6) | 5 | 1 | 0 |
 | GoalCart (Pillar 7) | 5 | 0 | 0 |
 | CompareCart (Pillar 8) | 5 | 0 | 0 |
 | Preferences (Pillar 9) | 5 | 0 | 0 |
@@ -250,14 +250,44 @@
 | Explainability (Pillar 11) | 3 | 0 | 0 |
 | Confidence Layer (Pillar 12) | 4 | 0 | 0 |
 | ReviewCart (Pillar 13) | 4 | 1 | 0 |
-| Infrastructure | 15 | 0 | 2 |
-| **Total** | **76** | **2** | **4** |
+| Infrastructure | 15 | 1 | 1 |
+| **Total** | **76** | **4** | **2** |
 
-**Overall completion: ~93% done, ~3% partial, ~4% not started.**
+**Overall completion: ~93% done, ~5% partial, ~2% not started.**
 
 ---
 
 ## Remaining Work (Sprint 3 Next Steps)
 
-1. **2.4** Backend occasion -> item blueprint mapping.
-2. **6.6** Invite contributor flow (email/sms integration).
+### Confirmed Remaining Features (Verified Against Codebase)
+
+1. **2.4** Backend occasion → item blueprint mapping
+   - **Status**: ❌ Not started
+   - **Location**: Should be in `backend/app/intelligence/occasion_templates.py`
+   - **Current**: Templates exist with `blueprint` field but not used in main.py pipeline
+   - **Fix needed**: Wire blueprint items into `/api/parse` when `occasion` param is present
+
+2. **I.8** OpenSearch Hybrid Search Integration
+   - **Status**: 🟡 Code exists but NOT connected/tested
+   - **Location**: `backend/app/search/opensearch_retrieval.py` + `backend/scripts/setup_opensearch.py`
+   - **Current**: Environment variable `SEARCH_PROVIDER=local` defaults to local retrieval
+   - **Fix needed**: Set `SEARCH_PROVIDER=opensearch` + `OPENSEARCH_HOST` + run setup script
+
+3. **I.9** AWS Amplify / CloudWatch hosting
+   - **Status**: ❌ Not configured
+   - **Note**: Infrastructure deployment, not a code feature
+
+### ✅ VERIFIED AS FULLY IMPLEMENTED
+
+1. **Real-time Collaborative Cart WebSocket** 
+   - **Backend**: `backend/app/collab/collab_ws.py` (ConnectionManager with broadcast)
+   - **Routes**: `backend/app/collab/collab_routes.py` (@router.websocket)
+   - **Frontend**: `frontend/src/hooks/useCollabWebSocket.ts` (full WebSocket client)
+   - **Tests**: `backend/tests/test_collab.py` (comprehensive WebSocket tests)
+   - **Live State**: Real-time item merging, quantity recalculation, budget splits
+   - **NOT mock data**: Uses live catalog resolution and quantity engine
+
+2. **Budget auto-rebalancing in collab**
+   - **Status**: ✅ Done (NOT ❌)
+   - **Location**: `backend/app/collab/collab_store.py` → `_calculate_budget_splits()`
+   - **Proof**: Recalculates splits after every merge/add/remove/update operation

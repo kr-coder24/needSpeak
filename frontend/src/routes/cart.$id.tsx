@@ -242,13 +242,17 @@ function CartPage() {
       // Map cartItems to {sku, qty}
       const itemsToReserve = cartItems.filter((i: any) => i.sku).map((i: any) => ({
         sku: i.sku,
-        qty: i.quantity_units
+        qty: i.quantity_units || 1,
+        location_id: "DEFAULT",
       }));
 
       const res = await fetch(`/api/cart/${session.session_id}/reserve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: itemsToReserve })
+        body: JSON.stringify({ 
+          items: itemsToReserve,
+          idempotency_key: `cart_${session.session_id}_${Date.now()}`
+        }),
       });
 
       const data = await res.json();
@@ -256,8 +260,21 @@ function CartPage() {
         throw new Error(data.message || "Failed to reserve items");
       }
 
+      // Check for partial failures
+      if (data.status === "partial_failed") {
+        setReservationStatus("error");
+        setReservationMessage(
+          `Some items unavailable: ${data.failed_items.map((i: any) => i.message).join(", ")}`
+        );
+        return;
+      }
+
+      if (data.status === "failed") {
+        throw new Error(data.message);
+      }
+
       setReservationStatus("success");
-      setReservationMessage("Items reserved successfully! Redirecting to checkout...");
+      setReservationMessage("Items reserved! Redirecting to payment...");
 
       // Phase 6: Log purchase event
       try {
@@ -267,9 +284,9 @@ function CartPage() {
           body: JSON.stringify({
             user_id: "demo_user", // Fixed for now
             session_id: session.session_id,
-            event_type: "purchase",
+            event_type: "checkout_initiated",
             intent_type: session.intent_type,
-            context: "Completed checkout from cart review"
+            context: "ReviewCart reservation"
           })
         });
       } catch (err) {

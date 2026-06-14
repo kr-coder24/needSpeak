@@ -82,6 +82,11 @@ logger = logging.getLogger("context-to-cart")
 # ---------------------------------------------------------------------------
 # Startup / Shutdown
 # ---------------------------------------------------------------------------
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.inventory.cleanup import cleanup_expired_reservations
+
+scheduler = BackgroundScheduler()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load product catalog into memory at startup."""
@@ -97,8 +102,18 @@ async def lifespan(app: FastAPI):
     products = load_all_products()
     logger.info(f"Loaded {len(products)} products into memory cache")
 
+    scheduler.add_job(
+        cleanup_expired_reservations,
+        "interval",
+        minutes=5,
+        id="cleanup_reservations",
+    )
+    scheduler.start()
+    logger.info("Started reservation cleanup scheduler")
+
     yield  # App runs
 
+    scheduler.shutdown()
     logger.info("Context-to-Cart shutting down...")
 
 
@@ -781,34 +796,120 @@ async def ingest_prescription(
 # ---------------------------------------------------------------------------
 # POST /api/cart/{session_id}/reserve — Reserve Inventory
 # ---------------------------------------------------------------------------
-class ReserveRequest(BaseModel):
-    items: list[dict] = Field(..., description="List of items to reserve: [{'sku': '...', 'qty': 2}]")
+from app.inventory.models import (
+    ReserveRequest,
+    ReservationResponse,
+    PaymentIntentRequest,
+    PaymentIntentResponse,
+)
+from app.inventory.reservations import (
+    reserve_items,
+    get_reservation,
+    commit_reservation,
+)
 
-@app.post("/api/cart/{session_id}/reserve")
-async def reserve_cart(session_id: str, req: ReserveRequest, request: Request):
+@app.post("/api/cart/{session_id}/reserve", response_model=ReservationResponse)
+async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Request):
+    """Reserve inventory for cart items."""
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import reserve_items
-    success, failed_skus, res_id = reserve_items(session_id, req.items, mock_mode=mock_mode)
-    if not success:
-        raise HTTPException(
-            status_code=409, 
-            detail={"message": "Some items are out of stock", "failed_skus": failed_skus}
+    
+    user_id = request.headers.get("X-User-ID", "demo_user")  # TODO: use real auth
+    
+    result = reserve_items(
+        items=[item.model_dump() for item in req.items],
+        session_id=session_id,
+        user_id=user_id,
+        idempotency_key=req.idempotency_key,
+        mock_mode=mock_mode,
+    )
+    
+    return ReservationResponse(**result)
+
+
+@app.get("/api/reservation/{reservation_id}")
+async def get_reservation_details(reservation_id: str):
+    """Get reservation details."""
+    reservation = get_reservation(reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    return reservation
+
+
+@app.post("/api/payment/create-intent", response_model=PaymentIntentResponse)
+async def create_payment_intent(req: PaymentIntentRequest):
+    """Create payment intent with Razorpay or Stripe."""
+    reservation = get_reservation(req.reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    if reservation["status"] != "reserved":
+        raise HTTPException(status_code=400, detail="Reservation is not in reserved state")
+    
+    amount = reservation["total_amount"]
+    
+    # Razorpay integration
+    payment_provider = os.getenv("PAYMENT_PROVIDER", "razorpay").lower()
+    
+    if payment_provider == "razorpay":
+        import razorpay
+        client = razorpay.Client(
+            auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
         )
-    return {"success": True, "reservation_id": res_id}
+        
+        order = client.order.create({
+            "amount": int(amount * 100),  # paise
+            "currency": "INR",
+            "receipt": req.reservation_id,
+            "notes": {
+                "reservation_id": req.reservation_id,
+                "customer_email": req.customer_email or "",
+            }
+        })
+        
+        return PaymentIntentResponse(
+            client_secret=order["id"],  # Razorpay order_id
+            amount=amount,
+            currency="INR",
+            reservation_id=req.reservation_id,
+        )
+    
+    elif payment_provider == "stripe":
+        import stripe
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+        
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount * 100),  # cents
+            currency="inr",
+            metadata={"reservation_id": req.reservation_id},
+        )
+        
+        return PaymentIntentResponse(
+            client_secret=intent.client_secret,
+            amount=amount,
+            currency="INR",
+            reservation_id=req.reservation_id,
+        )
+    
+    else:
+        raise HTTPException(status_code=500, detail="No payment provider configured")
 
-@app.post("/api/cart/{session_id}/release")
-async def release_cart(session_id: str, req: ReserveRequest, request: Request):
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import release_reservation
-    release_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
-    return {"success": True}
 
-@app.post("/api/cart/{session_id}/commit")
-async def commit_cart(session_id: str, req: ReserveRequest, request: Request):
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    from app.inventory.reservations import commit_reservation
-    commit_reservation(f"res_{session_id}", req.items, mock_mode=mock_mode)
-    return {"success": True}
+class ConfirmPaymentRequest(BaseModel):
+    reservation_id: str
+    payment_id: str
+
+@app.post("/api/payment/confirm")
+async def confirm_payment(req: ConfirmPaymentRequest):
+    """Confirm payment and commit reservation."""
+    reservation = get_reservation(req.reservation_id)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    
+    # TODO: Verify payment with provider API
+    
+    commit_reservation(req.reservation_id)
+    
+    return {"success": True, "message": "Order confirmed"}
 
 
 

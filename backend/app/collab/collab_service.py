@@ -23,6 +23,48 @@ _ALTERNATIVE_FAMILIES = [
     {"bread", "bun", "buns"},
 ]
 
+COUNT_UNITS = {"piece", "pieces", "pack", "packs"}
+WEIGHT_UNITS = {"g", "kg"}
+VOLUME_UNITS = {"ml", "l", "litre", "liter"}
+
+
+def _normalize_request_unit_for_product(
+    quantity: float,
+    unit: str,
+    product: dict,
+) -> tuple[float, str, Optional[str]]:
+    """Convert count-style demand into the SKU's measurable selling unit.
+
+    Example: "1 piece milk" becomes "500 ml milk" when the chosen SKU is a
+    500 ml milk pouch. This keeps the UI and split math honest while still
+    letting a rushed demo click recover gracefully.
+    """
+
+    requested_unit = unit.strip().lower()
+    product_unit = str(product.get("unit", "piece")).strip().lower()
+    product_unit_quantity = float(product.get("unit_quantity", 1))
+
+    if requested_unit in COUNT_UNITS and product_unit in WEIGHT_UNITS | VOLUME_UNITS:
+        return (
+            quantity * product_unit_quantity,
+            product_unit,
+            (
+                f"Interpreted {quantity:g} {requested_unit} as "
+                f"{quantity * product_unit_quantity:g} {product_unit}, "
+                f"because {product.get('name', 'this item')} is sold by {product_unit}."
+            ),
+        )
+
+    if requested_unit == "l":
+        return quantity, "litre", None
+    if requested_unit == "liter":
+        return quantity, "litre", None
+    if requested_unit == "pieces":
+        return quantity, "piece", None
+    if requested_unit == "packs":
+        return quantity, "pack", None
+    return quantity, requested_unit, None
+
 
 def _normalize_text(value: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
@@ -196,6 +238,13 @@ def resolve_collab_input(
     if product is None:
         return None, find_close_suggestions(extracted.name, products)
 
+    normalized_quantity, normalized_unit, unit_note = _normalize_request_unit_for_product(
+        extracted.quantity, extracted.unit, product
+    )
+    extracted = extracted.model_copy(
+        update={"quantity": normalized_quantity, "unit": normalized_unit}
+    )
+
     requested_base_amount, requested_base_unit = normalize_to_base_unit(
         extracted.quantity, extracted.unit, extracted.name
     )
@@ -215,7 +264,7 @@ def resolve_collab_input(
         requested_base_amount=requested_base_amount,
         requested_base_unit=requested_base_unit,
         standalone_quantity_units=standalone_units,
-        notes=extracted.notes,
+        notes=unit_note or extracted.notes,
     )
     alternative = find_better_deal(product, products)
     resolved = CollabCartItem(
@@ -230,7 +279,7 @@ def resolve_collab_input(
         estimated_price_inr=float(product.get("price_inr", 0)),
         added_by=contributor.id,
         added_by_name=contributor.name,
-        notes=item_input.notes,
+        notes=unit_note or item_input.notes,
         matched_from=[
             (
                 f"{contributor.name}: {extracted.quantity:g} "
@@ -239,6 +288,6 @@ def resolve_collab_input(
         ],
         demands=[demand],
         pending_substitution=alternative,
-        substitution_reason=match_reason,
+        substitution_reason=unit_note or match_reason,
     )
     return resolved, []

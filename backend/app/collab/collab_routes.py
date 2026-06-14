@@ -342,3 +342,61 @@ async def collab_websocket(
     except Exception:
         logger.exception("WebSocket failure in collab session %s", session_id)
         manager.disconnect(session_id, websocket, contributor_id)
+
+
+from pydantic import BaseModel
+from app.collab.collab_notifications import send_email_invite, send_sms_invite
+
+class InviteRequest(BaseModel):
+    recipients: list[dict]  # [{"type": "email", "value": "user@example.com"}, ...]
+    contributor_id: str
+
+@router.post("/{session_id}/invite")
+async def send_invites(session_id: str, req: InviteRequest):
+    """Send collaboration invites via email or SMS."""
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    contributor = _get_contributor(session_id, req.contributor_id)
+    if not contributor:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Only host or active contributors can invite
+    if contributor.status != "active" and session.host_id != req.contributor_id:
+        raise HTTPException(status_code=403, detail="Only active contributors can invite")
+    
+    share_url = f"https://yourdomain.com/collab/join/{session.share_code}"
+    # For local dev: share_url = f"http://localhost:5173/collab/join/{session.share_code}"
+    
+    results = []
+    for recipient in req.recipients:
+        recipient_type = recipient.get("type")
+        recipient_value = recipient.get("value")
+        
+        if not recipient_type or not recipient_value:
+            results.append({"value": recipient_value, "success": False, "error": "Invalid format"})
+            continue
+        
+        if recipient_type == "email":
+            success = send_email_invite(
+                recipient_email=recipient_value,
+                session_name=session.name,
+                share_url=share_url,
+                host_name=contributor.name,
+            )
+            results.append({"value": recipient_value, "type": "email", "success": success})
+        
+        elif recipient_type == "sms":
+            success = send_sms_invite(
+                recipient_phone=recipient_value,
+                session_name=session.name,
+                share_url=share_url,
+                host_name=contributor.name,
+            )
+            results.append({"value": recipient_value, "type": "sms", "success": success})
+        
+        else:
+            results.append({"value": recipient_value, "success": False, "error": "Unknown type"})
+    
+    return {"results": results}

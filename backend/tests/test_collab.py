@@ -64,6 +64,24 @@ def test_collab_suggests_close_match_but_rejects_gibberish():
     assert suggestions == []
 
 
+def test_collab_normalizes_count_unit_for_measured_product():
+    _, host = create_session("Milk unit fix", "Host", 500)
+
+    resolved, suggestions = resolve_collab_input(
+        CollabItemInput(name="milk", quantity=1, unit="piece"),
+        host,
+    )
+
+    assert suggestions == []
+    assert resolved is not None
+    demand = resolved.demands[0]
+    assert resolved.name == "amul taaza fresh milk"
+    assert resolved.quantity == 1
+    assert demand.requested_quantity == 500
+    assert demand.requested_unit == "ml"
+    assert "sold by ml" in demand.notes
+
+
 def test_websocket_resolves_product_and_returns_live_state():
     with TestClient(app) as client:
         created = client.post(
@@ -108,6 +126,28 @@ def test_websocket_resolves_product_and_returns_live_state():
             assert item["quantity"] == 2
             assert item["estimated_price_inr"] == 28
             assert update["data"]["splits"][0]["amount_owed"] == 56
+
+            websocket.send_json(
+                {
+                    "type": "add_items",
+                    "data": {
+                        "items": [
+                            {
+                                "name": "milk",
+                                "quantity": 1,
+                                "unit": "piece",
+                                "category": "general",
+                            }
+                        ]
+                    },
+                }
+            )
+            normalized = websocket.receive_json()
+            assert normalized["type"] == "items_added"
+            normalized_item = normalized["data"]["session"]["items"][0]
+            assert normalized_item["quantity"] == 3
+            assert normalized_item["demands"][0]["requested_unit"] == "ml"
+            assert normalized_item["demands"][0]["requested_quantity"] == 1100
 
             websocket.send_json(
                 {

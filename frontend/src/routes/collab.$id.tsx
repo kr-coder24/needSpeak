@@ -16,9 +16,13 @@ import {
   Wifi,
   WifiOff,
   X,
+  Mail,
+  Phone,
+  Send,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { useCollabWebSocket } from "@/hooks/useCollabWebSocket";
@@ -37,6 +41,33 @@ const contributorColors = [
 ];
 
 const units = ["piece", "pack", "g", "kg", "ml", "l"];
+
+const UNIT_PRESETS: Array<{ tokens: string[]; units: string[]; defaultUnit: string }> = [
+  {
+    tokens: ["milk", "doodh", "water", "juice", "oil", "ghee", "cream", "coke", "cola", "drink"],
+    units: ["ml", "l"],
+    defaultUnit: "ml",
+  },
+  {
+    tokens: ["rice", "atta", "flour", "sugar", "salt", "paneer", "butter", "chicken", "chips"],
+    units: ["g", "kg"],
+    defaultUnit: "g",
+  },
+  {
+    tokens: ["bun", "buns", "bread", "notebook", "pen", "pencil", "eraser", "sharpener"],
+    units: ["piece", "pack"],
+    defaultUnit: "piece",
+  },
+];
+const DEFAULT_UNIT_PRESET = { units, defaultUnit: "piece" };
+
+function getAllowedUnits(productName: string) {
+  const normalized = productName.toLowerCase();
+  const preset = UNIT_PRESETS.find((entry) =>
+    entry.tokens.some((token) => normalized.includes(token)),
+  );
+  return preset || DEFAULT_UNIT_PRESET;
+}
 
 function quantityStep(unit: string) {
   if (unit === "g" || unit === "ml") return 100;
@@ -60,6 +91,10 @@ function CollabPage() {
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [budgetDraft, setBudgetDraft] = useState("");
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     setContributorId(localStorage.getItem(`collab_${sessionId}_contributor`));
@@ -86,6 +121,14 @@ function CollabPage() {
     if (session) setBudgetDraft(String(session.total_budget_inr));
   }, [session?.total_budget_inr]);
 
+  const unitPreset = useMemo(() => getAllowedUnits(productName), [productName]);
+
+  useEffect(() => {
+    if (productName.trim() && !unitPreset.units.includes(unit)) {
+      setUnit(unitPreset.defaultUnit);
+    }
+  }, [productName, unit, unitPreset.defaultUnit, unitPreset.units]);
+
   const handleJoin = async (event: FormEvent) => {
     event.preventDefault();
     if (!joinName.trim()) return;
@@ -107,6 +150,37 @@ function CollabPage() {
     addItems([{ name: productName.trim(), quantity, unit }]);
     setProductName("");
     setQuantity(1);
+  };
+
+  const handleInvite = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() && !invitePhone.trim()) return;
+    
+    setInviting(true);
+    try {
+      const recipients = [];
+      if (inviteEmail.trim()) recipients.push({ type: "email", value: inviteEmail.trim() });
+      if (invitePhone.trim()) recipients.push({ type: "sms", value: invitePhone.trim() });
+      
+      const res = await fetch(`/api/collab/${sessionId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipients, contributor_id: contributorId }),
+      });
+      
+      if (!res.ok) throw new Error("Failed to send invites");
+      
+      const data = await res.json();
+      const successCount = data.results.filter((r: any) => r.success).length;
+      toast.success(`Sent ${successCount} invite${successCount !== 1 ? 's' : ''}!`);
+      setInviteEmail("");
+      setInvitePhone("");
+      setShowInviteModal(false);
+    } catch (err) {
+      toast.error("Could not send invites. Try again.");
+    } finally {
+      setInviting(false);
+    }
   };
 
   if (!contributorId) {
@@ -239,6 +313,13 @@ function CollabPage() {
 
           <div className="relative flex gap-2">
             <button
+              onClick={() => setShowInviteModal(true)}
+              className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold transition hover:bg-surface"
+            >
+              <Send className="h-4 w-4" />
+              Invite
+            </button>
+            <button
               onClick={copyLink}
               className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold transition hover:bg-surface"
             >
@@ -353,7 +434,7 @@ function CollabPage() {
                       className="h-11 w-full cursor-pointer rounded-xl border border-input bg-background px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                       disabled={!isConnected}
                     >
-                      {units.map((entry) => (
+                      {unitPreset.units.map((entry) => (
                         <option key={entry} value={entry}>
                           {entry}
                         </option>
@@ -732,6 +813,64 @@ function CollabPage() {
           </main>
         </div>
       </div>
+
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowInviteModal(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold">Invite Contributors</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Send invite links via email or SMS</p>
+            
+            <form onSubmit={handleInvite} className="mt-6 space-y-4">
+              <div>
+                <label htmlFor="invite-email" className="mb-1.5 block text-sm font-semibold">
+                  <Mail className="inline h-4 w-4 mr-1" />
+                  Email (optional)
+                </label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="friend@example.com"
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="invite-phone" className="mb-1.5 block text-sm font-semibold">
+                  <Phone className="inline h-4 w-4 mr-1" />
+                  Phone (optional)
+                </label>
+                <input
+                  id="invite-phone"
+                  type="tel"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  placeholder="+1234567890"
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="h-11 flex-1 cursor-pointer rounded-xl border border-border px-4 font-semibold transition hover:bg-surface"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting || (!inviteEmail.trim() && !invitePhone.trim())}
+                  className="h-11 flex-1 cursor-pointer rounded-xl bg-foreground px-4 font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {inviting ? "Sending..." : "Send Invites"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

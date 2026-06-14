@@ -167,22 +167,28 @@ def reserve_items(
             qty = item["qty"]
             _mock_reservations[sku][reservation_id] = qty
         
+        metadata = {
+            "reserved_items": reserved_items,
+            "failed_items": [],
+            "total_amount": total_amount,
+            "expires_at": expires_at.isoformat(),
+            "message": f"Successfully reserved {len(reserved_items)} item(s)",
+            "status": "reserved"
+        }
+
         # Store metadata
         _reservation_metadata[reservation_id] = {
             "session_id": session_id,
             "user_id": user_id,
             "items": items,
             "expires_at": expires_at,
-            "created_at": datetime.now(timezone.utc)
+            "created_at": datetime.now(timezone.utc),
+            "metadata": metadata,
+            "reserved_items": reserved_items,
+            "total_amount": total_amount,
+            "status": "reserved"
         }
 
-        metadata = {
-            "reserved_items": reserved_items,
-            "failed_items": [],
-            "total_amount": total_amount,
-            "expires_at": expires_at.isoformat(),
-            "message": f"Successfully reserved {len(reserved_items)} item(s)"
-        }
         
         # Cache for idempotency
         if idempotency_key:
@@ -243,7 +249,21 @@ def reserve_items(
             "failed_items": [],
             "total_amount": total_amount,
             "expires_at": expires_at.isoformat(),
-            "message": f"Successfully reserved {len(reserved_items)} item(s)"
+            "message": f"Successfully reserved {len(reserved_items)} item(s)",
+            "status": "reserved"
+        }
+        
+        # Store metadata
+        _reservation_metadata[reservation_id] = {
+            "session_id": session_id,
+            "user_id": user_id,
+            "items": items,
+            "expires_at": expires_at,
+            "created_at": datetime.now(timezone.utc),
+            "metadata": metadata,
+            "reserved_items": reserved_items,
+            "total_amount": total_amount,
+            "status": "reserved"
         }
         
         # Cache for idempotency

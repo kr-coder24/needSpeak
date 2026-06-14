@@ -932,7 +932,7 @@ from app.inventory.models import (
 )
 from app.inventory.reservations import (
     reserve_items,
-    get_reservation,
+    get_reservation_metadata as get_reservation,
     commit_reservation,
 )
 
@@ -960,6 +960,39 @@ async def get_reservation_details(reservation_id: str):
     reservation = get_reservation(reservation_id)
     if not reservation:
         raise HTTPException(status_code=404, detail="Reservation not found")
+        
+    try:
+        from app.collab.carbon_footprint import compute_cart_carbon
+        from app.collab.models import CollabCartItem
+        
+        metadata = reservation.get("metadata", {})
+        reserved_items = metadata.get("reserved_items", [])
+        
+        # Build CollabCartItem objects for carbon calculation
+        collab_items = []
+        for item in reserved_items:
+            collab_items.append(
+                CollabCartItem(
+                    id=item.get("sku", ""),
+                    sku=item.get("sku", ""),
+                    name=item.get("name", "Unknown"),
+                    quantity=item.get("qty", 1),
+                    category="general",
+                    unit="unit",
+                    unit_quantity=1
+                )
+            )
+            
+        if collab_items:
+            carbon = compute_cart_carbon(collab_items)
+            metadata["carbon_breakdown"] = carbon.model_dump()
+        else:
+            metadata["carbon_breakdown"] = None
+            
+        reservation["metadata"] = metadata
+    except Exception as e:
+        logger.error(f"Failed to attach carbon breakdown to reservation: {e}")
+        
     return reservation
 
 

@@ -6,6 +6,8 @@ import { HowItWorks } from "@/components/home/HowItWorks";
 import { LiveExample } from "@/components/home/LiveExample";
 import { FinalCta } from "@/components/home/FinalCta";
 import { CursorGlow } from "@/components/effects/CursorGlow";
+import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
+import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,11 +29,21 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const navigate = useNavigate();
+
   return (
     <AppShell>
       
       <div className="relative z-10">
         <HeroPrompt />
+        {/* Smart Repeat suggestion */}
+        <div className="px-4 py-3">
+          <SmartRepeatBanner
+            onAccept={(prompt) => {
+              navigate({ to: "/chat", search: { prompt } });
+            }}
+          />
+        </div>
         <div className="bg-surface/50 border-t border-border">
           <OccasionsStrip />
         </div>

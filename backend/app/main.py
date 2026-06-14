@@ -473,41 +473,49 @@ async def transcribe_audio(request: Request, audio: UploadFile = File(...)):
         return {"text": "I need groceries for a birthday party for 20 people, budget 3000 rupees"}
 
     try:
-        from app.pipeline.gemini_client import get_gemini_client
-        import base64
-
-        client = get_gemini_client()
-
-        # Determine MIME type
         mime_type = audio.content_type or "audio/webm"
 
-        # Send audio to Gemini for transcription
-        response = client.models.generate_content(
-            model=config.GEMINI_MODEL_ID,
-            contents=[
-                {
-                    "role": "user",
-                    "parts": [
-                        {
-                            "inline_data": {
-                                "mime_type": mime_type,
-                                "data": base64.b64encode(audio_bytes).decode("utf-8"),
-                            }
-                        },
-                        {
-                            "text": (
-                                "Transcribe this audio exactly as spoken. "
-                                "Return ONLY the transcribed text, nothing else. "
-                                "If the audio contains Hindi or Hinglish, transcribe it in English/Roman script. "
-                                "If the audio is unclear or silent, respond with an empty string."
-                            )
-                        },
-                    ],
-                }
-            ],
-        )
+        if config.LLM_PROVIDER == "bedrock":
+            from app.pipeline.bedrock_converse import transcribe_audio as bedrock_transcribe
+            transcribed_text = bedrock_transcribe(
+                audio_bytes=audio_bytes,
+                mime_type=mime_type,
+                timeout_seconds=60,
+            ).strip()
+        else:
+            from app.pipeline.gemini_client import get_gemini_client
+            import base64
 
-        transcribed_text = response.text.strip() if response.text else ""
+            client = get_gemini_client()
+
+            # Send audio to Gemini for transcription
+            response = client.models.generate_content(
+                model=config.GEMINI_MODEL_ID,
+                contents=[
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": mime_type,
+                                    "data": base64.b64encode(audio_bytes).decode("utf-8"),
+                                }
+                            },
+                            {
+                                "text": (
+                                    "Transcribe this audio exactly as spoken. "
+                                    "Return ONLY the transcribed text, nothing else. "
+                                    "If the audio contains Hindi or Hinglish, transcribe it in English/Roman script. "
+                                    "If the audio is unclear or silent, respond with an empty string."
+                                )
+                            },
+                        ],
+                    }
+                ],
+            )
+
+            transcribed_text = response.text.strip() if response.text else ""
+
         logger.info(f"[transcribe] Result: '{transcribed_text[:100]}...'")
 
         return {"text": transcribed_text}

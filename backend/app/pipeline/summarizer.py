@@ -77,27 +77,14 @@ def generate_summary(
 
     try:
         if LLM_PROVIDER == "bedrock":
-            logger.info("Using Bedrock (Claude) provider for summarization.")
-            client = get_bedrock_client()
-            request_body = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 256,
-                "temperature": 0.4,
-                "system": SUMMARY_SYSTEM_PROMPT,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [{"type": "text", "text": user_prompt}],
-                    }
-                ],
-            }
-            response = client.invoke_model(
-                modelId=BEDROCK_MODEL_ID,
-                body=json.dumps(request_body),
-                contentType="application/json",
-            )
-            response_body = json.loads(response["body"].read())
-            summary = response_body["content"][0]["text"].strip()
+            logger.info("Using Bedrock provider for summarization.")
+            from app.pipeline.bedrock_converse import call_bedrock_text
+            summary = call_bedrock_text(
+                system_prompt=SUMMARY_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                max_tokens=256,
+                temperature=0.4,
+            ).strip()
         else:
             logger.info("Using Google Gemini provider for summarization.")
             from app.pipeline.gemini_client import get_gemini_client

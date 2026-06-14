@@ -37,37 +37,46 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
             f"Maximum allowed size is {MAX_PDF_BYTES // (1024*1024)} MB."
         )
 
-    logger.info(f"[pdf_input] Sending {len(pdf_bytes)} bytes to Gemini Document Understanding")
-
-    client = get_gemini_client()
-    encoded = base64.b64encode(pdf_bytes).decode("utf-8")
-
-    response = client.models.generate_content(
-        model=config.GEMINI_MODEL_ID,
-        contents=[
-            {
-                "role": "user",
-                "parts": [
-                    {"inline_data": {"mime_type": "application/pdf", "data": encoded}},
-                    {
-                        "text": (
-                            "Read this PDF document carefully. Extract ALL food items, "
-                            "ingredients, groceries, or shopping items listed. "
-                            "Include approximate quantities if specified (e.g. '2 kg rice', "
-                            "'500g chicken'). Transcribe every relevant item.\n\n"
-                            "Return them as a simple comma-separated list.\n"
-                            "Example: milk 2L, basmati rice 1kg, onions 500g, "
-                            "chicken breast 1kg, tomatoes 6 pieces\n\n"
-                            "If the document does not contain any food items or shopping "
-                            "items, respond with exactly: NO_ITEMS_FOUND"
-                        )
-                    },
-                ],
-            }
-        ],
+    prompt_text = (
+        "Read this PDF document carefully. Extract ALL food items, "
+        "ingredients, groceries, or shopping items listed. "
+        "Include approximate quantities if specified (e.g. '2 kg rice', "
+        "'500g chicken'). Transcribe every relevant item.\n\n"
+        "Return them as a simple comma-separated list.\n"
+        "Example: milk 2L, basmati rice 1kg, onions 500g, "
+        "chicken breast 1kg, tomatoes 6 pieces\n\n"
+        "If the document does not contain any food items or shopping "
+        "items, respond with exactly: NO_ITEMS_FOUND"
     )
 
-    result = response.text.strip() if response.text else ""
+    if config.LLM_PROVIDER == "bedrock":
+        logger.info(f"[pdf_input] Sending {len(pdf_bytes)} bytes to Bedrock Document Understanding")
+        from app.pipeline.bedrock_converse import call_bedrock_document
+        result = call_bedrock_document(
+            doc_bytes=pdf_bytes,
+            prompt=prompt_text,
+            doc_format="pdf",
+            doc_name="uploaded_document",
+            max_tokens=4096,
+            temperature=0.2,
+        ).strip()
+    else:
+        logger.info(f"[pdf_input] Sending {len(pdf_bytes)} bytes to Gemini Document Understanding")
+        client = get_gemini_client()
+        encoded = base64.b64encode(pdf_bytes).decode("utf-8")
+        response = client.models.generate_content(
+            model=config.GEMINI_MODEL_ID,
+            contents=[
+                {
+                    "role": "user",
+                    "parts": [
+                        {"inline_data": {"mime_type": "application/pdf", "data": encoded}},
+                        {"text": prompt_text},
+                    ],
+                }
+            ],
+        )
+        result = response.text.strip() if response.text else ""
     logger.info(f"[pdf_input] Gemini PDF result: '{result[:200]}...'")
 
     if not result or result.upper() == "NO_ITEMS_FOUND":

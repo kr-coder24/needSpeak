@@ -2,3 +2,4 @@ id,email,name,password_hash,provider,avatar_url,created_at
 9415664d-9c94-4422-b1a5-bd2ae2dfc781,c@d.com,Tushar Saharan,$2b$12$qqYb7aVR2CkuW/XaOuj3CO0xPwQ7bgKF6oCIXcHCSqtEvpnB/4zv.,email,,2026-06-13T11:00:45.842568+00:00
 766350b8-c170-4119-a2c7-00ad3567b910,guest.google@example.com,Google Guest,,google,,2026-06-13T11:21:24.785615+00:00
 c4dfd0b7-41fc-4a29-95ed-cd85f407521d,amankashyap.cloud@gmail.com,John Doe,$2b$12$vsefwFlO6tkESDxslvqWWO3BwmR5FL1/Gp/iqhB3DpZpU0dB15.Xq,email,,2026-06-13T12:18:40.055289+00:00
+d552cb94-8fc0-450d-818d-e243923716a9,amk@gmail.com,Shivam Kumar,$2b$12$aSMBV5kp6dlWVyEuKmzgIOerPCfN4imR3jYiz/KyJlInaPHRHmgM6,email,,2026-06-13T15:10:53.131215+00:00

@@ -383,9 +383,9 @@ async def parse_content(req: ParseRequest, request: Request):
         return response_data
 
     try:
-        return await asyncio.wait_for(run_in_threadpool(run_pipeline), timeout=30.0)
+        return await asyncio.wait_for(run_in_threadpool(run_pipeline), timeout=600.0)
     except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] Pipeline timed out after 30 seconds.")
+        logger.error(f"[{session_id}] Pipeline timed out after 600 seconds.")
         raise HTTPException(
             status_code=504,
             detail={
@@ -583,7 +583,7 @@ async def _run_multimodal_pipeline(
 
     try:
         return await asyncio.wait_for(
-            run_in_threadpool(run_pipeline), timeout=45.0
+            run_in_threadpool(run_pipeline), timeout=600.0
         )
     except HTTPException:
         raise
@@ -593,7 +593,7 @@ async def _run_multimodal_pipeline(
             detail={"error_code": ErrorCode.NO_CONTENT.value, "message": str(e)},
         )
     except asyncio.TimeoutError:
-        logger.error(f"[{session_id}] Pipeline timed out after 45 seconds.")
+        logger.error(f"[{session_id}] Pipeline timed out after 600 seconds.")
         raise HTTPException(
             status_code=504,
             detail={

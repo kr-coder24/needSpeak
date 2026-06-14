@@ -251,9 +251,10 @@
 | Confidence Layer (Pillar 12) | 4 | 0 | 0 |
 | ReviewCart (Pillar 13) | 4 | 1 | 0 |
 | Infrastructure | 15 | 0 | 2 |
-| **Total** | **74** | **3** | **5** |
+| Brainstormed Additions | 12 | 2 | 4 |
+| **Total** | **86** | **5** | **9** |
 
-**Overall completion: ~90% done, ~4% partial, ~6% not started.**
+**Overall completion: 86% done, 5% partial, 9% not started.**
 
 ---
 
@@ -266,3 +267,30 @@
 ## Recommended Next Sprint
 
 1. **B.15** Real-time collab via WebSockets (SplitCart) — 4 hrs
+
+---
+
+## Architectural Gaps & Production Readiness (f5.md Alignment)
+
+While the feature-level demo is ~90% complete, the following critical architectural gaps exist between the current codebase and the production-ready specification in [f5.md](file:///Users/amankashyap/Documents/needSpeak/f5.md):
+
+### 1. Database & Authentication
+- **Current State**: User authentication is CSV-based ([csv_store.py](file:///Users/amankashyap/Documents/needSpeak/backend/app/auth/csv_store.py)) and sessions are held in a Python dictionary.
+- **Target**: Move user records and sessions to DynamoDB (`NeedSpeakUsers`, `NeedSpeakEmailLocks`, and `NeedSpeakAuthSessions` tables) with TTL support for session expiry.
+
+### 2. Search & Retrieval (OpenSearch)
+- **Current State**: Resolver loads and scans all products from cache at runtime.
+- **Target**: Deploy OpenSearch with vector (`embedding`) and keyword search over the catalog to replace in-memory scanning.
+
+### 3. Inventory & Cart Reservations
+- **Current State**: Cart session items are added without backend inventory verification or hold mechanisms.
+- **Target**: Implement conditional DynamoDB writes for stock updates and `CartReservations` with TTL.
+
+### 4. Preference Engine & ML Ranking
+- **Current State**: Basic rule-based brand boosts and dietary pre-filters.
+- **Target**: Implement a behavioral `UserEvents` logger and transition to hybrid ML recommendation (LightFM / matrix factorization and sequential models like SASRec).
+
+### 5. Collaboration (SplitCart)
+- **Current State**: Real-time contribution page is entirely mock data.
+- **Target**: Implement WebSocket connections for multi-user cart synchronization.
+

@@ -5,15 +5,16 @@
 
 export type CartHistoryEntry = {
   session_id: string;
-  saved_at: string;           // ISO timestamp
+  saved_at: string; // ISO timestamp
   intent_type: string;
   context_summary: string;
   total_price_inr: number;
   item_count: number;
-  cart: any[];                // full flat cart array for re-display
+  cart: any[]; // full flat cart array for re-display
   unavailable_items: any[];
   summary: string;
   budget_inr?: number;
+  intents?: any[]; // Save the multi-intent grouped arrays
 };
 
 const STORAGE_KEY = "needspeak-cart-history";
@@ -59,7 +60,7 @@ export function findSimilarCart(intentType: string): CartHistoryEntry | null {
     past.find(
       (entry) =>
         entry.intent_type?.toLowerCase().includes(intentType?.toLowerCase()) ||
-        intentType?.toLowerCase().includes(entry.intent_type?.toLowerCase())
+        intentType?.toLowerCase().includes(entry.intent_type?.toLowerCase()),
     ) ?? null
   );
 }

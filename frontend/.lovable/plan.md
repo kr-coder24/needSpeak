@@ -1,7 +1,7 @@
-
 ## Goal
 
 Replace the blank Lovable scaffold with your actual needSpeak codebase from the uploaded ZIP, then enhance only the **homepage UX** with:
+
 1. A subtle cursor-following ambient light (no bright colors — stays inside the warm beige/ink palette).
 2. More content broken into small, modular components.
 3. A lightweight engaging visual on the hero (no heavy 3D — keeps bundle small and on-brand).
@@ -32,6 +32,7 @@ background: radial-gradient(
 - Each interactive card on the homepage also gets a localized "spotlight" border tint via `onMouseMove` updating its own `--mx/--my`. Keeps the effect feeling alive without being loud.
 
 Files:
+
 - `src/hooks/use-cursor-glow.ts` (new) — global tracker.
 - `src/components/effects/CursorGlow.tsx` (new) — fixed background layer.
 - `src/components/effects/SpotlightCard.tsx` (new) — wrapper for hover-tinted cards.

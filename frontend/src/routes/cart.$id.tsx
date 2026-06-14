@@ -25,6 +25,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
 import { loadHistory } from "@/lib/cart-history";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
+import { useChatStore } from "@/store/useChatStore";
 
 export const Route = createFileRoute("/cart/$id")({
   head: () => ({
@@ -43,34 +44,38 @@ export const Route = createFileRoute("/cart/$id")({
 });
 
 function UnavailableItemRow({ item }: { item: any }) {
-  const reasonText = item.reason
-    ? item.reason.replace(/_/g, " ")
-    : "Unavailable";
-  
+  const reasonText = item.reason ? item.reason.replace(/_/g, " ") : "Unavailable";
+
   const isOutOfStock = item.reason === "out_of_stock";
   const badgeBg = isOutOfStock
     ? "bg-gradient-to-br from-amber-500/15 to-amber-600/10 text-amber-700 dark:text-amber-400 border-amber-500/25 shadow-sm shadow-amber-500/10"
     : "bg-gradient-to-br from-destructive/15 to-destructive/10 text-destructive border-destructive/25 shadow-sm shadow-destructive/10";
-  const iconColor = isOutOfStock 
-    ? "bg-gradient-to-br from-amber-500/15 to-amber-600/10 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/5" 
+  const iconColor = isOutOfStock
+    ? "bg-gradient-to-br from-amber-500/15 to-amber-600/10 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/5"
     : "bg-gradient-to-br from-destructive/15 to-destructive/10 text-destructive shadow-sm shadow-destructive/5";
 
   return (
     <div className="group rounded-2xl border border-border/60 bg-gradient-to-br from-background/70 to-background/40 p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-destructive/5 hover:border-destructive/40 hover:scale-[1.01]">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${iconColor}`}>
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${iconColor}`}
+          >
             <AlertTriangle className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold capitalize text-foreground">{item.name}</div>
+            <div className="truncate text-sm font-semibold capitalize text-foreground">
+              {item.name}
+            </div>
             <div className="mt-0.5 text-xs font-medium text-muted-foreground">
               Not added to cart
             </div>
           </div>
         </div>
         <div className="shrink-0">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold capitalize tracking-wide transition-transform duration-300 group-hover:scale-105 ${badgeBg}`}>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold capitalize tracking-wide transition-transform duration-300 group-hover:scale-105 ${badgeBg}`}
+          >
             {reasonText}
           </span>
         </div>
@@ -151,9 +156,7 @@ function CompareCartDrawer({
 
   if (!open) return null;
 
-  const comparedItems = result
-    ? result.intents.flatMap((g: any) => g.cart ?? [])
-    : [];
+  const comparedItems = result ? result.intents.flatMap((g: any) => g.cart ?? []) : [];
   const comparedTotal = result?.total_price_inr ?? 0;
   const savings = currentTotal - comparedTotal;
 
@@ -173,10 +176,7 @@ function CompareCartDrawer({
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-background/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Drawer panel */}
       <div className="relative ml-auto flex h-full w-full max-w-4xl flex-col border-l border-border bg-background shadow-2xl animate-in slide-in-from-right duration-300">
@@ -326,15 +326,21 @@ function CompareCartDrawer({
                   <div className="flex flex-col items-center justify-center">
                     <ArrowLeftRight className="h-5 w-5 text-muted-foreground mb-1" />
                     {savings !== 0 && (
-                      <div className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
-                        savings > 0
-                          ? "bg-success/15 text-success"
-                          : "bg-destructive/15 text-destructive"
-                      }`}>
+                      <div
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+                          savings > 0
+                            ? "bg-success/15 text-success"
+                            : "bg-destructive/15 text-destructive"
+                        }`}
+                      >
                         {savings > 0 ? (
-                          <><TrendingDown className="h-3 w-3" /> Save ₹{savings}</>
+                          <>
+                            <TrendingDown className="h-3 w-3" /> Save ₹{savings}
+                          </>
                         ) : (
-                          <><TrendingUp className="h-3 w-3" /> +₹{Math.abs(savings)}</>
+                          <>
+                            <TrendingUp className="h-3 w-3" /> +₹{Math.abs(savings)}
+                          </>
                         )}
                       </div>
                     )}
@@ -347,7 +353,9 @@ function CompareCartDrawer({
                       What If
                     </div>
                     <div className="text-2xl font-bold text-brand">₹{comparedTotal}</div>
-                    <div className="text-xs text-muted-foreground">{comparedItems.length} items</div>
+                    <div className="text-xs text-muted-foreground">
+                      {comparedItems.length} items
+                    </div>
                   </div>
                 </div>
               </div>
@@ -378,12 +386,12 @@ function CompareCartDrawer({
                           isNew
                             ? "border-brand/40 bg-brand/5"
                             : isSwapped
-                            ? "border-amber-500/40 bg-amber-500/5"
-                            : priceDiff < 0
-                            ? "border-success/30 bg-success/5"
-                            : priceDiff > 0
-                            ? "border-destructive/30 bg-destructive/5"
-                            : "border-border/50 bg-background/50"
+                              ? "border-amber-500/40 bg-amber-500/5"
+                              : priceDiff < 0
+                                ? "border-success/30 bg-success/5"
+                                : priceDiff > 0
+                                  ? "border-destructive/30 bg-destructive/5"
+                                  : "border-border/50 bg-background/50"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -406,15 +414,20 @@ function CompareCartDrawer({
                             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                               <span className="capitalize">{item.brand}</span>
                               <span>·</span>
-                              <span>{item.quantity_units}× {item.unit_quantity}{item.unit}</span>
+                              <span>
+                                {item.quantity_units}× {item.unit_quantity}
+                                {item.unit}
+                              </span>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
                             <div className="text-sm font-bold">₹{item.total_price_inr}</div>
                             {original && priceDiff !== 0 && (
-                              <div className={`text-[10px] font-semibold ${
-                                priceDiff < 0 ? "text-success" : "text-destructive"
-                              }`}>
+                              <div
+                                className={`text-[10px] font-semibold ${
+                                  priceDiff < 0 ? "text-success" : "text-destructive"
+                                }`}
+                              >
                                 {priceDiff < 0 ? `↓ ₹${Math.abs(priceDiff)}` : `↑ ₹${priceDiff}`}
                                 <span className="ml-1 text-muted-foreground line-through">
                                   ₹{original.total_price_inr}
@@ -487,7 +500,8 @@ function CompareCartDrawer({
               <div className="space-y-1">
                 <p className="font-medium">Adjust the parameters above</p>
                 <p className="text-sm text-muted-foreground">
-                  Hit "Compare" to see how your cart changes with different budget, servings, or dietary preferences
+                  Hit "Compare" to see how your cart changes with different budget, servings, or
+                  dietary preferences
                 </p>
               </div>
             </div>
@@ -504,6 +518,27 @@ function CartPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
+
+  const syncToActiveChat = (newSession: any) => {
+    const state = useChatStore.getState();
+    if (state.cartData && String(state.cartData.session_id) === String(newSession.session_id)) {
+      state.setCartData((prev: any) => ({
+        ...prev,
+        total_price_inr: newSession.total_price_inr,
+        budget_exceeded: newSession.budget_exceeded,
+        cart: newSession.resolved_intents?.length 
+          ? newSession.resolved_intents.flatMap((g: any) => g.cart ?? []) 
+          : newSession.cart_items || newSession.cart || prev.cart,
+        unavailable_items: newSession.resolved_intents?.length 
+          ? newSession.resolved_intents.flatMap((g: any) => g.unavailable_items ?? []) 
+          : newSession.unavailable_items || prev.unavailable_items,
+      }));
+      if (newSession.resolved_intents?.length) {
+        state.setIntentGroups(newSession.resolved_intents);
+      }
+    }
+  };
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -523,10 +558,10 @@ function CartPage() {
           throw new Error(res.status === 404 ? "Session not found" : `Error ${res.status}`);
         }
         let data = await res.json();
-        
+
         // Merge with local history to support appended carts from Chat page
         const history = loadHistory();
-        const historyEntry = history.find(h => h.session_id === id);
+        const historyEntry = history.find((h) => h.session_id === id);
         if (historyEntry) {
           data = {
             ...data,
@@ -580,7 +615,7 @@ function CartPage() {
     setOptimizationSummary(null);
     try {
       // Artificial delay to showcase the semantic search loader
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
       const res = await fetch("/api/recompare", {
         method: "POST",
@@ -593,24 +628,29 @@ function CartPage() {
       });
 
       if (!res.ok) throw new Error("Auto-optimize failed");
-      
+
       const data = await res.json();
       const oldTotal = total;
       const newTotal = data.total_price_inr;
       const savings = oldTotal - newTotal;
 
       if (savings > 0) {
-        setOptimizationSummary(`✨ Successfully optimized! Saved ₹${savings} by swapping items for better value alternatives.`);
+        setOptimizationSummary(
+          `✨ Successfully optimized! Saved ₹${savings} by swapping items for better value alternatives.`,
+        );
       } else {
         setOptimizationSummary("✨ Cart is already fully optimized for the best value.");
       }
 
-      setSession((prev: any) => ({
-        ...prev,
-        resolved_intents: data.intents,
-        total_price_inr: data.total_price_inr,
-      }));
-
+      setSession((prev: any) => {
+        const next = {
+          ...prev,
+          resolved_intents: data.intents,
+          total_price_inr: data.total_price_inr,
+        };
+        syncToActiveChat(next);
+        return next;
+      });
     } catch (err) {
       console.error("Optimize error:", err);
     } finally {
@@ -641,7 +681,7 @@ function CartPage() {
               total_price_inr: alt.total_price_inr,
               rating: alt.rating,
               substituted: true,
-              substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`
+              substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`,
             };
             found = true;
             break;
@@ -663,12 +703,13 @@ function CartPage() {
             total_price_inr: alt.total_price_inr,
             rating: alt.rating,
             substituted: true,
-            substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`
+            substitution_reason: `Swapped to ${alt.brand} (${alt.reason})`,
           };
         }
       }
 
       newSession.total_price_inr = newTotal;
+      syncToActiveChat(newSession);
       return newSession;
     });
   };
@@ -680,15 +721,17 @@ function CartPage() {
 
     try {
       // Map cartItems to {sku, qty}
-      const itemsToReserve = cartItems.filter((i: any) => i.sku).map((i: any) => ({
-        sku: i.sku,
-        qty: i.quantity_units
-      }));
+      const itemsToReserve = cartItems
+        .filter((i: any) => i.sku)
+        .map((i: any) => ({
+          sku: i.sku,
+          qty: i.quantity_units,
+        }));
 
       const res = await fetch(`/api/cart/${session.session_id}/reserve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: itemsToReserve })
+        body: JSON.stringify({ items: itemsToReserve }),
       });
 
       const data = await res.json();
@@ -709,16 +752,18 @@ function CartPage() {
             session_id: session.session_id,
             event_type: "purchase",
             intent_type: session.intent_type,
-            context: "Completed checkout from cart review"
-          })
+            context: "Completed checkout from cart review",
+          }),
         });
       } catch (err) {
         console.error("Telemetry error:", err);
       }
-      
-      // Redirect to checkout page
-      setTimeout(() => navigate({ to: "/checkout/$id", params: { id: data.reservation_id } }), 1500);
 
+      // Redirect to checkout page
+      setTimeout(
+        () => navigate({ to: "/checkout/$id", params: { id: data.reservation_id } }),
+        1500,
+      );
     } catch (e: any) {
       setReservationStatus("error");
       setReservationMessage(e.message || "Something went wrong.");
@@ -728,12 +773,16 @@ function CartPage() {
   };
 
   const handleApplyCompare = (result: CompareResult) => {
-    setSession((prev: any) => ({
-      ...prev,
-      resolved_intents: result.intents,
-      total_price_inr: result.total_price_inr,
-      budget_exceeded: result.budget_exceeded,
-    }));
+    setSession((prev: any) => {
+      const next = {
+        ...prev,
+        resolved_intents: result.intents,
+        total_price_inr: result.total_price_inr,
+        budget_exceeded: result.budget_exceeded,
+      };
+      syncToActiveChat(next);
+      return next;
+    });
   };
 
   if (loading) {
@@ -801,12 +850,12 @@ function CartPage() {
           {/* Items */}
           <div className="space-y-4">
             {cartItems.map((it: any, idx: number) => (
-              <div 
-                key={it.sku || idx} 
+              <div
+                key={it.sku || idx}
                 className="group rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 via-background/60 to-background/40 shadow-md backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-brand/5 hover:border-brand/40 hover:scale-[1.02] active:scale-100"
                 style={{
                   animationDelay: `${idx * 50}ms`,
-                  animationFillMode: 'backwards'
+                  animationFillMode: "backwards",
                 }}
               >
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-5 p-5">
@@ -822,10 +871,14 @@ function CartPage() {
                         </span>
                       )}
                     </div>
-                    <div className="truncate text-lg font-bold text-foreground leading-tight">{it.name}</div>
+                    <div className="truncate text-lg font-bold text-foreground leading-tight">
+                      {it.name}
+                    </div>
                     <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                       <span className="inline-flex items-center gap-1 rounded-md bg-surface/60 px-2 py-0.5 border border-border/30">
-                        <span className="font-semibold text-foreground">{it.quantity_units}</span> × {it.unit_quantity}{it.unit}
+                        <span className="font-semibold text-foreground">{it.quantity_units}</span> ×{" "}
+                        {it.unit_quantity}
+                        {it.unit}
                       </span>
                     </div>
 
@@ -908,7 +961,8 @@ function CartPage() {
                       Unavailable Items
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {unavailableItems.length} item{unavailableItems.length !== 1 ? 's' : ''} could not be added
+                      {unavailableItems.length} item{unavailableItems.length !== 1 ? "s" : ""} could
+                      not be added
                     </div>
                   </div>
                 </div>
@@ -939,45 +993,47 @@ function CartPage() {
                     <span className="text-sm font-bold text-foreground">Budget Tracker</span>
                   </div>
                   <div className="flex items-baseline justify-between mb-4">
-                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">₹{total}</span>
+                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">
+                      ₹{total}
+                    </span>
                     <span className="text-sm font-medium text-muted-foreground">of ₹{budget}</span>
                   </div>
                   <div className="relative h-3 overflow-hidden rounded-full bg-gradient-to-r from-surface/80 to-surface/40 shadow-inner">
                     <div
                       className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                        total > budget 
-                          ? "bg-gradient-to-r from-destructive to-destructive/80 shadow-lg shadow-destructive/20" 
+                        total > budget
+                          ? "bg-gradient-to-r from-destructive to-destructive/80 shadow-lg shadow-destructive/20"
                           : "bg-gradient-to-r from-brand to-brand/80 shadow-lg shadow-brand/20"
                       }`}
                       style={{ width: `${budgetPct}%` }}
                     />
                   </div>
-                  <div className={`mt-3 flex items-center justify-between text-xs font-bold ${
-                    total > budget ? "text-destructive" : "text-success"
-                  }`}>
+                  <div
+                    className={`mt-3 flex items-center justify-between text-xs font-bold ${
+                      total > budget ? "text-destructive" : "text-success"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5">
                       {total > budget ? (
                         <>
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          ₹{total - budget} over budget
+                          <AlertTriangle className="h-3.5 w-3.5" />₹{total - budget} over budget
                         </>
                       ) : (
                         <>
-                          <Check className="h-3.5 w-3.5" />
-                        ₹{budget - total} remaining
-                      </>
-                    )}
+                          <Check className="h-3.5 w-3.5" />₹{budget - total} remaining
+                        </>
+                      )}
+                    </div>
+                    <button
+                      onClick={runAutoOptimize}
+                      disabled={optimizing}
+                      className="flex items-center gap-1 text-brand hover:text-brand/80 transition-colors disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Auto-Optimize
+                    </button>
                   </div>
-                  <button
-                    onClick={runAutoOptimize}
-                    disabled={optimizing}
-                    className="flex items-center gap-1 text-brand hover:text-brand/80 transition-colors disabled:opacity-50"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Auto-Optimize
-                  </button>
                 </div>
-              </div>
               ) : (
                 <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md">
                   <div className="flex items-center gap-2.5 mb-4">
@@ -987,7 +1043,9 @@ function CartPage() {
                     <span className="text-sm font-bold text-foreground">Cart Total</span>
                   </div>
                   <div className="mb-2">
-                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">₹{total}</span>
+                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">
+                      ₹{total}
+                    </span>
                   </div>
                   <div className="text-xs text-muted-foreground font-medium">
                     No budget constraint
@@ -1010,124 +1068,124 @@ function CartPage() {
                 </div>
               )}
 
-            <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-success/20 to-success/10 shadow-sm">
-                  <Check className="h-4 w-4 text-success" />
+              <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-success/20 to-success/10 shadow-sm">
+                    <Check className="h-4 w-4 text-success" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground">Final Review</span>
                 </div>
-                <span className="text-sm font-bold text-foreground">Final Review</span>
-              </div>
-              <ul className="space-y-3 text-xs font-medium text-muted-foreground">
-                {[
-                  "Assumptions look right",
-                  "Quantities match attendees",
-                  "Budget within range",
-                  "Reviewed alternatives",
-                ].map((q, i) => (
-                  <li 
-                    key={q} 
-                    className="flex items-center gap-2.5 p-2 rounded-lg bg-surface/40 border border-border/30 transition-all duration-300 hover:bg-surface/60 hover:border-success/30"
-                    style={{
-                      animationDelay: `${i * 100}ms`,
-                    }}
-                  >
-                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-success/20 to-success/10 shadow-sm">
-                      <Check className="h-3 w-3 text-success" />
-                    </div>
-                    <span className="text-foreground/80">{q}</span>
-                  </li>
-                ))}
-              </ul>
-              {reservationStatus === "error" && (
-                <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-destructive/15 to-destructive/10 px-4 py-3 text-xs font-semibold text-destructive border-2 border-destructive/30 shadow-lg shadow-destructive/10 animate-shake">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                  <span>{reservationMessage}</span>
-                </div>
-              )}
-              {reservationStatus === "success" && (
-                <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-success/15 to-success/10 px-4 py-3 text-xs font-semibold text-success border-2 border-success/30 shadow-lg shadow-success/10 animate-bounce-in">
-                  <Check className="h-4 w-4 flex-shrink-0" />
-                  <span>{reservationMessage}</span>
-                </div>
-              )}
-              <button 
-                onClick={handleReserve}
-                disabled={reserving || reservationStatus === "success"}
-                className="group relative mt-6 inline-flex h-12 w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand via-brand to-brand/90 text-sm font-bold text-brand-foreground shadow-[0_4px_24px_rgba(var(--color-brand),0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(var(--color-brand),0.35)] active:scale-100 disabled:pointer-events-none disabled:opacity-60 disabled:grayscale"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
-                {reserving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4.5 w-4.5 animate-spin" /> 
-                    <span>Reserving...</span>
-                  </>
-                ) : reservationStatus === "success" ? (
-                  <>
-                    <Check className="mr-2 h-4.5 w-4.5" /> 
-                    <span>Reserved</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Proceed to Checkout</span>
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </>
+                <ul className="space-y-3 text-xs font-medium text-muted-foreground">
+                  {[
+                    "Assumptions look right",
+                    "Quantities match attendees",
+                    "Budget within range",
+                    "Reviewed alternatives",
+                  ].map((q, i) => (
+                    <li
+                      key={q}
+                      className="flex items-center gap-2.5 p-2 rounded-lg bg-surface/40 border border-border/30 transition-all duration-300 hover:bg-surface/60 hover:border-success/30"
+                      style={{
+                        animationDelay: `${i * 100}ms`,
+                      }}
+                    >
+                      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-success/20 to-success/10 shadow-sm">
+                        <Check className="h-3 w-3 text-success" />
+                      </div>
+                      <span className="text-foreground/80">{q}</span>
+                    </li>
+                  ))}
+                </ul>
+                {reservationStatus === "error" && (
+                  <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-destructive/15 to-destructive/10 px-4 py-3 text-xs font-semibold text-destructive border-2 border-destructive/30 shadow-lg shadow-destructive/10 animate-shake">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                    <span>{reservationMessage}</span>
+                  </div>
                 )}
-              </button>
-            </div>
-
-            {/* Export */}
-            <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm">
-                  <Share2 className="h-4 w-4 text-brand" />
-                </div>
-                <span className="text-sm font-bold text-foreground">Export Cart</span>
-              </div>
-              <div className="flex gap-3">
+                {reservationStatus === "success" && (
+                  <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-success/15 to-success/10 px-4 py-3 text-xs font-semibold text-success border-2 border-success/30 shadow-lg shadow-success/10 animate-bounce-in">
+                    <Check className="h-4 w-4 flex-shrink-0" />
+                    <span>{reservationMessage}</span>
+                  </div>
+                )}
                 <button
-                  onClick={async () => {
-                    const exportData: ExportableCart = {
-                      context_summary: intentSummary || "My Cart",
-                      intent_type: intentTypeLabel || "general",
-                      cart: cartItems,
-                      total_price_inr: total,
-                    };
-                    const ok = await copyWhatsAppToClipboard(exportData);
-                    if (ok) {
-                      setCopySuccess(true);
-                      setTimeout(() => setCopySuccess(false), 2000);
-                    }
-                  }}
-                  className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border/60 bg-gradient-to-br from-background to-surface/40 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-md hover:shadow-brand/10 hover:scale-105 active:scale-100"
+                  onClick={handleReserve}
+                  disabled={reserving || reservationStatus === "success"}
+                  className="group relative mt-6 inline-flex h-12 w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand via-brand to-brand/90 text-sm font-bold text-brand-foreground shadow-[0_4px_24px_rgba(var(--color-brand),0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(var(--color-brand),0.35)] active:scale-100 disabled:pointer-events-none disabled:opacity-60 disabled:grayscale"
                 >
-                  <Share2 className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
-                  {copySuccess ? (
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
+                  {reserving ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-success" />
-                      <span className="text-success">Copied!</span>
+                      <Loader2 className="mr-2 h-4.5 w-4.5 animate-spin" />
+                      <span>Reserving...</span>
+                    </>
+                  ) : reservationStatus === "success" ? (
+                    <>
+                      <Check className="mr-2 h-4.5 w-4.5" />
+                      <span>Reserved</span>
                     </>
                   ) : (
-                    "WhatsApp"
+                    <>
+                      <span>Proceed to Checkout</span>
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </>
                   )}
                 </button>
-                <button
-                  onClick={() => {
-                    const exportData: ExportableCart = {
-                      context_summary: intentSummary || "My Cart",
-                      intent_type: intentTypeLabel || "general",
-                      cart: cartItems,
-                      total_price_inr: total,
-                    };
-                    downloadCSV(exportData);
-                  }}
-                  className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border/60 bg-gradient-to-br from-background to-surface/40 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-md hover:shadow-brand/10 hover:scale-105 active:scale-100"
-                >
-                  <Download className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
-                  CSV
-                </button>
+              </div>
+
+              {/* Export */}
+              <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-6 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm">
+                    <Share2 className="h-4 w-4 text-brand" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground">Export Cart</span>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      const exportData: ExportableCart = {
+                        context_summary: intentSummary || "My Cart",
+                        intent_type: intentTypeLabel || "general",
+                        cart: cartItems,
+                        total_price_inr: total,
+                      };
+                      const ok = await copyWhatsAppToClipboard(exportData);
+                      if (ok) {
+                        setCopySuccess(true);
+                        setTimeout(() => setCopySuccess(false), 2000);
+                      }
+                    }}
+                    className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border/60 bg-gradient-to-br from-background to-surface/40 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-md hover:shadow-brand/10 hover:scale-105 active:scale-100"
+                  >
+                    <Share2 className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
+                    {copySuccess ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-success" />
+                        <span className="text-success">Copied!</span>
+                      </>
+                    ) : (
+                      "WhatsApp"
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const exportData: ExportableCart = {
+                        context_summary: intentSummary || "My Cart",
+                        intent_type: intentTypeLabel || "general",
+                        cart: cartItems,
+                        total_price_inr: total,
+                      };
+                      downloadCSV(exportData);
+                    }}
+                    className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border/60 bg-gradient-to-br from-background to-surface/40 text-xs font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-md hover:shadow-brand/10 hover:scale-105 active:scale-100"
+                  >
+                    <Download className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+                    CSV
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
           </aside>
         </div>
       </div>

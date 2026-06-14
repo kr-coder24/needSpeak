@@ -32,7 +32,8 @@ export const occasions = [
     emoji: "🏏",
     desc: "Snacks, drinks & sides for match nights",
     items: 12,
-    prompt: "IPL watch party at my place for 10 people. Budget ₹1500. Need snacks, drinks and quick bites.",
+    prompt:
+      "IPL watch party at my place for 10 people. Budget ₹1500. Need snacks, drinks and quick bites.",
   },
   {
     id: "birthday",
@@ -40,7 +41,8 @@ export const occasions = [
     emoji: "🎂",
     desc: "Cake, decor, party essentials",
     items: 18,
-    prompt: "Birthday party for 15 kids aged 8-10. Need cake, snacks, juice, paper plates and decoration items. Budget ₹2500.",
+    prompt:
+      "Birthday party for 15 kids aged 8-10. Need cake, snacks, juice, paper plates and decoration items. Budget ₹2500.",
   },
   {
     id: "weekly",
@@ -48,7 +50,8 @@ export const occasions = [
     emoji: "🛒",
     desc: "Staples, fresh produce, household",
     items: 32,
-    prompt: "Weekly groceries for a family of 4, vegetarian. Need staples like rice, dal, atta, vegetables, milk and household basics. Budget ₹3000.",
+    prompt:
+      "Weekly groceries for a family of 4, vegetarian. Need staples like rice, dal, atta, vegetables, milk and household basics. Budget ₹3000.",
   },
   {
     id: "hostel",
@@ -56,7 +59,8 @@ export const occasions = [
     emoji: "🎓",
     desc: "Instant meals, toiletries, basics",
     items: 22,
-    prompt: "Hostel room restock for 1 person for a month. Need instant noodles, biscuits, coffee, toiletries and basic stationery. Budget ₹1200.",
+    prompt:
+      "Hostel room restock for 1 person for a month. Need instant noodles, biscuits, coffee, toiletries and basic stationery. Budget ₹1200.",
   },
   {
     id: "travel",
@@ -64,7 +68,8 @@ export const occasions = [
     emoji: "🧳",
     desc: "Toiletries, snacks, electronics",
     items: 14,
-    prompt: "3-day trip for 2 people. Need travel-size toiletries, snacks for the journey, medicines and quick-eat items. Budget ₹1000.",
+    prompt:
+      "3-day trip for 2 people. Need travel-size toiletries, snacks for the journey, medicines and quick-eat items. Budget ₹1000.",
   },
   {
     id: "festival",
@@ -72,7 +77,8 @@ export const occasions = [
     emoji: "🪔",
     desc: "Sweets, decor, gifts, puja items",
     items: 26,
-    prompt: "Diwali hosting at home for 20 guests. Need sweets, dry fruits, diyas, puja samagri and gift boxes. Budget ₹5000.",
+    prompt:
+      "Diwali hosting at home for 20 guests. Need sweets, dry fruits, diyas, puja samagri and gift boxes. Budget ₹5000.",
   },
   {
     id: "picnic",
@@ -80,7 +86,8 @@ export const occasions = [
     emoji: "🧺",
     desc: "Sandwiches, drinks, disposables for outdoor fun",
     items: 15,
-    prompt: "Picnic for 6 friends at a park. Need sandwich bread, cheese, juice boxes, chips, paper napkins and a disposable tablecloth. Budget ₹800.",
+    prompt:
+      "Picnic for 6 friends at a park. Need sandwich bread, cheese, juice boxes, chips, paper napkins and a disposable tablecloth. Budget ₹800.",
   },
   {
     id: "baby-shower",
@@ -88,7 +95,8 @@ export const occasions = [
     emoji: "👶",
     desc: "Pastries, decor, gifts, mocktails",
     items: 20,
-    prompt: "Baby shower celebration for 25 guests. Need pastries, mocktail ingredients, balloons, pastel decor, return gifts and finger food. Budget ₹4000.",
+    prompt:
+      "Baby shower celebration for 25 guests. Need pastries, mocktail ingredients, balloons, pastel decor, return gifts and finger food. Budget ₹4000.",
   },
   {
     id: "exam-prep",
@@ -96,7 +104,8 @@ export const occasions = [
     emoji: "📚",
     desc: "Energy snacks, coffee, quick meals for late nights",
     items: 16,
-    prompt: "Exam season supplies for 1 student, 2 weeks. Need instant coffee, biscuits, Maggi noodles, energy bars, juice and dry fruits for late-night study. Budget ₹600.",
+    prompt:
+      "Exam season supplies for 1 student, 2 weeks. Need instant coffee, biscuits, Maggi noodles, energy bars, juice and dry fruits for late-night study. Budget ₹600.",
   },
 ];
 

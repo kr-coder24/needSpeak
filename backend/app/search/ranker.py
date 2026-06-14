@@ -1,14 +1,20 @@
 """
-Deterministic product ranker V1.
+Deterministic product ranker V2.
 Scores retrieved candidates using a weighted combination of signals.
 
-Score formula:
-  0.30 * text_relevance
-  0.20 * availability
+V2 improvements over V1:
+- Brand preference boosted (20% → from 10%)
+- New popularity signal based on review_count (10%)
+- Dynamic weight adjustment by budget_mode
+- Category-level popularity tiebreaker
+
+Base weights (adjusted dynamically by budget_mode):
+  0.25 * text_relevance
+  0.15 * availability
   0.15 * price_fit
   0.15 * rating_quality
-  0.10 * brand_preference
-  0.10 * occasion_match
+  0.20 * brand_preference
+  0.10 * popularity
 
 Each signal is normalized to [0, 1].
 """
@@ -38,15 +44,43 @@ class RankingContext:
     remaining_budget: Optional[float] = None
 
 
-# Weights for V1 ranker
-WEIGHTS = {
-    "text_relevance": 0.30,
-    "availability": 0.20,
-    "price_fit": 0.15,
-    "rating_quality": 0.15,
-    "brand_preference": 0.10,
-    "occasion_match": 0.10,
-}
+def _get_weights(budget_mode: str) -> dict[str, float]:
+    """
+    Dynamic weight adjustment based on budget mode.
+    - value: price_fit becomes dominant signal
+    - premium: rating_quality and brand_preference dominate
+    - balanced: even distribution
+    """
+    if budget_mode == "value":
+        return {
+            "text_relevance": 0.25,
+            "availability": 0.10,
+            "price_fit": 0.25,       # boosted
+            "rating_quality": 0.10,   # reduced
+            "brand_preference": 0.15, # slightly reduced
+            "popularity": 0.10,
+            "occasion_match": 0.05,
+        }
+    elif budget_mode == "premium":
+        return {
+            "text_relevance": 0.20,
+            "availability": 0.10,
+            "price_fit": 0.05,       # almost ignored
+            "rating_quality": 0.25,   # boosted
+            "brand_preference": 0.25, # boosted
+            "popularity": 0.10,
+            "occasion_match": 0.05,
+        }
+    else:  # balanced
+        return {
+            "text_relevance": 0.25,
+            "availability": 0.10,
+            "price_fit": 0.15,
+            "rating_quality": 0.15,
+            "brand_preference": 0.20,
+            "popularity": 0.10,
+            "occasion_match": 0.05,
+        }
 
 
 def _normalize_text_score(score: float, max_score: float) -> float:
@@ -123,20 +157,42 @@ def _rating_quality_score(rating: float, review_count: int) -> float:
     return 0.7 * rating_norm + 0.3 * review_confidence
 
 
+def _popularity_score(review_count: int, max_review_count: int) -> float:
+    """
+    Standalone popularity signal based on review_count as a proxy for market share.
+    Products with more reviews = more widely purchased = safer default choice.
+    Uses log scale to prevent extreme dominance.
+    """
+    if max_review_count <= 0 or review_count <= 0:
+        return 0.0
+    # Log-normalized: log(count)/log(max) — caps at 1.0
+    return min(1.0, math.log(review_count + 1) / math.log(max_review_count + 1))
+
+
 def _brand_preference_score(
     brand: str,
     preferred_brands: list[str],
     avoided_brands: list[str],
 ) -> float:
     """
-    1.0 if preferred brand, 0.0 if avoided brand, 0.5 otherwise.
+    1.0 if preferred brand, 0.0 if avoided brand, 0.4 otherwise.
+    Partial match supported (e.g., "Tata" matches "Tata Sampann").
     """
     brand_lower = brand.lower()
-    if any(b.lower() == brand_lower for b in preferred_brands):
-        return 1.0
-    if any(b.lower() == brand_lower for b in avoided_brands):
-        return 0.0
-    return 0.5
+
+    # Exact or partial match for preferred brands
+    for b in preferred_brands:
+        b_lower = b.lower()
+        if b_lower == brand_lower or b_lower in brand_lower or brand_lower in b_lower:
+            return 1.0
+
+    # Exact or partial match for avoided brands
+    for b in avoided_brands:
+        b_lower = b.lower()
+        if b_lower == brand_lower or b_lower in brand_lower or brand_lower in b_lower:
+            return 0.0
+
+    return 0.4
 
 
 def _occasion_match_score(
@@ -169,9 +225,13 @@ def rank_candidates(
     if not candidates:
         return []
 
-    # Get max text score for normalization
+    # Get max values for normalization
     max_text_score = max(c.text_score for c in candidates) if candidates else 1.0
+    max_review_count = max(c.review_count for c in candidates) if candidates else 1
     all_prices = [c.price_inr for c in candidates]
+
+    # Get dynamic weights based on budget mode
+    weights = _get_weights(context.budget_mode)
 
     ranked: list[RankedProduct] = []
 
@@ -191,16 +251,18 @@ def rank_candidates(
             context.preferred_brands,
             context.avoided_brands,
         )
+        popularity = _popularity_score(candidate.review_count, max_review_count)
         occasion = _occasion_match_score(candidate, context.occasion)
 
         # Weighted sum
         score = (
-            WEIGHTS["text_relevance"] * text_rel
-            + WEIGHTS["availability"] * availability
-            + WEIGHTS["price_fit"] * price_fit
-            + WEIGHTS["rating_quality"] * rating_quality
-            + WEIGHTS["brand_preference"] * brand_pref
-            + WEIGHTS["occasion_match"] * occasion
+            weights["text_relevance"] * text_rel
+            + weights["availability"] * availability
+            + weights["price_fit"] * price_fit
+            + weights["rating_quality"] * rating_quality
+            + weights["brand_preference"] * brand_pref
+            + weights["popularity"] * popularity
+            + weights["occasion_match"] * occasion
         )
 
         # Build reason codes
@@ -213,6 +275,8 @@ def rank_candidates(
             reason_codes.append("budget_friendly")
         if rating_quality > 0.7:
             reason_codes.append("high_rating")
+        if popularity > 0.7:
+            reason_codes.append("popular_choice")
         if availability == 1.0:
             reason_codes.append("in_stock")
         if occasion > 0.7:
@@ -241,6 +305,7 @@ def rank_candidates(
                 "price_fit": round(price_fit, 3),
                 "rating_quality": round(rating_quality, 3),
                 "brand_preference": round(brand_pref, 3),
+                "popularity": round(popularity, 3),
                 "occasion_match": round(occasion, 3),
             },
             reason_codes=reason_codes,
@@ -250,7 +315,7 @@ def rank_candidates(
     # Sort by score descending
     ranked.sort(key=lambda r: r.score, reverse=True)
 
-    logger.debug(f"Ranked {len(ranked)} candidates, top={ranked[0].title if ranked else 'none'}")
+    logger.debug(f"Ranked {len(ranked)} candidates, top={ranked[0].title if ranked else 'none'} (score={ranked[0].score if ranked else 0})")
     return ranked
 
 
@@ -260,6 +325,8 @@ def _build_display_reason(reason_codes: list[str], candidate: ProductCandidate) 
 
     if "preferred_brand" in reason_codes:
         parts.append(f"Your preferred brand ({candidate.brand})")
+    if "popular_choice" in reason_codes and "preferred_brand" not in reason_codes:
+        parts.append("Most popular in category")
     if "keyword_match" in reason_codes:
         parts.append("Matched your request")
     if "high_rating" in reason_codes:

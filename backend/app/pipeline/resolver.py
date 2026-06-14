@@ -28,6 +28,37 @@ import os
 # New V2 imports
 from app.catalog.models import ProductQuery, RankedProduct
 from app.search.local_retrieval import LocalRetriever
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Words that stay lowercase in title case (articles, conjunctions, prepositions)
+_LOWERCASE_WORDS = {"a", "an", "the", "and", "or", "of", "for", "in", "on", "with", "to", "vs"}
+# Words/patterns that should stay uppercase (brand abbreviations, units)
+_UPPERCASE_PATTERNS = {"2l", "1l", "1.25l", "500ml", "250ml", "200g", "100g", "ml", "g", "kg", "pet", "itc", "mdh", "mtr"}
+
+
+def _title_case(name: str) -> str:
+    """Convert product name to proper title case, respecting brand abbreviations and units."""
+    if not name:
+        return name
+    words = name.split()
+    result = []
+    for i, word in enumerate(words):
+        lower = word.lower()
+        if lower in _UPPERCASE_PATTERNS or (len(word) <= 3 and word.upper() == word and word.isalpha()):
+            result.append(word.upper())
+        elif "-" in word:
+            # Handle hyphenated words like "coca-cola" → "Coca-Cola"
+            parts = word.split("-")
+            result.append("-".join(p[0].upper() + p[1:] if p else p for p in parts))
+        elif i == 0 or lower not in _LOWERCASE_WORDS:
+            result.append(word[0].upper() + word[1:] if word else word)
+        else:
+            result.append(lower)
+    return " ".join(result)
 from app.search.ranker import rank_candidates, RankingContext
 
 logger = logging.getLogger(__name__)
@@ -199,7 +230,7 @@ def _build_cart_item(
         
         alt_list.append({
             "sku": alt.sku,
-            "name": alt.title,
+            "name": _title_case(alt.title),
             "brand": alt.brand,
             "price_per_unit": alt.price_inr,
             "price_per_unit_inr": alt.price_inr,
@@ -215,7 +246,7 @@ def _build_cart_item(
     
     return CartItem(
         sku=product.sku,
-        name=product.title,
+        name=_title_case(product.title),
         brand=product.brand,
         quantity_units=quantity_units,
         unit=product.unit,

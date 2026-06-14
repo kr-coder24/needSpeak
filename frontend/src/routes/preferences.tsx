@@ -20,7 +20,7 @@ export const Route = createFileRoute("/preferences")({
   component: PreferencesPage,
 });
 
-const dietaryOptions: { id: UserPreferences["dietary"], label: string }[] = [
+const dietaryOptions: { id: UserPreferences["dietary"]; label: string }[] = [
   { id: "any", label: "No restriction" },
   { id: "veg", label: "Vegetarian" },
   { id: "vegan", label: "Vegan" },
@@ -81,59 +81,86 @@ function PreferencesPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        
+
         // Normalize dietary value from LLM response
         if (data.dietary) {
           const dietMap: Record<string, UserPreferences["dietary"]> = {
-            "any": "any", "none": "any", "no restriction": "any",
-            "veg": "veg", "vegetarian": "veg",
-            "vegan": "vegan",
-            "jain": "jain",
+            any: "any",
+            none: "any",
+            "no restriction": "any",
+            veg: "veg",
+            vegetarian: "veg",
+            vegan: "vegan",
+            jain: "jain",
           };
           const normalized = dietMap[data.dietary.toLowerCase()] || "any";
           setDiet(normalized);
         }
-        
+
         // Normalize budget mode
         if (data.budget_mode) {
           const modeMap: Record<string, UserPreferences["budgetStyle"]> = {
-            "value": "value", "cheap": "value", "budget": "value",
-            "balanced": "balanced", "moderate": "balanced",
-            "premium": "premium", "expensive": "premium", "quality": "premium",
+            value: "value",
+            cheap: "value",
+            budget: "value",
+            balanced: "balanced",
+            moderate: "balanced",
+            premium: "premium",
+            expensive: "premium",
+            quality: "premium",
           };
           const normalized = modeMap[data.budget_mode.toLowerCase()] || "balanced";
           setStyle(normalized);
         }
-        
+
         // Add extracted brands (merge with existing picks)
         if (data.preferred_brands && Array.isArray(data.preferred_brands)) {
-          const extractedBrands = data.preferred_brands.map((b: string) =>
-            b.charAt(0).toUpperCase() + b.slice(1)
+          const extractedBrands = data.preferred_brands.map(
+            (b: string) => b.charAt(0).toUpperCase() + b.slice(1),
           );
           setPicked((prev) => Array.from(new Set([...prev, ...extractedBrands])));
         }
 
         // Auto-save after extraction so preferences are immediately active
         const dietMap2: Record<string, UserPreferences["dietary"]> = {
-          "any": "any", "none": "any", "no restriction": "any",
-          "veg": "veg", "vegetarian": "veg", "vegan": "vegan", "jain": "jain",
+          any: "any",
+          none: "any",
+          "no restriction": "any",
+          veg: "veg",
+          vegetarian: "veg",
+          vegan: "vegan",
+          jain: "jain",
         };
         const modeMap2: Record<string, UserPreferences["budgetStyle"]> = {
-          "value": "value", "cheap": "value", "budget": "value",
-          "balanced": "balanced", "moderate": "balanced",
-          "premium": "premium", "expensive": "premium", "quality": "premium",
+          value: "value",
+          cheap: "value",
+          budget: "value",
+          balanced: "balanced",
+          moderate: "balanced",
+          premium: "premium",
+          expensive: "premium",
+          quality: "premium",
         };
         const finalDiet: UserPreferences["dietary"] = data.dietary
-          ? (dietMap2[String(data.dietary).toLowerCase()] || "any")
+          ? dietMap2[String(data.dietary).toLowerCase()] || "any"
           : diet;
         const finalStyle: UserPreferences["budgetStyle"] = data.budget_mode
-          ? (modeMap2[String(data.budget_mode).toLowerCase()] || "balanced")
+          ? modeMap2[String(data.budget_mode).toLowerCase()] || "balanced"
           : style;
         const finalBrands = data.preferred_brands?.length
-          ? Array.from(new Set([...picked, ...data.preferred_brands.map((b: string) => b.charAt(0).toUpperCase() + b.slice(1))]))
+          ? Array.from(
+              new Set([
+                ...picked,
+                ...data.preferred_brands.map((b: string) => b.charAt(0).toUpperCase() + b.slice(1)),
+              ]),
+            )
           : picked;
 
-        savePreferences({ dietary: finalDiet, budgetStyle: finalStyle, preferredBrands: finalBrands });
+        savePreferences({
+          dietary: finalDiet,
+          budgetStyle: finalStyle,
+          preferredBrands: finalBrands,
+        });
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 3000);
         setMagicText("");
@@ -160,9 +187,7 @@ function PreferencesPage() {
         <section className="mt-8 rounded-2xl border border-brand/30 bg-gradient-to-br from-brand/5 to-transparent p-6 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="text-xl">✨</span>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              Magic Setup
-            </h2>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Magic Setup</h2>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Tell us how you shop in your own words, and we'll configure everything for you.
@@ -282,18 +307,20 @@ function PreferencesPage() {
               );
             })}
             {/* Show extracted brands that aren't in the predefined list */}
-            {picked.filter(p => !brands.includes(p)).map((b) => (
-              <button
-                key={b}
-                onClick={() => toggle(b)}
-                className="rounded-full border border-brand bg-brand/15 px-3 py-1.5 text-sm text-foreground relative"
-              >
-                {b}
-                <span className="ml-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-brand-foreground">
-                  ✓
-                </span>
-              </button>
-            ))}
+            {picked
+              .filter((p) => !brands.includes(p))
+              .map((b) => (
+                <button
+                  key={b}
+                  onClick={() => toggle(b)}
+                  className="rounded-full border border-brand bg-brand/15 px-3 py-1.5 text-sm text-foreground relative"
+                >
+                  {b}
+                  <span className="ml-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-brand-foreground">
+                    ✓
+                  </span>
+                </button>
+              ))}
           </div>
         </section>
 

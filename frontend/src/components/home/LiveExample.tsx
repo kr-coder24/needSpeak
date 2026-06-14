@@ -34,7 +34,9 @@ export function LiveExample() {
         <SpotlightCard className="rounded-2xl border border-border bg-card/80 p-2">
           <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
             <span>{iplCart.title}</span>
-            <span>{iplCart.attendees} people · Budget ₹{iplCart.budget}</span>
+            <span>
+              {iplCart.attendees} people · Budget ₹{iplCart.budget}
+            </span>
           </div>
           <ul className="divide-y divide-border rounded-xl bg-background/60">
             {iplCart.items.slice(0, 5).map((it) => (

@@ -4,12 +4,18 @@ import { occasions } from "@/lib/mock/needspeak";
 // Editorial photography per occasion (Unsplash, content-licensed).
 const imageFor: Record<string, string> = {
   ipl: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=900&q=70",
-  birthday: "https://images.unsplash.com/photo-1558636508-e0db3814bd1d?auto=format&fit=crop&w=900&q=70",
-  weekly: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=70",
-  hostel: "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=900&q=70",
-  travel: "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=900&q=70",
-  festival: "https://images.unsplash.com/photo-1604423043492-41e2aafc6e7d?auto=format&fit=crop&w=900&q=70",
-  picnic: "https://images.unsplash.com/photo-1526401485004-46910ecc8e51?auto=format&fit=crop&w=900&q=70",
+  birthday:
+    "https://images.unsplash.com/photo-1558636508-e0db3814bd1d?auto=format&fit=crop&w=900&q=70",
+  weekly:
+    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=70",
+  hostel:
+    "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=900&q=70",
+  travel:
+    "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=900&q=70",
+  festival:
+    "https://images.unsplash.com/photo-1604423043492-41e2aafc6e7d?auto=format&fit=crop&w=900&q=70",
+  picnic:
+    "https://images.unsplash.com/photo-1526401485004-46910ecc8e51?auto=format&fit=crop&w=900&q=70",
 };
 
 const tagFor: Record<string, string> = {
@@ -32,11 +38,7 @@ export function OccasionsStrip() {
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {featured.map((o) => (
-            <Link
-              key={o.id}
-              to="/chat"
-              className="group block"
-            >
+            <Link key={o.id} to="/chat" className="group block">
               <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-surface">
                 <img
                   src={imageFor[o.id]}

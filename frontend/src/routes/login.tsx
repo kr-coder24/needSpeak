@@ -220,10 +220,7 @@ function LoginPage() {
 
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-      const body =
-        mode === "login"
-          ? { email, password }
-          : { email, password, name };
+      const body = mode === "login" ? { email, password } : { email, password, name };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -320,9 +317,7 @@ function LoginPage() {
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          © 2026 NeedSpeak — Amazon HackOn
-        </div>
+        <div className="text-xs text-muted-foreground">© 2026 NeedSpeak — Amazon HackOn</div>
       </div>
 
       {/* Right panel — form */}
@@ -331,7 +326,9 @@ function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center">
             <Link to="/" className="flex items-center gap-2">
-              <span className="font-display text-5xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
+              <span className="font-display text-5xl font-bold tracking-tight uppercase">
+                NEEDSPEAK
+              </span>
             </Link>
           </div>
 
@@ -393,9 +390,7 @@ function LoginPage() {
             {/* Name (signup only) */}
             {mode === "signup" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Full name
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Full name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -413,9 +408,7 @@ function LoginPage() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Email address
-              </label>
+              <label className="text-xs font-medium text-muted-foreground">Email address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -455,9 +448,7 @@ function LoginPage() {
             {/* Password */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Password
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Password</label>
                 {mode === "login" && (
                   <button type="button" className="text-xs text-brand hover:underline">
                     Forgot password?
@@ -481,11 +472,7 @@ function LoginPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
 
@@ -498,26 +485,22 @@ function LoginPage() {
                       <div
                         key={i}
                         className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                          i <= passwordStrength.score
-                            ? passwordStrength.color
-                            : "bg-border"
+                          i <= passwordStrength.score ? passwordStrength.color : "bg-border"
                         }`}
                       />
                     ))}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      Strength: <span className="font-medium text-foreground">{passwordStrength.label}</span>
+                      Strength:{" "}
+                      <span className="font-medium text-foreground">{passwordStrength.label}</span>
                     </span>
                   </div>
 
                   {/* Check list */}
                   <div className="grid grid-cols-2 gap-1.5">
                     {passwordStrength.checks.map((check) => (
-                      <div
-                        key={check.label}
-                        className="flex items-center gap-1.5 text-xs"
-                      >
+                      <div key={check.label} className="flex items-center gap-1.5 text-xs">
                         {check.passed ? (
                           <Check className="h-3 w-3 text-success shrink-0" />
                         ) : (
@@ -525,9 +508,7 @@ function LoginPage() {
                         )}
                         <span
                           className={
-                            check.passed
-                              ? "text-muted-foreground"
-                              : "text-muted-foreground/50"
+                            check.passed ? "text-muted-foreground" : "text-muted-foreground/50"
                           }
                         >
                           {check.label}

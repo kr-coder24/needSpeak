@@ -1,14 +1,15 @@
 export interface ExportableCart {
-  context_summary: string
-  intent_type: string
-  cart: any[]
-  total_price_inr: number
+  context_summary: string;
+  intent_type: string;
+  cart: any[];
+  total_price_inr: number;
 }
 
 export function exportAsWhatsApp(data: ExportableCart): string {
   const lines = data.cart.map(
-    (item) => `• ${item.name} (${item.brand}) × ${item.quantity_units} ${item.unit} — ₹${(item.price_per_unit_inr * item.quantity_units).toFixed(0)}`
-  )
+    (item) =>
+      `• ${item.name} (${item.brand}) × ${item.quantity_units} ${item.unit} — ₹${(item.price_per_unit_inr * item.quantity_units).toFixed(0)}`,
+  );
   return [
     `🛒 *${data.context_summary || data.intent_type}*`,
     ``,
@@ -17,11 +18,11 @@ export function exportAsWhatsApp(data: ExportableCart): string {
     `*Total: ₹${data.total_price_inr.toFixed(0)}*`,
     ``,
     `Built with NeedSpeak 🚀`,
-  ].join("\n")
+  ].join("\n");
 }
 
 export function exportAsCSV(data: ExportableCart): string {
-  const header = "Name,Brand,Qty,Unit,Price Per Unit,Line Total"
+  const header = "Name,Brand,Qty,Unit,Price Per Unit,Line Total";
   const rows = data.cart.map((item) =>
     [
       item.name,
@@ -30,20 +31,20 @@ export function exportAsCSV(data: ExportableCart): string {
       item.unit,
       item.price_per_unit_inr,
       (item.price_per_unit_inr * item.quantity_units).toFixed(0),
-    ].join(",")
-  )
-  return [header, ...rows].join("\n")
+    ].join(","),
+  );
+  return [header, ...rows].join("\n");
 }
 
 export function downloadCSV(data: ExportableCart, filename = "cart.csv") {
-  const csv = exportAsCSV(data)
-  const blob = new Blob([csv], { type: "text/csv" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  const csv = exportAsCSV(data);
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -51,24 +52,24 @@ export function downloadCSV(data: ExportableCart, filename = "cart.csv") {
  * Returns true if successful, false otherwise.
  */
 export async function copyWhatsAppToClipboard(data: ExportableCart): Promise<boolean> {
-  const text = exportAsWhatsApp(data)
+  const text = exportAsWhatsApp(data);
   try {
-    await navigator.clipboard.writeText(text)
-    return true
+    await navigator.clipboard.writeText(text);
+    return true;
   } catch {
     // Fallback for older browsers
     try {
-      const textarea = document.createElement("textarea")
-      textarea.value = text
-      textarea.style.position = "fixed"
-      textarea.style.left = "-9999px"
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand("copy")
-      document.body.removeChild(textarea)
-      return true
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return true;
     } catch {
-      return false
+      return false;
     }
   }
 }

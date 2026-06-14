@@ -24,14 +24,14 @@ export interface SwappedItem {
 }
 
 export interface CartDiff {
-  added: CartItem[];       // items in new cart but not in old
-  removed: CartItem[];     // items in old cart but not in new
-  swapped: SwappedItem[];  // same item name, different SKU/price
-  unchanged: CartItem[];   // identical items
+  added: CartItem[]; // items in new cart but not in old
+  removed: CartItem[]; // items in old cart but not in new
+  swapped: SwappedItem[]; // same item name, different SKU/price
+  unchanged: CartItem[]; // identical items
   summary: {
     oldTotal: number;
     newTotal: number;
-    difference: number;    // positive = saved, negative = spent more
+    difference: number; // positive = saved, negative = spent more
     itemCountChange: number;
   };
 }
@@ -119,12 +119,14 @@ export function diffCarts(oldCart: CartItem[], newCart: CartItem[]): CartDiff {
  * Handles case differences, extra whitespace, etc.
  */
 function normalizeItemName(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ")
-    // Remove common suffixes that might differ
-    .replace(/\s*(pack|pcs?|pieces?|units?)$/i, "");
+  return (
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ")
+      // Remove common suffixes that might differ
+      .replace(/\s*(pack|pcs?|pieces?|units?)$/i, "")
+  );
 }
 
 /**

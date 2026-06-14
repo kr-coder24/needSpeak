@@ -450,9 +450,14 @@ function CheckoutPage() {
                 {/* Items preview list */}
                 <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                   {cartItems.map((it: any, idx: number) => (
-                    <div key={it.sku || idx} className="flex justify-between items-start text-xs gap-3">
+                    <div
+                      key={it.sku || idx}
+                      className="flex justify-between items-start text-xs gap-3"
+                    >
                       <div className="min-w-0">
-                        <span className="font-medium text-foreground block truncate">{it.name}</span>
+                        <span className="font-medium text-foreground block truncate">
+                          {it.name}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">
                           {it.quantity_units} × {it.unit_quantity}
                           {it.unit}
@@ -514,7 +519,12 @@ function CheckoutPage() {
             <h2 className="mt-6 text-xl font-semibold">Processing Your Order</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Please do not refresh the page or press the back button. We are secure-charging your{" "}
-              {paymentMethod === "upi" ? "UPI Account" : paymentMethod === "card" ? "Card" : "COD order"}.
+              {paymentMethod === "upi"
+                ? "UPI Account"
+                : paymentMethod === "card"
+                  ? "Card"
+                  : "COD order"}
+              .
             </p>
           </div>
         )}
@@ -537,13 +547,17 @@ function CheckoutPage() {
             </div>
 
             <div className="mt-10 rounded-2xl border border-border bg-card p-6 space-y-6">
-              <h2 className="text-lg font-semibold border-b border-border pb-3">Delivery Information</h2>
+              <h2 className="text-lg font-semibold border-b border-border pb-3">
+                Delivery Information
+              </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-xs text-muted-foreground block">Deliver to</span>
                   <span className="font-medium block mt-0.5">{name}</span>
-                  <span className="text-muted-foreground text-xs">{address}, {city} - {pincode}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {address}, {city} - {pincode}
+                  </span>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground block">Estimated Delivery</span>
@@ -560,7 +574,10 @@ function CheckoutPage() {
                 </h3>
                 <div className="divide-y divide-border/40">
                   {cartItems.map((it: any, idx: number) => (
-                    <div key={it.sku || idx} className="flex justify-between items-center py-2 text-xs">
+                    <div
+                      key={it.sku || idx}
+                      className="flex justify-between items-center py-2 text-xs"
+                    >
                       <div>
                         <span className="font-medium text-foreground">{it.name}</span>
                         <span className="text-muted-foreground block text-[10px]">

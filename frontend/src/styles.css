@@ -63,12 +63,8 @@
   --font-serif: "Newsreader", ui-serif, Georgia, serif;
 
   /* Editorial-grade shadows: very soft, warm-tinted */
-  --shadow-soft:
-    0 1px 2px oklch(0.2 0.01 70 / 0.04),
-    0 8px 24px oklch(0.2 0.01 70 / 0.05);
-  --shadow-pop:
-    0 2px 4px oklch(0.2 0.01 70 / 0.06),
-    0 16px 40px oklch(0.2 0.01 70 / 0.08);
+  --shadow-soft: 0 1px 2px oklch(0.2 0.01 70 / 0.04), 0 8px 24px oklch(0.2 0.01 70 / 0.05);
+  --shadow-pop: 0 2px 4px oklch(0.2 0.01 70 / 0.06), 0 16px 40px oklch(0.2 0.01 70 / 0.08);
 }
 
 /* ─── LIGHT — Anthropic warm beige palette ────────────────────────────────── */
@@ -194,7 +190,9 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    font-feature-settings: "liga" on, "kern" on;
+    font-feature-settings:
+      "liga" on,
+      "kern" on;
     letter-spacing: -0.01em;
   }
 
@@ -226,46 +224,66 @@
 
 /* Slow-drifting hero aurora; honors reduced motion. */
 @keyframes ns-aurora {
-  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
-  50%  { transform: translate3d(-2%, 1%, 0) scale(1.05); opacity: 0.85; }
-  100% { transform: translate3d(2%, -1%, 0) scale(1); opacity: 1; }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(-2%, 1%, 0) scale(1.05);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate3d(2%, -1%, 0) scale(1);
+    opacity: 1;
+  }
 }
 
 /* Cart page animations */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scale-in {
-  from { 
-    opacity: 0; 
+  from {
+    opacity: 0;
     transform: scale(0.95);
   }
-  to { 
-    opacity: 1; 
+  to {
+    opacity: 1;
     transform: scale(1);
   }
 }
 
 @keyframes bounce-in {
-  0% { 
+  0% {
     opacity: 0;
     transform: scale(0.9);
   }
-  50% { 
+  50% {
     transform: scale(1.05);
   }
-  100% { 
+  100% {
     opacity: 1;
     transform: scale(1);
   }
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 .animate-fade-in {
@@ -303,11 +321,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [style*="ns-aurora"] { animation: none !important; }
+  [style*="ns-aurora"] {
+    animation: none !important;
+  }
   .animate-fade-in,
   .animate-scale-in,
   .animate-bounce-in,
-  .animate-shake { 
-    animation: none !important; 
+  .animate-shake {
+    animation: none !important;
   }
 }

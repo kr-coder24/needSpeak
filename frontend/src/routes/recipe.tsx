@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, Check, ChefHat, ListChecks, ShoppingCart, Loader2, AlertCircle } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChefHat,
+  ListChecks,
+  ShoppingCart,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { saveToHistory } from "@/lib/cart-history";
 
@@ -50,7 +58,7 @@ function RecipePage() {
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
+
   const [cartItems, setCartItems] = useState<any[] | null>(null);
   const [recipeTitle, setRecipeTitle] = useState<string>("");
   const [servings, setServings] = useState<number | null>(null);
@@ -90,7 +98,7 @@ function RecipePage() {
       }
 
       const data = await res.json();
-      
+
       clearTimeout(timer1);
       clearTimeout(timer2);
       setActiveStep(3); // All done!
@@ -101,7 +109,7 @@ function RecipePage() {
 
       setCartItems(flatCart);
       setSessionId(data.session_id);
-      
+
       const firstIntent = intents[0];
       setRecipeTitle(firstIntent?.context_summary || "Parsed Recipe");
       setServings(data.servings || firstIntent?.servings || 4);
@@ -119,7 +127,6 @@ function RecipePage() {
         summary: data.summary || "",
       });
       window.dispatchEvent(new Event("cart-history-updated"));
-
     } catch (err: any) {
       clearTimeout(timer1);
       clearTimeout(timer2);
@@ -239,7 +246,9 @@ function RecipePage() {
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="text-sm text-muted-foreground">Recipe</div>
-                <div className="text-lg font-semibold">{recipeTitle} · {servings} servings</div>
+                <div className="text-lg font-semibold">
+                  {recipeTitle} · {servings} servings
+                </div>
               </div>
               <div className="text-right">
                 <div className="text-sm text-muted-foreground">Estimated</div>
@@ -282,4 +291,3 @@ function RecipePage() {
     </AppShell>
   );
 }
-

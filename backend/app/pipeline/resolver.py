@@ -38,17 +38,31 @@ _retriever: Optional[ProductRetriever] = None
 
 
 def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
-    """Get or create the retriever singleton."""
+    """
+    Get or create the retriever singleton.
+    
+    Priority:
+    1. SEARCH_PROVIDER=opensearch -> OpenSearchRetriever (if explicitly set)
+    2. SEARCH_PROVIDER=hybrid (default) -> HybridRetriever (BM25 + synonyms + fuzzy)
+    3. SEARCH_PROVIDER=local -> LocalVectorRetriever (vector-only fallback)
+    """
     global _retriever
     if _retriever is None:
-        provider = os.getenv("SEARCH_PROVIDER", "local").strip().lower()
+        provider = os.getenv("SEARCH_PROVIDER", "hybrid").strip().lower()
+        
         if provider == "opensearch":
             from app.search.opensearch_retrieval import OpenSearchRetriever
             host = os.getenv("OPENSEARCH_HOST", "")
             _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
-        else:
+        elif provider == "local":
+            # Legacy local vector retrieval
             from app.search.local_vector_retrieval import LocalVectorRetriever
             _retriever = LocalVectorRetriever(mock_mode=mock_mode)
+        else:
+            # Default: hybrid retriever (BM25 + synonyms + fuzzy matching)
+            from app.search.hybrid_retrieval import HybridRetriever
+            _retriever = HybridRetriever(mock_mode=mock_mode)
+            
     return _retriever
 
 

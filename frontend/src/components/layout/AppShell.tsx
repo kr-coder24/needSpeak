@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
-import { ShoppingCart, Sliders, Sun, Moon } from "lucide-react";
+import { ShoppingCart, Sliders, Sun, Moon, Users } from "lucide-react";
 import logo from "@/assets/needspeak-logo.png";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
@@ -8,6 +8,7 @@ import { getStoredAuth } from "@/routes/login";
 import { createCollabSession } from "@/lib/collab-api";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { CreateCollabCard } from "@/components/collab/CreateCollabCard";
+import { CursorGlow } from "@/components/effects/CursorGlow";
 import { Footer } from "./Footer";
 
 const nav = [
@@ -75,10 +76,10 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
 
   return (
     <div className={`flex flex-col bg-background relative z-0 ${isAppLayout ? "h-screen overflow-hidden" : "min-h-screen"}`}>
+      <CursorGlow />
       <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img src={logo} alt="NeedSpeak" className="h-8 w-8" />
             <span className="font-display text-2xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
           </Link>
 
@@ -102,14 +103,15 @@ export function AppShell({ children, noFooter = false }: { children: ReactNode; 
             
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <button className="rounded-md px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand/10 transition-colors">
-                  + Create Collab
+                <button className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-all hover:border-foreground/40 hover:bg-surface hover:shadow-soft">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  Start a group cart
                 </button>
               </DialogTrigger>
-              <DialogContent className="p-0 bg-transparent border-none shadow-none max-w-lg w-full outline-none sm:max-w-[500px]">
-                <CreateCollabCard 
-                  onSubmit={handleCreateCollab} 
-                  onCancel={() => setIsDialogOpen(false)} 
+              <DialogContent className="p-0 bg-transparent border-none shadow-none w-[calc(100vw-2rem)] max-w-2xl sm:max-w-2xl outline-none [&>button]:hidden">
+                <CreateCollabCard
+                  onSubmit={handleCreateCollab}
+                  onCancel={() => setIsDialogOpen(false)}
                   isCreating={isCreatingCollab}
                 />
               </DialogContent>

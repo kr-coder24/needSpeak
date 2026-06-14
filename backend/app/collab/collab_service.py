@@ -16,7 +16,7 @@ from app.collab.models import (
 )
 from app.db.dynamo import get_all_products
 from app.models import ExtractedItem
-from app.pipeline.resolver import _calculate_quantity_units, _match_product
+from app.pipeline.resolver import _calculate_quantity_units, _exact_match, _keyword_overlap_match
 from app.unit_conversions import normalize_to_base_unit
 
 _ALTERNATIVE_FAMILIES = [
@@ -186,7 +186,9 @@ def resolve_collab_input(
         notes=item_input.notes,
     )
 
-    product = _match_product(extracted, products)
+    product = _exact_match(extracted.name, products)
+    if product is None:
+        product = _keyword_overlap_match(extracted.name, products, extracted.category)
     match_reason = "Matched by product name"
     if product is None:
         product = _alias_match(extracted.name, products)

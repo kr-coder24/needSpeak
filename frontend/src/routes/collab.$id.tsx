@@ -29,11 +29,11 @@ export const Route = createFileRoute("/collab/$id")({
 });
 
 const contributorColors = [
-  "bg-blue-600",
-  "bg-emerald-600",
-  "bg-violet-600",
-  "bg-amber-600",
-  "bg-rose-600",
+  "bg-foreground/80",
+  "bg-foreground/60",
+  "bg-brand",
+  "bg-muted-foreground",
+  "bg-foreground/45",
 ];
 
 const units = ["piece", "pack", "g", "kg", "ml", "l"];
@@ -399,7 +399,7 @@ function CollabPage() {
                     notice.kind === "success"
                       ? "border-success/20 bg-success/5 text-success"
                       : notice.kind === "warning"
-                        ? "border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+                        ? "border-border bg-muted text-foreground"
                         : "border-destructive/20 bg-destructive/5 text-destructive"
                   }`}
                 >
@@ -415,7 +415,7 @@ function CollabPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  className="rounded-3xl border border-amber-500/25 bg-amber-500/5 p-5"
+                  className="rounded-3xl border border-border bg-muted p-5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -590,7 +590,7 @@ function CollabPage() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="text-lg font-extrabold capitalize">{item.name}</h3>
                                 {item.demands.length > 1 && (
-                                  <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                                     {item.demands.length} demands merged
                                   </span>
                                 )}
@@ -690,7 +690,7 @@ function CollabPage() {
                           </div>
 
                           {item.pending_substitution && (
-                            <div className="mt-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+                            <div className="mt-4 rounded-2xl border border-border bg-muted p-4">
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                   <p className="text-sm font-bold">

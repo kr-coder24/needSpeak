@@ -224,11 +224,11 @@ function RecipePage() {
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="mt-6 flex gap-3 rounded-xl border border-red-200 bg-red-50/50 p-4 text-sm text-red-800">
-            <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+          <div className="mt-6 flex gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
             <div>
               <h3 className="font-semibold">Extraction failed</h3>
-              <p className="mt-1 text-red-700/90">{errorMsg}</p>
+              <p className="mt-1 text-destructive/90">{errorMsg}</p>
             </div>
           </div>
         )}

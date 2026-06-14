@@ -1,0 +1,18 @@
+* [33m449f74d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmember-3-features[m[33m, [m[1;31mupstream/aman-2[m[33m)[m vp
+*   [33m182a800[m chore: sync aman-2 with member-3-features
+[32m|[m[33m\[m  
+[32m|[m * [33m09357bb[m feat: landing page updates
+[32m|[m * [33m956a44c[m feat: sync and resolve conflicts, add new features
+[32m|[m * [33m066a951[m chore: remove unnecessary scratch files
+[32m|[m * [33m30bf3ee[m[33m ([m[1;31mupstream/member-3-features[m[33m, [m[1;31morigin/member-3-features[m[33m)[m chore: remove all python test files and tests directory
+* [33m|[m [33m16339a8[m feat: sync and resolve conflicts, add new features
+* [33m|[m [33m14cda02[m chore: remove unnecessary scratch files
+* [33m|[m [33m8c351f9[m chore: remove all python test files and tests directory
+[33m|[m[33m/[m  
+* [33m559a60e[m chore: remove obsolete files (campusflow.service, tagger.py, temp_frontend)
+* [33m84f22df[m chore: remove global Razorpay script integration to fix blocked console errors
+* [33m2c8da56[m feat: add demo sandbox payment completion page and redirect checkout page to it
+* [33m2d71e34[m fix: resolve frontend JSX syntax error and backend requirements encoding issues
+*   [33m50e6c45[m Merge branch 'member-3-features' into aman-2
+[34m|[m[35m\[m  
+[34m|[m * [33m2cc779c[m chore: update documentation and frontend routes

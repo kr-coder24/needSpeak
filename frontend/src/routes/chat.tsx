@@ -177,6 +177,36 @@ function CartItemRow({
       pb.toLowerCase().includes(item.brand?.toLowerCase() || ""),
   );
 
+  // Get health badge display info
+  const getHealthBadgeInfo = (badge: string) => {
+    const badgeMap: Record<string, { label: string; color: string; icon: string }> = {
+      excellent: {
+        label: "Excellent Choice",
+        color: "bg-green-500/15 text-green-700 border-green-500/30",
+        icon: "✓",
+      },
+      good: {
+        label: "Good Choice",
+        color: "bg-blue-500/15 text-blue-700 border-blue-500/30",
+        icon: "✓",
+      },
+      moderate: {
+        label: "Moderate",
+        color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
+        icon: "⚠",
+      },
+      poor: {
+        label: "Less Healthy",
+        color: "bg-orange-500/15 text-orange-700 border-orange-500/30",
+        icon: "!",
+      },
+    };
+    return badgeMap[badge] || null;
+  };
+
+  const healthInfo = item.health_badge ? getHealthBadgeInfo(item.health_badge) : null;
+  const productBadge = item.product_badge; // For non-food items
+
   return (
     <div className="rounded-xl border border-border/60 bg-background/50 shadow-sm transition-all hover:shadow-md hover:border-brand/30">
       <div className="group p-3">
@@ -200,6 +230,22 @@ function CartItemRow({
                   className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getItemBadge(item.sku)!.color}`}
                 >
                   {getItemBadge(item.sku)!.label}
+                </span>
+              )}
+              {healthInfo && (
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium border ${healthInfo.color}`}
+                  title={`Health Score: ${item.health_score ? Math.round(item.health_score) : 'N/A'}/100${item.sugar_per_100 !== undefined ? ` • Sugar: ${item.sugar_per_100}g/100ml` : ''}`}
+                >
+                  {healthInfo.icon} {healthInfo.label}
+                </span>
+              )}
+              {!healthInfo && productBadge && (
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium border ${productBadge.color}`}
+                  title={productBadge.type}
+                >
+                  {productBadge.icon} {productBadge.label}
                 </span>
               )}
             </div>
@@ -252,6 +298,8 @@ function CartItemRow({
               {alternatives.slice(0, 4).map((alt: any) => {
                 const savings = item.total_price_inr - alt.total_price_inr;
                 const savingsPercent = ((savings / item.total_price_inr) * 100).toFixed(0);
+                const altHealthInfo = alt.health_badge ? getHealthBadgeInfo(alt.health_badge) : null;
+                const altProductBadge = alt.product_badge; // For non-food alternatives
 
                 return (
                   <div
@@ -264,6 +312,22 @@ function CartItemRow({
                         {savings > 0 && (
                           <span className="shrink-0 rounded-full bg-success/15 px-1.5 py-0.5 text-[9px] font-semibold text-success">
                             Save {savingsPercent}%
+                          </span>
+                        )}
+                        {altHealthInfo && (
+                          <span
+                            className={`shrink-0 text-[8px] px-1 py-0.5 rounded-full font-medium border ${altHealthInfo.color}`}
+                            title={`Health: ${altHealthInfo.label}${alt.health_score ? ` (${Math.round(alt.health_score)}/100)` : ''}`}
+                          >
+                            {altHealthInfo.icon}
+                          </span>
+                        )}
+                        {!altHealthInfo && altProductBadge && (
+                          <span
+                            className={`shrink-0 text-[8px] px-1 py-0.5 rounded-full font-medium border ${altProductBadge.color}`}
+                            title={altProductBadge.label}
+                          >
+                            {altProductBadge.icon}
                           </span>
                         )}
                       </div>

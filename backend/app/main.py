@@ -117,8 +117,7 @@ def _parse_brands_form(value: str | None) -> list[str]:
 # Startup / Shutdown
 # ---------------------------------------------------------------------------
 
-# In-memory store for simulated demo reservations
-_fake_reservations: dict[str, dict] = {}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -362,14 +361,14 @@ async def parse_content(req: ParseRequest, request: Request):
             implicit_prefs = build_implicit_preferences(user_events)
             
         extraction = apply_preferences(extraction, prefs, implicit_prefs)
-        effective_preferred_brands = sorted({
+        effective_preferred_brands: list[str] = [str(x) for x in sorted({
             *(req.preferred_brands or []),
             *((implicit_prefs.preferred_brands if implicit_prefs else []) or []),
-        })
-        effective_preferred_categories = sorted({
+        })]
+        effective_preferred_categories: list[str] = [str(x) for x in sorted({
             *(req.preferred_categories or []),
             *((implicit_prefs.preferred_categories if implicit_prefs else []) or []),
-        })
+        })]
 
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
@@ -546,7 +545,7 @@ async def _run_multimodal_pipeline(
     session_id: str,
     extracted_text: str,
     input_type: str,
-    budget_inr: float = None,
+    budget_inr: float | None = None,
     dietary_pref: str | None = None,
     preferred_brands: list[str] | None = None,
     avoided_brands: list[str] | None = None,
@@ -615,14 +614,14 @@ async def _run_multimodal_pipeline(
             implicit_prefs = build_implicit_preferences(user_events)
 
         extraction = apply_preferences(extraction, prefs, implicit_prefs)
-        effective_preferred_brands = sorted({
+        effective_preferred_brands: list[str] = [str(x) for x in sorted({
             *(preferred_brands or []),
             *((implicit_prefs.preferred_brands if implicit_prefs else []) or []),
-        })
-        effective_preferred_categories = sorted({
+        })]
+        effective_preferred_categories: list[str] = [str(x) for x in sorted({
             *(preferred_categories or []),
             *((implicit_prefs.preferred_categories if implicit_prefs else []) or []),
-        })
+        })]
 
         for intent in extraction.intents:
             cart_items, unavailable_items, intent_total_price, intent_budget_exceeded = resolve_cart(
@@ -734,7 +733,7 @@ async def _run_multimodal_pipeline(
 async def ingest_image(
     request: Request,
     image: UploadFile = File(...),
-    budget_inr: float = Form(None),
+    budget_inr: float | None = Form(None),
     dietary_pref: Optional[str] = Form(None),
     preferred_brands: Optional[str] = Form(None),
     avoided_brands: Optional[str] = Form(None),
@@ -829,7 +828,7 @@ async def ingest_image(
 async def ingest_pdf(
     request: Request,
     file: UploadFile = File(...),
-    budget_inr: float = None,
+    budget_inr: float | None = None,
 ):
     session_id = str(uuid.uuid4())
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
@@ -873,7 +872,7 @@ async def ingest_pdf(
 async def ingest_prescription(
     request: Request,
     file: UploadFile = File(...),
-    budget_inr: float = None,
+    budget_inr: float | None = None,
 ):
     session_id = str(uuid.uuid4())
     mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
@@ -939,90 +938,44 @@ from app.inventory.models import (
     PaymentIntentRequest,
     PaymentIntentResponse,
 )
+from app.inventory.reservations import (
+    reserve_items,
+    get_reservation_metadata as get_reservation,
+    commit_reservation,
+)
 
 @app.post("/api/cart/{session_id}/reserve", response_model=ReservationResponse)
 async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Request):
-    """Reserve inventory for cart items (Simulated Demo)."""
-    reservation_id = f"res_{session_id}"
+    """Reserve inventory for cart items."""
+    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
+    user_id = request.headers.get("X-User-ID", "demo_user")
     
-    if not req.items:
-        raise HTTPException(status_code=400, detail="No items to reserve")
+    success, failed_skus, reservation_id, metadata = reserve_items(
+        items=[item.model_dump() for item in req.items],
+        session_id=session_id,
+        user_id=user_id,
+        idempotency_key=req.idempotency_key,
+        mock_mode=mock_mode,
+    )
     
-    try:
-        catalog = load_all_products()
-        products_map = {p["sku"]: p for p in catalog}
-    except Exception as e:
-        logger.error(f"Simulated reservation failed to load catalog: {e}")
-        products_map = {}
-        
-    reserved_items = []
-    total_amount = 0.0
-    
-    for item in req.items:
-        product = products_map.get(item.sku, {})
-        price = float(product.get("price_inr", 100.0))
-        name = product.get("name", f"Mock Product {item.sku}")
-        
-        item_total = price * item.qty
-        reserved_items.append({
-            "sku": item.sku,
-            "name": name,
-            "qty": item.qty,
-            "price_per_unit": price,
-            "total": item_total,
-        })
-        total_amount += item_total
-        
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
-    
-    res_data = {
-        "reservation_id": reservation_id,
-        "status": "reserved",
-        "reserved_items": reserved_items,
-        "failed_items": [],
-        "total_amount": total_amount,
-        "expires_at": expires_at,
-        "message": f"Successfully reserved {len(reserved_items)} item(s) (Simulated)",
-    }
-    
-    _fake_reservations[reservation_id] = {
-        "status": "reserved",
-        "total_amount": total_amount,
-        "metadata": res_data
-    }
-    
+    status_val = "reserved" if success else ("partial_failed" if len(failed_skus) < len(req.items) else "failed")
     return ReservationResponse(
-        reservation_id=reservation_id,
-        status="reserved",
-        reserved_items=reserved_items,
-        failed_items=[],
-        total_amount=total_amount,
-        expires_at=expires_at,
-        message=f"Successfully reserved {len(reserved_items)} item(s) (Simulated)"
+        reservation_id=reservation_id or f"res_{session_id}",
+        status=status_val,
+        reserved_items=metadata.get("reserved_items", []),
+        failed_items=metadata.get("failed_items", []),
+        total_amount=metadata.get("total_amount", 0.0),
+        expires_at=metadata.get("expires_at", ""),
+        message=metadata.get("message", ""),
     )
 
 
 @app.get("/api/reservation/{reservation_id}")
 async def get_reservation_details(reservation_id: str):
-    """Get reservation details (Simulated Demo)."""
-    reservation = _fake_reservations.get(reservation_id)
+    """Get reservation details."""
+    reservation = get_reservation(reservation_id)
     if not reservation:
-        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
-        reservation = {
-            "status": "reserved",
-            "total_amount": 299.0,
-            "metadata": {
-                "reserved_items": [
-                    {"sku": "SKU-MILK", "name": "Organic Milk 2L", "qty": 1, "price_per_unit": 120.0, "total": 120.0},
-                    {"sku": "SKU-BREAD", "name": "Whole Wheat Bread 400g", "qty": 2, "price_per_unit": 89.5, "total": 179.0}
-                ],
-                "failed_items": [],
-                "total_amount": 299.0,
-                "expires_at": expires_at,
-                "message": "Simulated fallback reservation"
-            }
-        }
-        _fake_reservations[reservation_id] = reservation
+        raise HTTPException(status_code=404, detail="Reservation not found")
         
     try:
         from app.collab.carbon_footprint import compute_cart_carbon
@@ -1062,25 +1015,10 @@ async def get_reservation_details(reservation_id: str):
 
 @app.post("/api/payment/create-intent", response_model=PaymentIntentResponse)
 async def create_payment_intent(req: PaymentIntentRequest):
-    """Create payment intent with Razorpay or Stripe (Simulated Demo)."""
-    reservation = _fake_reservations.get(req.reservation_id)
+    """Create payment intent with Razorpay or Stripe."""
+    reservation = get_reservation(req.reservation_id)
     if not reservation:
-        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
-        reservation = {
-            "status": "reserved",
-            "total_amount": 299.0,
-            "metadata": {
-                "reserved_items": [
-                    {"sku": "SKU-MILK", "name": "Organic Milk 2L", "qty": 1, "price_per_unit": 120.0, "total": 120.0},
-                    {"sku": "SKU-BREAD", "name": "Whole Wheat Bread 400g", "qty": 2, "price_per_unit": 89.5, "total": 179.0}
-                ],
-                "failed_items": [],
-                "total_amount": 299.0,
-                "expires_at": expires_at,
-                "message": "Simulated fallback reservation"
-            }
-        }
-        _fake_reservations[req.reservation_id] = reservation
+        raise HTTPException(status_code=404, detail="Reservation not found")
     
     if reservation["status"] != "reserved":
         raise HTTPException(status_code=400, detail="Reservation is not in reserved state")
@@ -1145,14 +1083,12 @@ class ConfirmPaymentRequest(BaseModel):
 
 @app.post("/api/payment/confirm")
 async def confirm_payment(req: ConfirmPaymentRequest):
-    """Confirm payment and commit reservation (Simulated Demo)."""
-    reservation = _fake_reservations.get(req.reservation_id)
+    """Confirm payment and commit reservation."""
+    reservation = get_reservation(req.reservation_id)
     if not reservation:
         raise HTTPException(status_code=404, detail="Reservation not found")
     
-    _fake_reservations[req.reservation_id]["status"] = "committed"
-    if "metadata" in _fake_reservations[req.reservation_id]:
-        _fake_reservations[req.reservation_id]["metadata"]["status"] = "committed"
+    commit_reservation(req.reservation_id, [])
     
     return {"success": True, "message": "Order confirmed (Simulated)"}
 
@@ -1167,7 +1103,7 @@ async def confirm_payment(req: ConfirmPaymentRequest):
 async def parse_pdf(
     request: Request,
     pdf: UploadFile = File(...),
-    budget_inr: float = Form(None),
+    budget_inr: float | None = Form(None),
     dietary_pref: Optional[str] = Form(None),
     preferred_brands: Optional[str] = Form(None),
     avoided_brands: Optional[str] = Form(None),

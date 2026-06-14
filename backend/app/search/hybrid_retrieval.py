@@ -513,3 +513,10 @@ class HybridRetriever:
 
         logger.info(f"HybridRetriever: query='{query.query_text}' expanded={len(expanded_tokens)} tokens -> {len(candidates)} candidates")
         return candidates
+
+
+def retrieve_candidates(query: ProductQuery, mock_mode: bool = False, limit: int = 30) -> list[ProductCandidate]:
+    """Helper function to run hybrid retrieval (for backward compatibility)."""
+    retriever = HybridRetriever(mock_mode=mock_mode)
+    return retriever.retrieve(query, limit=limit)
+

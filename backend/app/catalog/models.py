@@ -36,6 +36,17 @@ class Product(BaseModel):
     occasion_tags: set[str] = Field(default_factory=set)  # party, birthday, picnic, etc.
     image_url: str = ""
     search_text: str = ""  # concatenated text for BM25-style retrieval
+    
+    # Health & Nutritional fields (per 100g/100ml)
+    calories_per_100: Optional[Decimal] = None  # kcal
+    protein_per_100: Optional[Decimal] = None  # grams
+    carbs_per_100: Optional[Decimal] = None  # grams
+    sugar_per_100: Optional[Decimal] = None  # grams
+    fat_per_100: Optional[Decimal] = None  # grams
+    saturated_fat_per_100: Optional[Decimal] = None  # grams
+    fiber_per_100: Optional[Decimal] = None  # grams
+    sodium_per_100: Optional[Decimal] = None  # mg
+    health_score: Optional[Decimal] = None  # 0-100, calculated health rating
 
     class Config:
         arbitrary_types_allowed = True
@@ -116,6 +127,16 @@ class RankedProduct(BaseModel):
     display_reason: str = ""
     purchase_likelihood: float = Field(default=0.0, ge=0.0, le=1.0)
     likely_rating: float = Field(default=0.0, ge=0.0, le=100.0)
+    
+    # Nutritional fields (per 100g/100ml)
+    calories_per_100: Optional[Decimal] = None
+    protein_per_100: Optional[Decimal] = None
+    carbs_per_100: Optional[Decimal] = None
+    sugar_per_100: Optional[Decimal] = None
+    fat_per_100: Optional[Decimal] = None
+    saturated_fat_per_100: Optional[Decimal] = None
+    fiber_per_100: Optional[Decimal] = None
+    sodium_per_100: Optional[Decimal] = None
 
 
 class ProductAlternative(BaseModel):

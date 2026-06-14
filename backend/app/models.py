@@ -135,6 +135,16 @@ class CartItem(BaseModel):
     likely_rating: float = Field(default=0.0, ge=0.0, le=100.0)
     stock_status: str = "available"
     requires_validation: bool = Field(default=False)
+    
+    # Health & Nutritional info (for food items)
+    health_score: Optional[float] = None
+    health_badge: Optional[str] = None  # "excellent", "good", "moderate", "poor"
+    calories_per_100: Optional[float] = None
+    sugar_per_100: Optional[float] = None
+    protein_per_100: Optional[float] = None
+    
+    # Product badges (for non-food items)
+    product_badge: Optional[dict] = None  # {label, color, icon, type}
 
 
 

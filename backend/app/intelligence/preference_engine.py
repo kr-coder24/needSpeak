@@ -124,10 +124,15 @@ def apply_preferences(
     if not preferences and not implicit_preferences:
         return extraction
         
-    active_dietary = preferences.dietary if preferences else []
     active_brands = set(preferences.preferred_brands) if preferences else set()
     if implicit_preferences and implicit_preferences.preferred_brands:
         active_brands.update(implicit_preferences.preferred_brands)
+        
+    # Explicit user preferences (Pillar 9) are superior to implicit history.
+    # If a user explicitly avoids a brand, strip it from the active brands list even if they bought it previously.
+    if preferences and preferences.avoided_brands:
+        avoided_set = {b.lower() for b in preferences.avoided_brands}
+        active_brands = {b for b in active_brands if b.lower() not in avoided_set}
         
     preferred_brands_list = list(active_brands)
 

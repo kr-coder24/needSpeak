@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PaymentIdRouteImport } from './routes/payment.$id'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
@@ -62,6 +63,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentIdRoute = PaymentIdRouteImport.update({
+  id: '/payment/$id',
+  path: '/payment/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CollabIdRoute = CollabIdRouteImport.update({
   id: '/collab/$id',
   path: '/collab/$id',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/payment/$id': typeof PaymentIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/payment/$id': typeof PaymentIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRoutesById {
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
+  '/payment/$id': typeof PaymentIdRoute
   '/collab/join/$code': typeof CollabJoinCodeRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/payment/$id'
     | '/collab/join/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/payment/$id'
     | '/collab/join/$code'
   id:
     | '__root__'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
+    | '/payment/$id'
     | '/collab/join/$code'
   fileRoutesById: FileRoutesById
 }
@@ -183,6 +195,7 @@ export interface RootRouteChildren {
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
+  PaymentIdRoute: typeof PaymentIdRoute
   CollabJoinCodeRoute: typeof CollabJoinCodeRoute
 }
 
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/$id': {
+      id: '/payment/$id'
+      path: '/payment/$id'
+      fullPath: '/payment/$id'
+      preLoaderRoute: typeof PaymentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/collab/$id': {
       id: '/collab/$id'
       path: '/collab/$id'
@@ -287,6 +307,7 @@ const rootRouteChildren: RootRouteChildren = {
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,
+  PaymentIdRoute: PaymentIdRoute,
   CollabJoinCodeRoute: CollabJoinCodeRoute,
 }
 export const routeTree = rootRouteImport

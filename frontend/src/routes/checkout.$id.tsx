@@ -31,50 +31,13 @@ function CheckoutPage() {
 
     setProcessing(true);
     try {
-      // Step 1: Create payment intent
-      const intentRes = await fetch("/api/payment/create-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reservation_id: reservationId, customer_email: customerEmail }),
-      });
-
-      const intentData = await intentRes.json();
-      
-      // Step 2: For Razorpay, open payment modal
-      if ((window as any).Razorpay) {
-        const options = {
-          key: "YOUR_RAZORPAY_KEY_ID", // TODO: Get from env or backend
-          amount: intentData.amount * 100,
-          currency: intentData.currency,
-          order_id: intentData.client_secret,
-          name: "NeedSpeak",
-          description: "Smart Shopping Cart",
-          handler: async (response: any) => {
-            // Payment successful
-            await fetch("/api/payment/confirm", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reservation_id: reservationId,
-                payment_id: response.razorpay_payment_id,
-              }),
-            });
-
-            // Navigate to confirmation
-            navigate({ to: "/order-confirmed", search: { reservation: reservationId } });
-          },
-          prefill: { email: customerEmail },
-          theme: { color: "#6366f1" },
-        };
-
-        const razorpay = new ((window as any).Razorpay)(options);
-        razorpay.open();
-      } else {
-        alert("Payment gateway not loaded. Please refresh.");
-      }
+      // Micro-delay for secure initiation experience
+      await new Promise((r) => setTimeout(r, 600));
+      // Navigate to the demo payment completion page
+      navigate({ to: "/payment/$id", params: { id: reservationId } });
     } catch (err) {
       console.error("Payment error:", err);
-      alert("Payment failed. Please try again.");
+      alert("Failed to initiate payment. Please try again.");
     } finally {
       setProcessing(false);
     }

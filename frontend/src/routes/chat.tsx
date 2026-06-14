@@ -1010,159 +1010,6 @@ function ChatPage() {
             <div className="pointer-events-auto flex flex-col gap-2 rounded-3xl border border-border/60 bg-background/95 p-3 shadow-pop backdrop-blur-xl dark:bg-[#252422]/90">
               {/* Budget input */}
               <div className="flex flex-wrap items-center justify-between gap-3 px-2">
-                  Budget
-                </label>
-                <input
-                  id="budget-input"
-                  type="number"
-                  min={50}
-                  step={100}
-                  placeholder="optional"
-                  value={budgetInput}
-                  onChange={(e) => setBudgetInput(e.target.value)}
-                  className="h-7 w-24 rounded-full border border-border/50 bg-surface px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
-                />
-                {budgetInput && (
-                  <span className="text-xs text-muted-foreground">
-                    ₹{parseInt(budgetInput || "0", 10).toLocaleString("en-IN")}
-                  </span>
-                )}
-              </div>
-
-            {/* Attachment chip strip */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                <LinkIcon className="mr-1.5 h-3.5 w-3.5" /> URL
-              </button>
-              
-              <button 
-                onClick={() => imageInputRef.current?.click()}
-                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Image
-              </button>
-
-              <button 
-                onClick={() => pdfInputRef.current?.click()}
-                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF
-              </button>
-
-              <button 
-                onClick={() => {
-                  const whatsappText = prompt("Paste your WhatsApp message:");
-                  if (whatsappText?.trim()) {
-                    setText(whatsappText.trim());
-                    setInputType("whatsapp");
-                  }
-                }}
-                className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <Paperclip className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
-              </button>
-              
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  setPhase("thinking");
-                  setMessages(m => [...m, { role: "user", text: `📷 Uploaded: ${file.name}` }]);
-
-                  const prefs = loadPreferences();
-                  const userId = getStoredUserId();
-                  const uploadBudget = budgetInput ? parseInt(budgetInput, 10) : undefined;
-                  const formData = new FormData();
-                  formData.append("image", file);
-                  if (uploadBudget) formData.append("budget_inr", String(uploadBudget));
-                  if (prefillOccasion) formData.append("occasion", prefillOccasion);
-                  appendPreferenceFormData(formData, prefs, userId);
-
-                  try {
-                    const res = await fetch("/api/parse-image", { method: "POST", body: formData });
-                    if (!res.ok) throw new Error("Image parsing failed");
-                    const data = await res.json();
-                    if (data.intents) {
-                      applyCartResponse(data, uploadBudget);
-                    } else if (data.extracted_text) {
-                      setText(data.extracted_text);
-                      setInputType("text");
-                      onSubmit(data.extracted_text, "text");
-                    } else {
-                      throw new Error("Image parsing returned no cart or extracted text");
-                    }
-                  } catch (err: any) {
-                    setErrorMsg(err.message);
-                    setPhase("idle");
-                  } finally {
-                    e.target.value = "";
-                  }
-                }}
-              />
-
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  setPhase("thinking");
-                  setMessages(m => [...m, { role: "user", text: `📄 Uploaded PDF: ${file.name}` }]);
-
-                  const prefs = loadPreferences();
-                  const userId = getStoredUserId();
-                  const uploadBudget = budgetInput ? parseInt(budgetInput, 10) : undefined;
-                  const formData = new FormData();
-                  formData.append("pdf", file);
-                  if (uploadBudget) formData.append("budget_inr", String(uploadBudget));
-                  if (prefillOccasion) formData.append("occasion", prefillOccasion);
-                  appendPreferenceFormData(formData, prefs, userId);
-
-                  try {
-                    const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
-                    if (!res.ok) throw new Error("PDF parsing failed");
-                    const data = await res.json();
-                    if (data.intents) {
-                      applyCartResponse(data, uploadBudget);
-                    } else if (data.extracted_text) {
-                      setText(data.extracted_text);
-                      setInputType("text");
-                      onSubmit(data.extracted_text, "text");
-                    } else {
-                      throw new Error("PDF parsing returned no cart or extracted text");
-                    }
-                  } catch (err: any) {
-                    setErrorMsg(err.message);
-                    setPhase("idle");
-                  } finally {
-                    e.target.value = "";
-                  }
-                }}
-              />
-            </div>
-            </div>
-
-            <PromptInput onSubmit={onSubmit} className="border-0 bg-transparent shadow-none ring-0">
-              <PromptInputTextarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={
-                  voice.status === "listening"
-                    ? "Listening… speak now"
-                    : voice.status === "processing"
-                    ? "Transcribing…"
-                    : "Describe what you're planning…"
-                }
-              />
-              <div className="flex items-center justify-between p-2">
-                {/* Voice input button */}
->>>>>>> member-3-features
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor="budget-input"
@@ -1236,30 +1083,32 @@ function ChatPage() {
                       ]);
 
                       const prefs = loadPreferences();
+                      const userId = getStoredUserId();
+                      const uploadBudget = budgetInput ? parseInt(budgetInput, 10) : undefined;
                       const formData = new FormData();
                       formData.append("image", file);
-                      if (budgetInput) formData.append("budget_inr", budgetInput);
-                      if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
-                      if (prefs.preferredBrands.length)
-                        formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
-                      if (prefs.budgetStyle !== "balanced")
-                        formData.append("budget_style", prefs.budgetStyle);
+                      if (uploadBudget) formData.append("budget_inr", String(uploadBudget));
+                      if (prefillOccasion) formData.append("occasion", prefillOccasion);
+                      appendPreferenceFormData(formData, prefs, userId);
 
                       try {
-                        const res = await fetch("/api/parse-image", {
-                          method: "POST",
-                          body: formData,
-                        });
+                        const res = await fetch("/api/parse-image", { method: "POST", body: formData });
                         if (!res.ok) throw new Error("Image parsing failed");
                         const data = await res.json();
-                        if (data.extracted_text) {
+                        if (data.intents) {
+                          applyCartResponse(data, uploadBudget);
+                        } else if (data.extracted_text) {
                           setText(data.extracted_text);
                           setInputType("text");
                           onSubmit(data.extracted_text, "text");
+                        } else {
+                          throw new Error("Image parsing returned no cart or extracted text");
                         }
                       } catch (err: any) {
                         setErrorMsg(err.message);
                         setPhase("idle");
+                      } finally {
+                        e.target.value = "";
                       }
                     }}
                   />
@@ -1279,30 +1128,32 @@ function ChatPage() {
                       ]);
 
                       const prefs = loadPreferences();
+                      const userId = getStoredUserId();
+                      const uploadBudget = budgetInput ? parseInt(budgetInput, 10) : undefined;
                       const formData = new FormData();
                       formData.append("pdf", file);
-                      if (budgetInput) formData.append("budget_inr", budgetInput);
-                      if (prefs.dietary !== "any") formData.append("dietary_pref", prefs.dietary);
-                      if (prefs.preferredBrands.length)
-                        formData.append("preferred_brands", JSON.stringify(prefs.preferredBrands));
-                      if (prefs.budgetStyle !== "balanced")
-                        formData.append("budget_style", prefs.budgetStyle);
+                      if (uploadBudget) formData.append("budget_inr", String(uploadBudget));
+                      if (prefillOccasion) formData.append("occasion", prefillOccasion);
+                      appendPreferenceFormData(formData, prefs, userId);
 
                       try {
-                        const res = await fetch("/api/parse-pdf", {
-                          method: "POST",
-                          body: formData,
-                        });
+                        const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
                         if (!res.ok) throw new Error("PDF parsing failed");
                         const data = await res.json();
-                        if (data.extracted_text) {
+                        if (data.intents) {
+                          applyCartResponse(data, uploadBudget);
+                        } else if (data.extracted_text) {
                           setText(data.extracted_text);
                           setInputType("text");
                           onSubmit(data.extracted_text, "text");
+                        } else {
+                          throw new Error("PDF parsing returned no cart or extracted text");
                         }
                       } catch (err: any) {
                         setErrorMsg(err.message);
                         setPhase("idle");
+                      } finally {
+                        e.target.value = "";
                       }
                     }}
                   />

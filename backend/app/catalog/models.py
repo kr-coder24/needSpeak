@@ -89,6 +89,8 @@ class ProductQuery(BaseModel):
     occasion: Optional[str] = None
     preferred_brands: list[str] = Field(default_factory=list)
     avoided_brands: list[str] = Field(default_factory=list)
+    preferred_categories: list[str] = Field(default_factory=list)
+    avoided_categories: list[str] = Field(default_factory=list)
 
 
 class RankedProduct(BaseModel):
@@ -112,6 +114,8 @@ class RankedProduct(BaseModel):
     score_breakdown: dict[str, float] = Field(default_factory=dict)
     reason_codes: list[str] = Field(default_factory=list)
     display_reason: str = ""
+    purchase_likelihood: float = Field(default=0.0, ge=0.0, le=1.0)
+    likely_rating: float = Field(default=0.0, ge=0.0, le=100.0)
 
 
 class ProductAlternative(BaseModel):

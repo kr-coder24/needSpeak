@@ -3,12 +3,13 @@ Deterministic product ranker V1.
 Scores retrieved candidates using a weighted combination of signals.
 
 Score formula:
-  0.30 * text_relevance
-  0.20 * availability
-  0.15 * price_fit
-  0.15 * rating_quality
-  0.10 * brand_preference
-  0.10 * occasion_match
+  0.45 * retrieval_relevance
+  0.15 * availability
+  0.12 * price_fit
+  0.13 * rating_quality
+  0.08 * brand_preference
+  0.04 * category_preference
+  0.03 * occasion_match
 
 Each signal is normalized to [0, 1].
 """
@@ -34,23 +35,28 @@ class RankingContext:
     dietary_pref: Optional[str] = None
     preferred_brands: list[str] = field(default_factory=list)
     avoided_brands: list[str] = field(default_factory=list)
+    preferred_categories: list[str] = field(default_factory=list)
+    avoided_categories: list[str] = field(default_factory=list)
+    quality_preference: str = "balanced"  # value, balanced, quality
+    pack_size_preference: str = "balanced"  # small, balanced, bulk
     occasion: Optional[str] = None
     remaining_budget: Optional[float] = None
 
 
 # Weights for V1 ranker
 WEIGHTS = {
-    "text_relevance": 0.30,
-    "availability": 0.20,
-    "price_fit": 0.15,
-    "rating_quality": 0.15,
-    "brand_preference": 0.10,
-    "occasion_match": 0.10,
+    "retrieval_relevance": 0.45,
+    "availability": 0.15,
+    "price_fit": 0.12,
+    "rating_quality": 0.13,
+    "brand_preference": 0.08,
+    "category_preference": 0.04,
+    "occasion_match": 0.03,
 }
 
 
-def _normalize_text_score(score: float, max_score: float) -> float:
-    """Normalize BM25/text score to [0, 1]."""
+def _normalize_score(score: float, max_score: float) -> float:
+    """Normalize a retrieval score to [0, 1]."""
     if max_score <= 0:
         return 0.0
     return min(1.0, score / max_score)
@@ -123,6 +129,15 @@ def _rating_quality_score(rating: float, review_count: int) -> float:
     return 0.7 * rating_norm + 0.3 * review_confidence
 
 
+def _quality_preference_score(base_quality: float, quality_preference: str) -> float:
+    """Adjust quality signal for users who explicitly prefer quality."""
+    if quality_preference == "quality":
+        return min(1.0, base_quality + 0.15)
+    if quality_preference == "value":
+        return max(0.0, base_quality - 0.05)
+    return base_quality
+
+
 def _brand_preference_score(
     brand: str,
     preferred_brands: list[str],
@@ -158,6 +173,32 @@ def _occasion_match_score(
     return 0.3
 
 
+def _category_preference_score(
+    candidate: ProductCandidate,
+    preferred_categories: list[str],
+    avoided_categories: list[str],
+) -> float:
+    """Score category/subcategory alignment from the user's profile."""
+    category = candidate.category.lower()
+    subcategory = candidate.subcategory.lower()
+
+    if any(c.lower() in (category, subcategory) for c in avoided_categories):
+        return 0.0
+    if any(c.lower() in (category, subcategory) for c in preferred_categories):
+        return 1.0
+    return 0.5
+
+
+def _pack_size_score(candidate: ProductCandidate, pack_size_preference: str) -> float:
+    """Light preference nudge for small packs vs bulk packs."""
+    qty = max(candidate.unit_quantity, 1.0)
+    if pack_size_preference == "bulk":
+        return 1.0 if qty >= 1000 or candidate.unit == "pack" else 0.6
+    if pack_size_preference == "small":
+        return 1.0 if qty <= 500 or candidate.unit == "piece" else 0.6
+    return 0.8
+
+
 def rank_candidates(
     candidates: list[ProductCandidate],
     context: RankingContext,
@@ -169,15 +210,19 @@ def rank_candidates(
     if not candidates:
         return []
 
-    # Get max text score for normalization
-    max_text_score = max(c.text_score for c in candidates) if candidates else 1.0
+    # Get max retrieval scores for normalization. Lexical relevance dominates;
+    # semantic score is only a fallback for real vector providers.
+    max_text_score = max(c.text_score for c in candidates) if candidates else 0.0
+    max_semantic_score = max(c.semantic_score for c in candidates) if candidates else 0.0
     all_prices = [c.price_inr for c in candidates]
 
     ranked: list[RankedProduct] = []
 
     for candidate in candidates:
         # Calculate each signal
-        text_rel = _normalize_text_score(candidate.text_score, max_text_score)
+        text_rel = _normalize_score(candidate.text_score, max_text_score)
+        semantic_rel = _normalize_score(candidate.semantic_score, max_semantic_score)
+        retrieval_rel = text_rel if candidate.text_score > 0 else semantic_rel
         availability = _availability_score(candidate)
         price_fit = _price_fit_score(
             candidate.price_inr,
@@ -185,27 +230,41 @@ def rank_candidates(
             context.remaining_budget,
             all_prices,
         )
-        rating_quality = _rating_quality_score(candidate.rating, candidate.review_count)
+        rating_quality = _quality_preference_score(
+            _rating_quality_score(candidate.rating, candidate.review_count),
+            context.quality_preference,
+        )
         brand_pref = _brand_preference_score(
             candidate.brand,
             context.preferred_brands,
             context.avoided_brands,
         )
+        category_pref = _category_preference_score(
+            candidate,
+            context.preferred_categories,
+            context.avoided_categories,
+        )
         occasion = _occasion_match_score(candidate, context.occasion)
+        pack_size = _pack_size_score(candidate, context.pack_size_preference)
 
         # Weighted sum
         score = (
-            WEIGHTS["text_relevance"] * text_rel
+            WEIGHTS["retrieval_relevance"] * retrieval_rel
             + WEIGHTS["availability"] * availability
             + WEIGHTS["price_fit"] * price_fit
             + WEIGHTS["rating_quality"] * rating_quality
             + WEIGHTS["brand_preference"] * brand_pref
+            + WEIGHTS["category_preference"] * category_pref
             + WEIGHTS["occasion_match"] * occasion
         )
+        # Small deterministic behavior nudge. It should never overpower
+        # relevance, so keep it outside the main weights and very small.
+        score = min(1.0, score + 0.02 * pack_size)
+        purchase_likelihood = max(0.0, min(1.0, score))
 
         # Build reason codes
         reason_codes: list[str] = []
-        if text_rel > 0.7:
+        if retrieval_rel > 0.7:
             reason_codes.append("keyword_match")
         if brand_pref == 1.0:
             reason_codes.append("preferred_brand")
@@ -215,8 +274,12 @@ def rank_candidates(
             reason_codes.append("high_rating")
         if availability == 1.0:
             reason_codes.append("in_stock")
+        if category_pref == 1.0:
+            reason_codes.append("profile_category")
         if occasion > 0.7:
             reason_codes.append("occasion_match")
+        if purchase_likelihood > 0.75:
+            reason_codes.append("likely_choice")
 
         # Build human-readable reason
         display_reason = _build_display_reason(reason_codes, candidate)
@@ -236,15 +299,21 @@ def rank_candidates(
             image_url=candidate.image_url,
             score=round(score, 4),
             score_breakdown={
-                "text_relevance": round(text_rel, 3),
+                "retrieval_relevance": round(retrieval_rel, 3),
+                "keyword_relevance": round(text_rel, 3),
+                "semantic_relevance": round(semantic_rel, 3),
                 "availability": round(availability, 3),
                 "price_fit": round(price_fit, 3),
                 "rating_quality": round(rating_quality, 3),
                 "brand_preference": round(brand_pref, 3),
+                "category_preference": round(category_pref, 3),
                 "occasion_match": round(occasion, 3),
+                "pack_size": round(pack_size, 3),
             },
             reason_codes=reason_codes,
             display_reason=display_reason,
+            purchase_likelihood=round(purchase_likelihood, 4),
+            likely_rating=round(purchase_likelihood * 100, 1),
         ))
 
     # Sort by score descending
@@ -263,13 +332,17 @@ def _build_display_reason(reason_codes: list[str], candidate: ProductCandidate) 
     if "keyword_match" in reason_codes:
         parts.append("Matched your request")
     if "high_rating" in reason_codes:
-        parts.append(f"Rated {candidate.rating}★")
+        parts.append(f"Rated {candidate.rating} star")
     if "budget_friendly" in reason_codes:
         parts.append("Fits your budget")
+    if "profile_category" in reason_codes:
+        parts.append("Matches your profile")
     if "occasion_match" in reason_codes:
         parts.append("Great for this occasion")
+    if "likely_choice" in reason_codes and not parts:
+        parts.append("Likely good fit")
 
     if not parts:
         parts.append("Best available match")
 
-    return " · ".join(parts)
+    return " | ".join(parts)

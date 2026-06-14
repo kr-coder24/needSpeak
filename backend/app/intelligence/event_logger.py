@@ -19,7 +19,8 @@ def log_event(
     rank_position: int = -1,
     price_inr: float = 0.0,
     category: str = "",
-    context: str = ""
+    context: str = "",
+    mock_mode: bool | None = None,
 ) -> None:
     """
     Log a behavior event to DynamoDB.
@@ -51,7 +52,7 @@ def log_event(
     }
 
     try:
-        save_event(event_data)
+        save_event(event_data, mock_mode=mock_mode)
         logger.debug(f"Logged event {event_type} for user {user_id} on SKU {sku}")
     except Exception as e:
         logger.error(f"Failed to log event {event_type}: {e}")

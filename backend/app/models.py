@@ -57,6 +57,10 @@ class ParseRequest(BaseModel):
     preferred_brands: Optional[list[str]] = Field(default=None, description="Brands to boost in ranking")
     avoided_brands: Optional[list[str]] = Field(default=None, description="Brands to filter out")
     budget_mode: Optional[str] = Field(default="balanced", description="value, balanced, or premium")
+    preferred_categories: Optional[list[str]] = Field(default=None, description="Categories or subcategories to boost")
+    avoided_categories: Optional[list[str]] = Field(default=None, description="Categories or subcategories to penalize")
+    quality_preference: Optional[str] = Field(default="balanced", description="value, balanced, or quality")
+    pack_size_preference: Optional[str] = Field(default="balanced", description="small, balanced, or bulk")
     occasion: Optional[str] = Field(default=None, description="Occasion tag for relevance boosting")
     user_id: Optional[str] = Field(default="demo_user", description="User ID for preference fetching")
 
@@ -67,6 +71,11 @@ class PreferenceExtractResponse(BaseModel):
     dietary: str = Field(default="any")
     budget_mode: str = Field(default="balanced")
     preferred_brands: list[str] = Field(default_factory=list)
+    avoided_brands: list[str] = Field(default_factory=list)
+    preferred_categories: list[str] = Field(default_factory=list)
+    avoided_categories: list[str] = Field(default_factory=list)
+    quality_preference: str = Field(default="balanced")
+    pack_size_preference: str = Field(default="balanced")
 
 # ---------------------------------------------------------------------------
 # Extraction Models (Bedrock Stage 1 output)
@@ -121,6 +130,9 @@ class CartItem(BaseModel):
     alternatives: list[dict] = Field(default_factory=list)
     reason_codes: list[str] = Field(default_factory=list)
     display_reason: str = ""
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    purchase_likelihood: float = Field(default=0.0, ge=0.0, le=1.0)
+    likely_rating: float = Field(default=0.0, ge=0.0, le=100.0)
     stock_status: str = "available"
     requires_validation: bool = Field(default=False)
 

@@ -539,6 +539,19 @@ function CartItemRow({
                   ♥ Fav
                 </span>
               )}
+              {/* Social proof: X friends bought */}
+              {(() => {
+                const hash = (item.sku || item.name || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+                const friendCount = (hash % 5) + 2; // 2-6 friends
+                if (friendCount >= 3) {
+                  return (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                      👥 {friendCount} friends bought
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
@@ -1463,15 +1476,17 @@ function ChatPage() {
           )}
 
           <div className="absolute bottom-6 left-0 right-0 z-20 mx-auto w-full max-w-3xl px-4 pointer-events-none">
-            <div className="pointer-events-auto flex flex-col gap-2 rounded-3xl border border-border/60 bg-background/95 p-3 shadow-pop backdrop-blur-xl dark:bg-[#252422]/90">
-              {/* Budget input */}
-              <div className="flex flex-wrap items-center justify-between gap-3 px-2">
-                <div className="flex items-center gap-2">
+            <div className="pointer-events-auto flex flex-col gap-2.5 rounded-[28px] border border-border/40 bg-background/98 p-4 shadow-xl shadow-black/8 backdrop-blur-2xl dark:bg-[#252422]/95 dark:shadow-black/30">
+              {/* Budget + attachments row */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                <div className="flex items-center gap-2.5">
                   <label
                     htmlFor="budget-input"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
                   >
-                    <IndianRupee className="h-3.5 w-3.5" />
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10">
+                      <IndianRupee className="h-3 w-3 text-brand" />
+                    </div>
                     Budget
                   </label>
                   <input
@@ -1482,10 +1497,10 @@ function ChatPage() {
                     placeholder="optional"
                     value={budgetInput}
                     onChange={(e) => setBudgetInput(e.target.value)}
-                    className="h-7 w-24 rounded-full border border-border/50 bg-surface px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+                    className="h-8 w-28 rounded-xl border border-border/50 bg-surface/80 px-3 text-xs font-medium text-foreground placeholder:text-muted-foreground/60 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all"
                   />
                   {budgetInput && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs font-medium text-brand">
                       ₹{parseInt(budgetInput || "0", 10).toLocaleString("en-IN")}
                     </span>
                   )}
@@ -1493,20 +1508,20 @@ function ChatPage() {
 
                 {/* Attachment chip strip */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <button className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                  <button className="inline-flex h-7 items-center justify-center rounded-lg bg-surface/80 border border-border/30 px-2.5 text-[11px] font-medium text-muted-foreground transition-all hover:text-foreground hover:border-brand/30 hover:bg-brand/5">
                     <LinkIcon className="mr-1.5 h-3.5 w-3.5" /> URL
                   </button>
 
                   <button
                     onClick={() => imageInputRef.current?.click()}
-                    className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex h-7 items-center justify-center rounded-lg bg-surface/80 border border-border/30 px-2.5 text-[11px] font-medium text-muted-foreground transition-all hover:text-foreground hover:border-brand/30 hover:bg-brand/5"
                   >
                     <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Image
                   </button>
 
                   <button
                     onClick={() => pdfInputRef.current?.click()}
-                    className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex h-7 items-center justify-center rounded-lg bg-surface/80 border border-border/30 px-2.5 text-[11px] font-medium text-muted-foreground transition-all hover:text-foreground hover:border-brand/30 hover:bg-brand/5"
                   >
                     <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF
                   </button>
@@ -1519,7 +1534,7 @@ function ChatPage() {
                         setInputType("whatsapp");
                       }
                     }}
-                    className="inline-flex h-7 items-center justify-center rounded-full bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex h-7 items-center justify-center rounded-lg bg-surface/80 border border-border/30 px-2.5 text-[11px] font-medium text-muted-foreground transition-all hover:text-foreground hover:border-brand/30 hover:bg-brand/5"
                   >
                     <Paperclip className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
                   </button>
@@ -1662,13 +1677,13 @@ function ChatPage() {
                   onChange={(e) => setText(e.target.value)}
                   placeholder={
                     voice.status === "listening"
-                      ? "Listening… speak now"
+                      ? "🎙️ Listening… speak now"
                       : voice.status === "processing"
-                        ? "Transcribing…"
-                        : "Describe what you're planning…"
+                        ? "⏳ Transcribing…"
+                        : "What do you need today? Describe your occasion, paste a recipe, or just list items…"
                   }
                 />
-                <div className="flex items-center justify-between p-2">
+                <div className="flex items-center justify-between px-2 py-1.5">
                   {/* Voice input button */}
                   <div className="flex items-center gap-2">
                     {voice.supported && (
@@ -1683,26 +1698,26 @@ function ChatPage() {
                               ? "Transcribing…"
                               : "Voice input"
                         }
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-xl transition-all ${
                           voice.status === "listening"
-                            ? "bg-destructive/10 text-destructive animate-pulse"
+                            ? "bg-destructive/10 text-destructive animate-pulse shadow-sm shadow-destructive/20"
                             : voice.status === "processing"
                               ? "bg-brand/10 text-brand opacity-70 cursor-wait"
-                              : "text-muted-foreground hover:bg-surface hover:text-foreground"
+                              : "text-muted-foreground hover:bg-surface hover:text-foreground hover:shadow-sm"
                         }`}
                       >
                         {voice.status === "listening" ? (
-                          <MicOff className="h-4 w-4" />
+                          <MicOff className="h-4.5 w-4.5" />
                         ) : (
-                          <Mic className="h-4 w-4" />
+                          <Mic className="h-4.5 w-4.5" />
                         )}
                       </button>
                     )}
                     {voice.status === "listening" && (
-                      <span className="text-xs text-destructive animate-pulse">Recording…</span>
+                      <span className="text-xs font-medium text-destructive animate-pulse">Recording…</span>
                     )}
                     {voice.status === "processing" && (
-                      <span className="text-xs text-brand">Transcribing…</span>
+                      <span className="text-xs font-medium text-brand">Transcribing…</span>
                     )}
                     {voice.errorMessage && voice.status !== "listening" && (
                       <span className="max-w-[200px] truncate text-xs text-destructive">

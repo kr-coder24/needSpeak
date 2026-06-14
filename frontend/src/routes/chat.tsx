@@ -45,6 +45,7 @@ import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkelet
 import { useChatStore } from "@/store/useChatStore";
 import { BudgetFingerprint } from "@/components/common/BudgetFingerprint";
 import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
+import { detectOccasion, type OccasionSuggestion } from "@/lib/occasion-detector";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (search: Record<string, unknown>): { prompt?: string; occasion?: string } => ({
@@ -488,6 +489,8 @@ function ChatPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [inputType, setInputType] = useState<"text" | "whatsapp">("text");
+  const [occasionSuggestion, setOccasionSuggestion] = useState<OccasionSuggestion | null>(null);
+  const [occasionDismissed, setOccasionDismissed] = useState(false);
 
   // Load user preferred brands for display in cart items
   const [userPreferredBrands] = useState<string[]>(() => loadPreferences().preferredBrands);
@@ -501,6 +504,23 @@ function ChatPage() {
       setText((prev) => (prev ? prev + " " + transcript : transcript));
     },
   });
+
+  // Proactive occasion detection — scan text as user types
+  useEffect(() => {
+    if (occasionDismissed || phase === "thinking") {
+      setOccasionSuggestion(null);
+      return;
+    }
+    const detected = detectOccasion(text);
+    setOccasionSuggestion(detected);
+  }, [text, occasionDismissed, phase]);
+
+  // Reset occasion dismiss when text is fully cleared (new conversation)
+  useEffect(() => {
+    if (!text.trim()) {
+      setOccasionDismissed(false);
+    }
+  }, [text]);
 
   // Auto-restore latest session if currently empty
   useEffect(() => {
@@ -1175,6 +1195,43 @@ function ChatPage() {
                   />
                 </div>
               </div>
+
+              {/* Proactive Occasion Suggestion Bar */}
+              {occasionSuggestion && !occasionDismissed && (
+                <div className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand/5 via-brand/10 to-brand/5 border border-brand/20 px-3 py-2 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                  <span className="text-base">{occasionSuggestion.emoji}</span>
+                  <p className="flex-1 text-xs font-medium text-foreground/80">
+                    Looks like a{" "}
+                    <span className="font-semibold text-foreground">
+                      {occasionSuggestion.name.toLowerCase()}
+                    </span>
+                    ! Start with template?
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Merge user text with template: user text takes priority, template adds context
+                      const userText = text.trim();
+                      const merged = userText
+                        ? `${userText}. Also include items from ${occasionSuggestion!.name} template.`
+                        : occasionSuggestion!.prompt;
+                      setText(merged);
+                      setOccasionDismissed(true);
+                      // Submit with the occasion ID so backend merges blueprint items
+                      navigate({ to: "/chat", search: { prompt: merged, occasion: occasionSuggestion!.id } });
+                    }}
+                    className="inline-flex h-7 items-center gap-1 rounded-lg bg-brand/10 px-2.5 text-[10px] font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
+                  >
+                    Use template
+                  </button>
+                  <button
+                    onClick={() => setOccasionDismissed(true)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                    aria-label="Dismiss"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
 
               <PromptInput
                 onSubmit={onSubmit}

@@ -154,64 +154,87 @@ function getFakeHealthBadge(item: any): string | null {
 
   const name = (item.name || "").toLowerCase();
   const sku = (item.sku || "").toUpperCase();
+  const brand = (item.brand || "").toLowerCase();
+  const category = (item.category || "").toLowerCase();
 
-  // Non-food items get product badges instead
+  // Non-food items — no health badge, get product badge instead
+  const nonFoodCategories = [
+    "cleaning", "hygiene", "personal_care", "stationery", "party_supplies",
+    "fashion_men", "fashion_women", "fashion_kids", "accessories", "footwear",
+    "pet", "medicines_otc"
+  ];
+  if (nonFoodCategories.some(c => category === c)) return null;
+
   const nonFoodKeywords = [
-    "plate", "cup", "napkin", "tablecloth", "foil", "tissue", "soap", "shampoo",
+    "plate", "napkin", "tablecloth", "foil", "tissue", "soap", "shampoo",
     "detergent", "cleaner", "brush", "sponge", "voucher", "ticket", "battery",
     "bulb", "diaper", "wipes", "medicine", "tablet", "syrup", "paracetamol",
-    "mask", "sanitizer", "lotion", "cream", "toothpaste", "dog", "puppy", "pet", "drools"
+    "mask", "sanitizer", "lotion", "cream", "toothpaste", "dog food", "puppy food", "pet food",
+    "drools", "t-shirt", "jeans", "kurta", "slipper", "sandal",
+    "pen", "notebook", "eraser", "pencil", "balloon", "candle"
   ];
-  if (nonFoodKeywords.some(kw => name.includes(kw))) {
-    return null;
-  }
+  if (nonFoodKeywords.some(kw => name.includes(kw))) return null;
 
-  // Excellent Choice items
+  // Excellent Choice — whole grains, vegetables, fruits, lentils, water
   const excellentKeywords = [
     "garlic", "ginger", "tomato", "onion", "potato", "spinach", "vegetable", "veg",
     "fruit", "apple", "banana", "orange", "lemon", "mint", "coriander", "cilantro",
     "water", "bisleri", "aquafina", "green tea", "oats", "dal", "lentil", "pulse",
     "chana", "rajma", "moong", "rice", "wheat", "atta", "broccoli", "carrot",
-    "cucumber", "avocado", "salad"
+    "cucumber", "avocado", "salad", "poha", "sprout", "millet", "ragi",
+    "quinoa", "flax", "chia", "mushroom", "beetroot", "pumpkin", "palak",
+    "methi", "toor", "masoor", "urad"
   ];
-  if (excellentKeywords.some(kw => name.includes(kw))) {
-    return "excellent";
-  }
+  if (excellentKeywords.some(kw => name.includes(kw))) return "excellent";
 
-  // Less Healthy (poor) items
+  // Less Healthy (poor) — sodas, chips, candy, instant noodles
   const poorKeywords = [
     "coke", "coca-cola", "pepsi", "soda", "cold drink", "soft drink", "fanta", "sprite",
-    "chips", "crisps", "kurkure", "lays", "lay's", "bingo", "chocolate", "cadbury",
-    "dairy milk", "snickers", "kitkat", "ice cream", "cookie", "biscuit", "oreo",
-    "pastry", "cake", "maggi", "noodle", "ramen", "chocos", "froot loops", "sweet", "candy"
+    "thums up", "mountain dew", "red bull", "energy drink",
+    "chips", "crisps", "kurkure", "lays", "lay's", "bingo", "doritos", "uncle chips",
+    "chocolate", "cadbury", "dairy milk", "snickers", "kitkat", "5star",
+    "ice cream", "cookie", "biscuit", "oreo", "bourbon",
+    "pastry", "cake", "maggi", "noodle", "ramen", "cup noodle",
+    "chocos", "froot loops", "sweet", "candy", "lollipop", "toffee",
+    "frooti", "maaza", "slice"
   ];
-  if (poorKeywords.some(kw => name.includes(kw))) {
-    return "poor";
-  }
+  if (poorKeywords.some(kw => name.includes(kw))) return "poor";
 
-  // Moderate items
+  // Moderate — processed foods, sauces, refined items
   const moderateKeywords = [
-    "cheese", "butter", "mayo", "sauce", "ketchup", "jam", "spread", "pizza", "burger",
-    "pasta", "white bread", "refined", "fry", "fried"
+    "cheese", "butter", "mayo", "mayonnaise", "sauce", "ketchup", "jam", "spread",
+    "pizza", "burger", "pasta", "white bread", "refined", "fry", "fried",
+    "bhujia", "namkeen", "mixture", "haldiram", "farsan",
+    "peanut butter", "nutella", "bread", "pav", "bun",
+    "pickle", "papad", "instant", "ready to eat"
   ];
-  if (moderateKeywords.some(kw => name.includes(kw))) {
-    return "moderate";
-  }
+  if (moderateKeywords.some(kw => name.includes(kw))) return "moderate";
 
-  // Good Choice items
+  // Good Choice — dairy, protein, natural items
   const goodKeywords = [
-    "egg", "chicken", "fish", "mutton", "beef", "milk", "paneer", "yogurt", "curd",
-    "tofu", "brown bread", "whole wheat", "juice", "nut", "almond", "cashew", "walnut",
-    "honey"
+    "egg", "chicken", "fish", "mutton", "prawn", "paneer", "yogurt", "curd", "dahi",
+    "tofu", "soya", "brown bread", "whole wheat", "multigrain",
+    "juice", "nut", "almond", "cashew", "walnut", "peanut",
+    "honey", "jaggery", "ghee", "milk", "lassi", "buttermilk",
+    "muesli", "granola", "cornflakes", "idli", "dosa",
+    "coconut", "olive oil", "mustard oil", "tea", "coffee"
   ];
-  if (goodKeywords.some(kw => name.includes(kw))) {
-    return "good";
-  }
+  if (goodKeywords.some(kw => name.includes(kw))) return "good";
 
-  // Fallback based on category
-  if (item.category === "Snacks" || item.category === "Beverages") {
-    return "moderate";
-  }
+  // Fallback by category
+  if (category.includes("snack")) return "moderate";
+  if (category.includes("beverage")) return "moderate";
+  if (category.includes("bakery")) return "moderate";
+  if (category.includes("frozen")) return "moderate";
+  if (category.includes("dairy")) return "good";
+  if (category.includes("grain")) return "excellent";
+  if (category.includes("spice")) return "excellent";
+  if (category.includes("oil")) return "good";
+  if (category.includes("vegetable") || category.includes("fruit")) return "excellent";
+  if (category.includes("breakfast")) return "good";
+  if (category.includes("instant")) return "moderate";
+  if (category.includes("non_veg")) return "good";
+
   return "good";
 }
 
@@ -228,47 +251,118 @@ function getFakeProductBadge(item: any): { label: string; color: string; icon: s
   if (item.product_badge) return item.product_badge;
 
   const name = (item.name || "").toLowerCase();
-  
-  if (name.includes("plate") || name.includes("cup") || name.includes("napkin") || name.includes("tablecloth") || name.includes("foil") || name.includes("tissue")) {
-    return {
-      label: "Eco-Friendly",
-      color: "bg-green-500/15 text-green-700 border-green-500/30",
-      icon: "🌱",
-      type: "eco"
-    };
+  const brand = (item.brand || "").toLowerCase();
+  const category = (item.category || "").toLowerCase();
+  const rating = item.rating || 0;
+
+  // ── Cleaning & Household ──
+  if (category.includes("cleaning") || name.includes("cleaner") || name.includes("detergent") || name.includes("dishwash")) {
+    if (name.includes("eco") || name.includes("green") || name.includes("natural") || name.includes("plant")) {
+      return { label: "Eco-Friendly", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "eco" };
+    }
+    if (name.includes("antibacterial") || name.includes("disinfectant") || name.includes("germ") || name.includes("99")) {
+      return { label: "Germ Kill", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "🛡", type: "safety" };
+    }
+    return { label: "Household", color: "bg-slate-500/15 text-slate-700 border-slate-500/30", icon: "🏠", type: "household" };
   }
-  if (name.includes("soap") || name.includes("shampoo") || name.includes("cleaner") || name.includes("detergent") || name.includes("brush") || name.includes("sponge")) {
-    return {
-      label: "Eco-Friendly",
-      color: "bg-green-500/15 text-green-700 border-green-500/30",
-      icon: "🌱",
-      type: "eco"
-    };
+
+  // ── Hygiene & Personal Care ──
+  if (category.includes("hygiene") || category.includes("personal_care")) {
+    if (name.includes("natural") || name.includes("herbal") || name.includes("ayurvedic") || name.includes("neem") ||
+        brand.includes("himalaya") || brand.includes("patanjali")) {
+      return { label: "Natural", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌿", type: "natural" };
+    }
+    if (name.includes("anti") || name.includes("clinical") || brand.includes("dettol") || brand.includes("lifebuoy")) {
+      return { label: "Protection", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "🛡", type: "safety" };
+    }
+    if (brand.includes("dove") || brand.includes("nivea") || name.includes("moistur")) {
+      return { label: "Derma Care", color: "bg-purple-500/15 text-purple-700 border-purple-500/30", icon: "✨", type: "quality" };
+    }
+    return { label: "Daily Care", color: "bg-cyan-500/15 text-cyan-700 border-cyan-500/30", icon: "💧", type: "care" };
   }
-  if (name.includes("voucher") || name.includes("ticket")) {
-    return {
-      label: "Best Value",
-      color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
-      icon: "💎",
-      type: "value"
-    };
+
+  // ── Fashion ──
+  if (category.includes("fashion") || category.includes("clothing")) {
+    if (name.includes("cotton") || name.includes("organic") || name.includes("linen")) {
+      return { label: "Pure Cotton", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "☁️", type: "comfort" };
+    }
+    if (name.includes("slim") || name.includes("fit") || name.includes("stretch")) {
+      return { label: "Trendy Fit", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "✂️", type: "style" };
+    }
+    if (brand.includes("levi") || brand.includes("nike") || brand.includes("adidas") || brand.includes("puma")) {
+      return { label: "Premium Brand", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "👑", type: "premium" };
+    }
+    return { label: "Fashion", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "👕", type: "fashion" };
   }
-  if (name.includes("medicine") || name.includes("tablet") || name.includes("syrup") || name.includes("paracetamol") || name.includes("vitamin") || name.includes("cough")) {
-    return {
-      label: "Top Rated",
-      color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
-      icon: "⭐",
-      type: "rating"
-    };
+
+  // ── Footwear ──
+  if (category.includes("footwear") || name.includes("shoe") || name.includes("slipper") || name.includes("sandal")) {
+    if (name.includes("running") || name.includes("sports") || name.includes("gym")) {
+      return { label: "Sports", color: "bg-orange-500/15 text-orange-700 border-orange-500/30", icon: "🏃", type: "sports" };
+    }
+    if (brand.includes("nike") || brand.includes("adidas") || brand.includes("asics") || brand.includes("puma")) {
+      return { label: "Premium", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "👑", type: "premium" };
+    }
+    return { label: "Comfort Fit", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "👟", type: "comfort" };
   }
-  if (name.includes("dog") || name.includes("puppy") || name.includes("pet") || name.includes("drools")) {
-    return {
-      label: "Vet Approved",
-      color: "bg-blue-500/15 text-blue-700 border-blue-500/30",
-      icon: "✓",
-      type: "quality"
-    };
+
+  // ── Accessories ──
+  if (category.includes("accessories") || category.includes("accessori")) {
+    if (name.includes("watch") || name.includes("smart")) {
+      return { label: "Smart Tech", color: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: "⌚", type: "tech" };
+    }
+    return { label: "Accessory", color: "bg-rose-500/15 text-rose-700 border-rose-500/30", icon: "💍", type: "accessory" };
   }
+
+  // ── Baby ──
+  if (category.includes("baby")) {
+    if (name.includes("organic") || name.includes("natural")) {
+      return { label: "Organic Baby", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "organic" };
+    }
+    return { label: "Baby Safe", color: "bg-sky-500/15 text-sky-700 border-sky-500/30", icon: "👶", type: "baby" };
+  }
+
+  // ── Pet ──
+  if (category.includes("pet") || name.includes("dog food") || name.includes("cat food") || name.includes("puppy food") || name.includes("drools") || name.includes("pedigree")) {
+    return { label: "Vet Approved", color: "bg-teal-500/15 text-teal-700 border-teal-500/30", icon: "🐾", type: "pet" };
+  }
+
+  // ── Medicines ──
+  if (category.includes("medicine") || name.includes("tablet") || name.includes("syrup") || name.includes("capsule")) {
+    return { label: "Clinically Tested", color: "bg-red-500/15 text-red-700 border-red-500/30", icon: "💊", type: "medical" };
+  }
+
+  // ── Stationery ──
+  if (category.includes("stationery") || name.includes("pen") || name.includes("notebook") || name.includes("pencil")) {
+    return { label: "Study Essentials", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "📝", type: "study" };
+  }
+
+  // ── Party Supplies ──
+  if (category.includes("party") || name.includes("balloon") || name.includes("decoration") || name.includes("candle")) {
+    return { label: "Party Ready", color: "bg-fuchsia-500/15 text-fuchsia-700 border-fuchsia-500/30", icon: "🎉", type: "party" };
+  }
+
+  // ── Electronics / Headphones ──
+  if (category.includes("headphone") || category.includes("smartphone") || category.includes("laptop")) {
+    if (name.includes("pro") || name.includes("ultra") || name.includes("max") || name.includes("flagship")) {
+      return { label: "Flagship", color: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: "🚀", type: "flagship" };
+    }
+    if (name.includes("budget") || name.includes("lite") || name.includes("slim")) {
+      return { label: "Value Pick", color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", icon: "💎", type: "value" };
+    }
+    return { label: "Tech", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "⚡", type: "tech" };
+  }
+
+  // ── Fallback: High rating badge ──
+  if (rating >= 4.5) {
+    return { label: "Top Rated", color: "bg-amber-500/15 text-amber-700 border-amber-500/30", icon: "⭐", type: "rating" };
+  }
+
+  // ── Eco-Friendly disposables ──
+  if (name.includes("plate") || name.includes("cup") || name.includes("napkin") || name.includes("foil")) {
+    return { label: "Eco-Friendly", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "eco" };
+  }
+
   return null;
 }
 
@@ -436,7 +530,17 @@ function CartItemRow({
               {alternatives.slice(0, 4).map((alt: any) => {
                 const savings = item.total_price_inr - alt.total_price_inr;
                 const savingsPercent = ((savings / item.total_price_inr) * 100).toFixed(0);
-                const effAltHealthBadge = getFakeHealthBadge(alt);
+                
+                // Healthier alternative detection: if an alternative is diet/zero/sugar-free
+                // show it as a green "Healthier" badge regardless of base health badge
+                const altName = (alt.name || "").toLowerCase();
+                const isHealthierOption = altName.includes("diet") || altName.includes("zero") || 
+                  altName.includes("sugar free") || altName.includes("sugar-free") ||
+                  altName.includes("light") || altName.includes("lite") ||
+                  altName.includes("green tea") || altName.includes("oats") ||
+                  altName.includes("whole wheat") || altName.includes("multigrain");
+                
+                const effAltHealthBadge = isHealthierOption ? "excellent" : getFakeHealthBadge(alt);
                 const altHealthInfo = effAltHealthBadge ? getHealthBadgeInfo(effAltHealthBadge) : null;
                 const altProductBadge = getFakeProductBadge(alt);
 
@@ -453,7 +557,12 @@ function CartItemRow({
                             <TrendingDown className="h-2.5 w-2.5" /> {savingsPercent}%
                           </span>
                         )}
-                        {altHealthInfo && (
+                        {isHealthierOption && (
+                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold border bg-green-500/15 text-green-700 border-green-500/30">
+                            🌿 Healthier
+                          </span>
+                        )}
+                        {!isHealthierOption && altHealthInfo && (
                           <span className={`shrink-0 text-[8px] px-1 py-0.5 rounded-full font-medium border ${altHealthInfo.color}`}>
                             {altHealthInfo.icon}
                           </span>

@@ -143,7 +143,7 @@ export function AppShell({
               <DialogTrigger asChild>
                 <button className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-all hover:border-foreground/40 hover:bg-surface hover:shadow-soft">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  Start a group cart
+                  Group Cart
                 </button>
               </DialogTrigger>
               <DialogContent className="p-0 bg-transparent border-none shadow-none w-[calc(100vw-2rem)] max-w-2xl sm:max-w-2xl outline-none [&>button]:hidden">

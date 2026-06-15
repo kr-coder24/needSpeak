@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as RestockRouteImport } from './routes/restock'
 import { Route as RecipeRouteImport } from './routes/recipe'
 import { Route as PreferencesRouteImport } from './routes/preferences'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
@@ -21,8 +23,19 @@ import { Route as PaymentIdRouteImport } from './routes/payment.$id'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
+import { Route as ApiParseRouteImport } from './routes/api/parse'
 import { Route as CollabJoinCodeRouteImport } from './routes/collab.join.$code'
 
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RestockRoute = RestockRouteImport.update({
+  id: '/restock',
+  path: '/restock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecipeRoute = RecipeRouteImport.update({
   id: '/recipe',
   path: '/recipe',
@@ -83,6 +96,11 @@ const CartIdRoute = CartIdRouteImport.update({
   path: '/cart/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiParseRoute = ApiParseRouteImport.update({
+  id: '/api/parse',
+  path: '/api/parse',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CollabJoinCodeRoute = CollabJoinCodeRouteImport.update({
   id: '/collab/join/$code',
   path: '/collab/join/$code',
@@ -98,6 +116,9 @@ export interface FileRoutesByFullPath {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
+  '/restock': typeof RestockRoute
+  '/watchlist': typeof WatchlistRoute
+  '/api/parse': typeof ApiParseRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -113,6 +134,9 @@ export interface FileRoutesByTo {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
+  '/restock': typeof RestockRoute
+  '/watchlist': typeof WatchlistRoute
+  '/api/parse': typeof ApiParseRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -129,6 +153,9 @@ export interface FileRoutesById {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
+  '/restock': typeof RestockRoute
+  '/watchlist': typeof WatchlistRoute
+  '/api/parse': typeof ApiParseRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -146,6 +173,9 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/preferences'
     | '/recipe'
+    | '/restock'
+    | '/watchlist'
+    | '/api/parse'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -161,6 +191,9 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/preferences'
     | '/recipe'
+    | '/restock'
+    | '/watchlist'
+    | '/api/parse'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -176,6 +209,9 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/preferences'
     | '/recipe'
+    | '/restock'
+    | '/watchlist'
+    | '/api/parse'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -192,6 +228,9 @@ export interface RootRouteChildren {
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   PreferencesRoute: typeof PreferencesRoute
   RecipeRoute: typeof RecipeRoute
+  RestockRoute: typeof RestockRoute
+  WatchlistRoute: typeof WatchlistRoute
+  ApiParseRoute: typeof ApiParseRoute
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
@@ -201,6 +240,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/restock': {
+      id: '/restock'
+      path: '/restock'
+      fullPath: '/restock'
+      preLoaderRoute: typeof RestockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recipe': {
       id: '/recipe'
       path: '/recipe'
@@ -285,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/parse': {
+      id: '/api/parse'
+      path: '/api/parse'
+      fullPath: '/api/parse'
+      preLoaderRoute: typeof ApiParseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/collab/join/$code': {
       id: '/collab/join/$code'
       path: '/collab/join/$code'
@@ -304,6 +364,9 @@ const rootRouteChildren: RootRouteChildren = {
   OrderConfirmedRoute: OrderConfirmedRoute,
   PreferencesRoute: PreferencesRoute,
   RecipeRoute: RecipeRoute,
+  RestockRoute: RestockRoute,
+  WatchlistRoute: WatchlistRoute,
+  ApiParseRoute: ApiParseRoute,
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,

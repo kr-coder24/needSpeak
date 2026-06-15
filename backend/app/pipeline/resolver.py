@@ -213,6 +213,8 @@ def _build_cart_item(
     alternatives: list[RankedProduct],
 ) -> CartItem:
     """Convert a RankedProduct to a CartItem with quantity calculation."""
+    from app.catalog.health_scorer import calculate_health_score
+    from app.catalog.product_badges import get_product_badge
     
     quantity_units = _calculate_quantity_units(
         recipe_quantity=item.quantity,
@@ -224,6 +226,32 @@ def _build_cart_item(
     
     price_per_unit = product.price_inr
     total_price = price_per_unit * quantity_units
+    
+    # Calculate health score for food items
+    health_score, health_badge = calculate_health_score(
+        calories_per_100=product.calories_per_100,
+        protein_per_100=product.protein_per_100,
+        carbs_per_100=product.carbs_per_100,
+        sugar_per_100=product.sugar_per_100,
+        fat_per_100=product.fat_per_100,
+        saturated_fat_per_100=product.saturated_fat_per_100,
+        fiber_per_100=product.fiber_per_100,
+        sodium_per_100=product.sodium_per_100,
+        category=product.category,
+    )
+    
+    # Get product badge for non-food items (if no health badge)
+    product_badge_info = None
+    if not health_badge:
+        product_badge_info = get_product_badge(
+            category=product.category,
+            subcategory=getattr(product, 'subcategory', ''),
+            price_inr=product.price_inr,
+            rating=product.rating,
+            dietary_tags=product.dietary_tags,
+            keywords=getattr(product, 'keywords', set()),
+            brand=product.brand,
+        )
     
     # Build alternatives list for frontend
     alt_list = []
@@ -237,6 +265,32 @@ def _build_cart_item(
         )
         alt_total = alt.price_inr * alt_qty
         savings = total_price - alt_total
+        
+        # Calculate health score for alternative
+        alt_health_score, alt_health_badge = calculate_health_score(
+            calories_per_100=alt.calories_per_100,
+            protein_per_100=alt.protein_per_100,
+            carbs_per_100=alt.carbs_per_100,
+            sugar_per_100=alt.sugar_per_100,
+            fat_per_100=alt.fat_per_100,
+            saturated_fat_per_100=alt.saturated_fat_per_100,
+            fiber_per_100=alt.fiber_per_100,
+            sodium_per_100=alt.sodium_per_100,
+            category=alt.category,
+        )
+        
+        # Get product badge for alternative non-food items
+        alt_product_badge = None
+        if not alt_health_badge:
+            alt_product_badge = get_product_badge(
+                category=alt.category,
+                subcategory=getattr(alt, 'subcategory', ''),
+                price_inr=alt.price_inr,
+                rating=alt.rating,
+                dietary_tags=alt.dietary_tags,
+                keywords=getattr(alt, 'keywords', set()),
+                brand=alt.brand,
+            )
         
         alt_list.append({
             "sku": alt.sku,
@@ -256,6 +310,9 @@ def _build_cart_item(
             "reason": f"Save ₹{savings:.0f}" if savings > 0 else (
                 f"Higher rated ({alt.rating}★)" if alt.rating > product.rating else "Alternative"
             ),
+            "health_score": float(alt_health_score) if alt_health_score else None,
+            "health_badge": alt_health_badge,
+            "product_badge": alt_product_badge,
         })
     
     return CartItem(
@@ -279,6 +336,14 @@ def _build_cart_item(
         purchase_likelihood=product.purchase_likelihood,
         likely_rating=product.likely_rating,
         stock_status="available" if product.in_stock else "low_stock",
+        # Health info (for food items)
+        health_score=float(health_score) if health_score else None,
+        health_badge=health_badge,
+        calories_per_100=float(product.calories_per_100) if product.calories_per_100 else None,
+        sugar_per_100=float(product.sugar_per_100) if product.sugar_per_100 else None,
+        protein_per_100=float(product.protein_per_100) if product.protein_per_100 else None,
+        # Product badge (for non-food items)
+        product_badge=product_badge_info,
     )
 
 

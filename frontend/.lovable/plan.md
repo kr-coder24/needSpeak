@@ -1,71 +1,43 @@
-## Goal
+## 1. Mock data — fill every surface
 
-Replace the blank Lovable scaffold with your actual needSpeak codebase from the uploaded ZIP, then enhance only the **homepage UX** with:
+- **Watchlist (`src/lib/watchlist-mock.ts` + `useWatchStore`)**: expand `MOCK_WATCHES` from 6 → 12 items (add Samsung Galaxy Buds, iPad Air, Nespresso Vertuo, Mi Air Purifier, Levi's 511 jeans, Kindle Paperwhite). Each gets 30-day history, varied statuses (`watching` / `price_dropped` / `neighbor_match` / `already_cheaper`), competitor sources, neighbor matches where relevant. Bump `MOCK_STATS` totals accordingly. Hydrate the store from mocks on first load if the API returns empty.
+- **History (`src/routes/history.tsx`)**: seed `cart-history` localStorage with 6 realistic past carts (IPL party, birthday, weekly groceries, Diwali, recipe, restock) when empty.
+- **Restock (`src/routes/restock.tsx`)** + **Occasions (`src/routes/occasions.tsx`)**: add mock items/occasions so the lists are populated on a fresh load.
+- **Preferences / Shopper DNA**: pre-populate `useShopperDnaStore` with mock dietary tags, budget fingerprint, brand affinities so the page never looks empty.
 
-1. A subtle cursor-following ambient light (no bright colors — stays inside the warm beige/ink palette).
-2. More content broken into small, modular components.
-3. A lightweight engaging visual on the hero (no heavy 3D — keeps bundle small and on-brand).
+## 2. Chat / Cart page — collapsible cards + premium feel (image 1 + 2)
 
-Everything else (AppShell, routes, mock data, backend wiring) stays untouched.
+In `src/routes/chat.tsx`:
 
----
+- **Collapsible product cards**: collapse every item by default to a compact row (name • qty • price • status chip). Click the card (or chevron) to expand and reveal: matched-from line, "Watch price" button, ALTERNATIVES grid. Track open state with a `Set<string>` keyed by item id. Only one card open at a time (accordion behavior) to keep the page short.
+- **Scroll bug**: remove the inner `overflow-y-auto` from the cart column / `Conversation` wrapper so the page uses a single natural document scroll. Sticky right-rail (`Why this cart?` + `Final Review`) becomes `position: sticky; top: 96px` instead of its own scroll container.
+- **Shorten without losing features**: collapsed rows are ~56px tall vs current ~280px. All features (alternatives, swap, watch price, matched-from, badges) stay — just hidden until expanded.
+- **History cards (image 2)**: trim card chrome — remove the redundant `Generated via AI prompt` line under each title (keep it once as a small chip), shrink the ITEMS/TOTAL stat blocks to a single inline row, tighten padding from `p-6` → `p-5`, switch the box-icon placeholder to a real category emoji-free lucide icon (`Package` outline) at smaller size. Both action buttons get equal weight in a single row.
 
-## Step 1 — Import the project
+## 3. Watchlist page — premium polish (image 3)
 
-- Extract `needspeak-src.zip` into `/dev-server/`, overwriting the scaffold. Skip `.git`, `node_modules`, `.tanstack`, `.lovable` cache.
-- Run `bun install` so the lockfile resolves.
+In `src/routes/watchlist.tsx`:
 
-## Step 2 — Cursor-follow ambient lighting (global, very subtle)
+- **Header**: serif H1 `Price Guardian` paired with an espresso eyebrow `LIVE TRACKING`. KPI strip becomes 4 uniform cream cards with hairline borders, uppercase micro-labels, large serif numbers, and a small trend chip (`↑ ₹2,340 this week` etc.) under each. Right-aligned action cluster: ghost `Simulate`, solid espresso `+ Add watch`, icon-only refresh — all sharing one rounded pill group.
+- **Left list**: each watch row is a uniform card with thumbnail placeholder, name, brand, price, and a single `Chip` (success/warning/danger) for deal status — no inline `Best price / Fair price / Higher than usual` text noise.
+- **Right detail**: graph height fixed at `h-[320px]`, soft espresso area fill on cream, hairline grid, popover tooltip. KPI tiles above the graph. Neighbor-match / competitor cards below in a uniform 2-col grid.
+- **Hover on left card** opens a `HoverCard` with 30-day low/high, confidence %, and last-checked timestamp.
+- Replace any hardcoded greens/reds with `--chip-success-*` / `--chip-warning-*` / `--chip-danger-*` tokens.
 
-Add a tiny hook + provider that tracks the cursor and writes `--cursor-x` / `--cursor-y` CSS variables on `<body>`. Use it to drive a fixed radial gradient layer behind the app:
+## 4. Remove banners (images 4–7)
 
-```
-background: radial-gradient(
-  600px circle at var(--cursor-x) var(--cursor-y),
-  oklch(0.93 0.02 75 / 0.55), transparent 60%
-);
-```
+- Delete the `Zero-Shot Cart Generation Pilot` banner from `src/routes/occasions.tsx` (and any `⚡ Zap` lead icon).
+- Delete the `Recipe-to-Cart AI Pipeline` + `PILOT FEATURE` banner from `src/routes/recipe.tsx`.
+- Remove the residual lightning-bolt icon and party-popper SVG/emoji wherever they appear in `history.tsx` / chat header.
+- Sweep all routes for stray decorative emojis (🎉 🎊 ⚡ 🛍️) and drop them — lucide icons only, sized consistently.
 
-- Uses existing `--surface` / `--accent` tones only — no neon, no purples.
-- Layer sits behind content with `pointer-events: none`, `z-index: -1`.
-- Throttled with `requestAnimationFrame`; disabled on touch devices and when `prefers-reduced-motion`.
-- Each interactive card on the homepage also gets a localized "spotlight" border tint via `onMouseMove` updating its own `--mx/--my`. Keeps the effect feeling alive without being loud.
+## 5. Verify
 
-Files:
+- Typecheck.
+- Walk `/chat` (collapse/expand, no inner scroll), `/watchlist` (hover, graph, KPIs), `/history`, `/occasions`, `/recipe` in preview at 1280 + 414 widths.
 
-- `src/hooks/use-cursor-glow.ts` (new) — global tracker.
-- `src/components/effects/CursorGlow.tsx` (new) — fixed background layer.
-- `src/components/effects/SpotlightCard.tsx` (new) — wrapper for hover-tinted cards.
-- Mount `<CursorGlow />` once inside `AppShell` (only file touched outside the homepage).
+### Technical notes
 
-## Step 3 — Modular homepage sections
-
-Break `src/routes/index.tsx` into small section components under `src/components/home/`:
-
-- `HeroPrompt.tsx` — existing hero + prompt box, now wrapped in a soft animated gradient mesh (pure CSS, slow drifting blobs in beige/clay tones, ~5% opacity).
-- `OccasionsStrip.tsx` — existing occasions grid, now using `SpotlightCard`.
-- `HowItWorks.tsx` (new) — 3 steps: Describe → Review → Checkout. Numbered, editorial, serif headings.
-- `InputTypesGrid.tsx` (new) — promotes the 5 input types (text, recipe, image, WhatsApp, PDF) as their own bento section with mini examples.
-- `LiveExamples.tsx` (new) — "prompt → cart preview" cards using items from `lib/mock/needspeak.ts` so it stays in sync with backend data shape. Pure presentation, no new API calls.
-- `Stats.tsx` (new) — small editorial stat row (avg cart time, items matched, ₹ saved) sourced from mock constants.
-- `FaqTeaser.tsx` (new) — 3 collapsible FAQs using existing `accordion` shadcn component.
-- `FinalCta.tsx` — existing dark CTA, unchanged styling.
-
-`index.tsx` just composes these in order. No backend calls added or changed.
-
-## Step 4 — Visual polish (still subtle)
-
-- Hero gets one slow CSS-animated "aurora" layer (two large blurred radial gradients in `--surface` and `--accent` drifting over 30s). No WebGL, no Spline runtime — keeps the page fast and consistent with the editorial Anthropic-style aesthetic you already established. If you specifically want a Spline scene later, I can swap the aurora for a `@splinetool/react-spline` embed in one section; I'm leaving it out by default because it adds ~300KB and clashes slightly with the calm beige look.
-- All new colors pulled from existing tokens (`--surface`, `--accent`, `--brand` at low alpha). Zero hardcoded hex.
-
-## Out of scope
-
-- No backend / API / auth changes.
-- No edits to other routes (`/chat`, `/occasions`, etc.) beyond the single `AppShell` line that mounts `<CursorGlow />`.
-- No new dependencies unless you approve adding Spline.
-
-## Technical notes
-
-- All cursor tracking uses `pointermove` + `requestAnimationFrame` coalescing; no re-renders.
-- `prefers-reduced-motion: reduce` disables both the cursor glow and the hero aurora.
-- New section components are pure presentational and tree-shake cleanly.
+- New mock seeds live in `src/lib/watchlist-mock.ts`, `src/lib/mock/needspeak.ts`, and a new `src/lib/mock/history-seed.ts`.
+- Card collapse state: local `useState<Set<string>>` in chat page; one-at-a-time toggle.
+- No new dependencies. Reuses existing `Chip`, `HoverCard`, `recharts`.

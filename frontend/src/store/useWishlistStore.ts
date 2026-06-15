@@ -4,6 +4,8 @@ export type WishlistItem = {
   id: string;
   name: string;
   image_url?: string;
+  current_price_inr?: number;
+  brand?: string;
 };
 
 export type Notification = {
@@ -11,23 +13,68 @@ export type Notification = {
   message: string;
   read: boolean;
   time: number;
+  source?: "wishlist" | "price_guardian";
 };
+
+const demoNotifications: Notification[] = [
+  {
+    id: "price-demo-best",
+    message: "Sony WH-1000XM5 is at a 30-day low. Email notification sent.",
+    read: false,
+    time: Date.now() - 1000 * 60 * 8,
+    source: "price_guardian",
+  },
+  {
+    id: "price-demo-neighbor",
+    message: "Philips Airfryer has a nearby neighbor deal with lower logistics cost.",
+    read: false,
+    time: Date.now() - 1000 * 60 * 23,
+    source: "price_guardian",
+  },
+  {
+    id: "price-demo-watch",
+    message: "Acer monitor is being watched against Flipkart and Reliance Digital.",
+    read: false,
+    time: Date.now() - 1000 * 60 * 41,
+    source: "price_guardian",
+  },
+];
 
 type WishlistState = {
   wishlist: WishlistItem[];
   notifications: Notification[];
-  addToWishlist: (item: WishlistItem) => void;
-  simulateRestock: () => void;
+  addToWishlist: (...args: [WishlistItem] | [string, WishlistItem]) => void;
+  addNotification: (notification: { id?: string; message: string; source?: Notification["source"] }) => void;
+  simulateRestock: (userId?: string) => void;
   markAsRead: () => void;
+  fetchWishlist: (userId?: string) => void;
 };
 
 export const useWishlistStore = create<WishlistState>((set) => ({
   wishlist: [],
-  notifications: [],
-  addToWishlist: (item) =>
+  notifications: demoNotifications,
+  addToWishlist: (...args) =>
     set((state) => {
+      const item = args.length === 2 ? args[1] : args[0];
       if (state.wishlist.find((w) => w.id === item.id)) return state;
       return { wishlist: [...state.wishlist, item] };
+    }),
+  addNotification: (notification) =>
+    set((state) => {
+      const id = notification.id || Math.random().toString();
+      if (state.notifications.some((existing) => existing.id === id)) return state;
+      return {
+        notifications: [
+          {
+            id,
+            message: notification.message,
+            read: false,
+            time: Date.now(),
+            source: notification.source || "wishlist",
+          },
+          ...state.notifications,
+        ],
+      };
     }),
   simulateRestock: () =>
     set((state) => {
@@ -38,6 +85,7 @@ export const useWishlistStore = create<WishlistState>((set) => ({
         message: `Great news! ${item.name} is back in stock.`,
         read: false,
         time: Date.now(),
+        source: "wishlist",
       };
       return {
         wishlist: state.wishlist.slice(1),
@@ -48,4 +96,7 @@ export const useWishlistStore = create<WishlistState>((set) => ({
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
     })),
+  fetchWishlist: () => {
+    // No-op stub: persistence is handled elsewhere; this keeps callers compiling.
+  },
 }));

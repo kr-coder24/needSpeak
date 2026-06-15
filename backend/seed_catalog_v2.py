@@ -242,73 +242,99 @@ def _beverages() -> list[dict]:
            syn={"thanda", "cold drink", "coke bottle"},
            dietary={"veg", "vegan"},
            occ={"party", "ipl_watch_party", "birthday", "picnic"},
-           reviews=["Party essential.", "Best with ice."]),
+           reviews=["Party essential.", "Best with ice."],
+           calories=42, sugar=10.6, carbs=10.6, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=10),
+        _p("SKU-BEV-001A", "diet coke 2L pet bottle", "Coca-Cola", "beverages", "soft_drink", 95, "ml", 2000, 4.1, 3200,
+           kw={"diet coke", "coke", "zero sugar", "low calorie", "diet"},
+           syn={"diet thanda", "sugar free coke", "zero coke"},
+           dietary={"veg", "vegan"},
+           occ={"party", "diet", "everyday"},
+           reviews=["No sugar, great taste.", "Perfect for diet-conscious."],
+           calories=0.3, sugar=0, carbs=0, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=15),
         _p("SKU-BEV-002", "pepsi 2L pet bottle", "Pepsi", "beverages", "soft_drink", 90, "ml", 2000, 4.1, 4200,
            kw={"pepsi", "cola", "soft drink", "cold drink"},
            syn={"thanda", "pepsi bottle"},
            dietary={"veg", "vegan"},
            occ={"party", "ipl_watch_party"},
-           reviews=["Good alternative to Coke."]),
+           reviews=["Good alternative to Coke."],
+           calories=41, sugar=10.9, carbs=11, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=12),
+        _p("SKU-BEV-002A", "pepsi zero sugar 2L", "Pepsi", "beverages", "soft_drink", 90, "ml", 2000, 4.0, 2800,
+           kw={"pepsi zero", "zero sugar", "diet pepsi", "low calorie"},
+           syn={"diet pepsi", "sugar free pepsi"},
+           dietary={"veg", "vegan"},
+           occ={"party", "diet", "everyday"},
+           reviews=["Zero sugar, good taste."],
+           calories=0.2, sugar=0, carbs=0, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=15),
         _p("SKU-BEV-003", "sprite 1.25L", "Sprite", "beverages", "soft_drink", 65, "ml", 1250, 4.2, 3800,
            kw={"sprite", "lemon", "lime", "clear drink"},
            syn={"lime soda", "nimbu paani alternative"},
            dietary={"veg", "vegan"},
            occ={"party", "summer"},
-           reviews=["Refreshing lime taste."]),
+           reviews=["Refreshing lime taste."],
+           calories=37, sugar=9, carbs=9, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=8),
         _p("SKU-BEV-004", "thums up 2L", "Thums Up", "beverages", "soft_drink", 95, "ml", 2000, 4.4, 4800,
            kw={"thums up", "cola", "strong cola", "thunder"},
            syn={"thunder", "toofani drink"},
            dietary={"veg", "vegan"},
            occ={"party", "ipl_watch_party"},
-           reviews=["Strong cola taste.", "Indian original."]),
+           reviews=["Strong cola taste.", "Indian original."],
+           calories=43, sugar=11.2, carbs=11.2, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=11),
         _p("SKU-BEV-005", "real fruit power mixed fruit juice", "Real", "beverages", "juice", 99, "ml", 1000, 4.0, 2500,
            kw={"juice", "fruit juice", "mixed fruit", "healthy"},
            syn={"juice box", "fruit drink"},
            dietary={"veg", "vegan"},
            occ={"breakfast", "kids", "party"},
-           reviews=["Good for kids.", "Not too sweet."]),
+           reviews=["Good for kids.", "Not too sweet."],
+           calories=48, sugar=10.5, carbs=11.8, protein=0.3, fat=0, saturated_fat=0, fiber=0.2, sodium=15),
         _p("SKU-BEV-006", "paper boat aamras", "Paper Boat", "beverages", "juice", 40, "ml", 200, 4.3, 1800,
            kw={"aamras", "mango", "drink", "summer"},
            syn={"aam ras", "mango juice"},
            dietary={"veg", "vegan"},
            occ={"summer", "snack"},
-           reviews=["Authentic mango taste.", "Nostalgic."]),
+           reviews=["Authentic mango taste.", "Nostalgic."],
+           calories=54, sugar=12.5, carbs=13, protein=0.4, fat=0.1, saturated_fat=0, fiber=0.5, sodium=8),
         _p("SKU-BEV-007", "tata tea gold", "Tata Tea", "beverages", "tea", 295, "g", 500, 4.5, 4000,
            kw={"tea", "chai", "black tea", "CTC"},
            syn={"chai patti", "tea leaves"},
            dietary={"veg", "vegan", "jain"},
            occ={"everyday", "breakfast", "tea_time"},
-           reviews=["Rich taste.", "Perfect kadak chai."]),
+           reviews=["Rich taste.", "Perfect kadak chai."],
+           calories=1, sugar=0, carbs=0.3, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=2),
         _p("SKU-BEV-008", "bru instant coffee", "Bru", "beverages", "coffee", 195, "g", 200, 4.2, 3500,
            kw={"coffee", "instant coffee", "filter coffee"},
            syn={"kaapi", "coffee powder"},
            dietary={"veg", "vegan"},
            occ={"breakfast", "everyday"},
-           reviews=["Good instant coffee.", "Smooth taste."]),
+           reviews=["Good instant coffee.", "Smooth taste."],
+           calories=2, sugar=0, carbs=0.5, protein=0.2, fat=0, saturated_fat=0, fiber=0, sodium=5),
         _p("SKU-BEV-009", "nescafe classic coffee", "Nescafe", "beverages", "coffee", 245, "g", 200, 4.4, 4500,
            kw={"coffee", "instant", "nescafe", "black coffee"},
            syn={"kaapi", "nescafe jar"},
            dietary={"veg", "vegan"},
            occ={"breakfast", "everyday", "exam"},
-           reviews=["The classic coffee.", "Great aroma."]),
+           reviews=["The classic coffee.", "Great aroma."],
+           calories=2, sugar=0, carbs=0.4, protein=0.2, fat=0, saturated_fat=0, fiber=0, sodium=4),
         _p("SKU-BEV-010", "bisleri mineral water 1L", "Bisleri", "beverages", "water", 20, "ml", 1000, 4.0, 2000,
            kw={"water", "mineral water", "drinking water"},
            syn={"paani", "pani bottle"},
            dietary={"veg", "vegan", "jain"},
            occ={"travel", "party", "picnic"},
-           reviews=["Safe drinking water."]),
+           reviews=["Safe drinking water."],
+           calories=0, sugar=0, carbs=0, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=2),
         _p("SKU-BEV-011", "red bull energy drink", "Red Bull", "beverages", "energy_drink", 125, "ml", 250, 4.0, 1500,
            kw={"energy drink", "caffeine", "red bull"},
            syn={"energy drink"},
            dietary={"veg"},
            occ={"exam", "gaming", "party"},
-           reviews=["Gives you wings.", "Good before gym."]),
+           reviews=["Gives you wings.", "Good before gym."],
+           calories=45, sugar=11, carbs=11, protein=0, fat=0, saturated_fat=0, fiber=0, sodium=105),
         _p("SKU-BEV-012", "frooti mango drink 1.2L", "Frooti", "beverages", "juice", 60, "ml", 1200, 4.1, 3200,
            kw={"frooti", "mango", "drink", "kids"},
            syn={"mango juice", "frooti bottle"},
            dietary={"veg", "vegan"},
            occ={"kids", "picnic", "summer"},
-           reviews=["Kids favorite mango drink."]),
+           reviews=["Kids favorite mango drink."],
+           calories=52, sugar=12, carbs=12.5, protein=0.2, fat=0, saturated_fat=0, fiber=0.1, sodium=10),
     ]
 
 
@@ -466,11 +492,17 @@ def _cleaning() -> list[dict]:
     """Cleaning and household."""
     return [
         _p("SKU-CLN-001", "vim dishwash bar", "Vim", "cleaning", "dishwash", 25, "g", 200, 4.3, 3500,
-           kw={"dishwash", "utensil cleaner", "bartan"},
+           kw={"dishwash", "utensil cleaner", "bartan", "antibacterial"},
            syn={"bartan soap", "dish bar"},
            dietary=set(),
            occ={"everyday", "household"},
            reviews=["Cuts grease well."]),
+        _p("SKU-CLN-001A", "vim green eco dishwash bar", "Vim", "cleaning", "dishwash", 28, "g", 200, 4.4, 2100,
+           kw={"dishwash", "utensil cleaner", "bartan", "eco-friendly", "biodegradable", "plant-based"},
+           syn={"bartan soap", "eco dish bar"},
+           dietary=set(),
+           occ={"everyday", "household"},
+           reviews=["Eco-friendly formula.", "Gentle on hands."]),
         _p("SKU-CLN-002", "surf excel quick wash detergent", "Surf Excel", "cleaning", "detergent", 185, "g", 1000, 4.4, 4200,
            kw={"detergent", "washing powder", "laundry"},
            syn={"kapda dhone ka powder", "surf"},
@@ -478,13 +510,13 @@ def _cleaning() -> list[dict]:
            occ={"everyday", "household"},
            reviews=["Removes tough stains."]),
         _p("SKU-CLN-003", "harpic toilet cleaner", "Harpic", "cleaning", "toilet_cleaner", 95, "ml", 500, 4.2, 3000,
-           kw={"toilet cleaner", "bathroom", "disinfectant"},
+           kw={"toilet cleaner", "bathroom", "disinfectant", "kills germs", "99.9%"},
            syn={"toilet cleaner", "bathroom cleaner"},
            dietary=set(),
            occ={"household"},
            reviews=["Effective cleaning."]),
         _p("SKU-CLN-004", "lizol disinfectant floor cleaner", "Lizol", "cleaning", "floor_cleaner", 145, "ml", 975, 4.3, 2800,
-           kw={"floor cleaner", "disinfectant", "mopping"},
+           kw={"floor cleaner", "disinfectant", "mopping", "antibacterial", "kills germs"},
            syn={"floor cleaner", "phenyl"},
            dietary=set(),
            occ={"household"},
@@ -496,19 +528,25 @@ def _hygiene() -> list[dict]:
     """Personal hygiene: soap, shampoo, toothpaste."""
     return [
         _p("SKU-HYG-001", "dettol original soap", "Dettol", "hygiene", "soap", 55, "g", 125, 4.3, 4000,
-           kw={"soap", "antibacterial", "bath"},
+           kw={"soap", "antibacterial", "bath", "kills germs"},
            syn={"sabun", "nahane ka sabun"},
            dietary=set(),
            occ={"everyday"},
            reviews=["Trusted germ protection."]),
         _p("SKU-HYG-002", "dove cream beauty bathing bar", "Dove", "hygiene", "soap", 65, "g", 100, 4.4, 3500,
-           kw={"soap", "moisturizing", "beauty bar"},
+           kw={"soap", "moisturizing", "beauty bar", "dermatologist tested"},
            syn={"dove soap", "bathing bar"},
            dietary=set(),
            occ={"everyday"},
            reviews=["Very moisturizing.", "Soft on skin."]),
+        _p("SKU-HYG-002A", "himalaya neem soap", "Himalaya", "hygiene", "soap", 45, "g", 125, 4.5, 3800,
+           kw={"soap", "neem", "natural", "herbal", "ayurvedic"},
+           syn={"neem sabun", "herbal soap"},
+           dietary=set(),
+           occ={"everyday"},
+           reviews=["Natural ingredients.", "Good for skin."]),
         _p("SKU-HYG-003", "head & shoulders anti dandruff shampoo", "Head & Shoulders", "hygiene", "shampoo", 250, "ml", 340, 4.2, 3000,
-           kw={"shampoo", "anti dandruff", "hair"},
+           kw={"shampoo", "anti dandruff", "hair", "clinically tested"},
            syn={"shampoo", "baal dhone ka"},
            dietary=set(),
            occ={"everyday"},
@@ -526,6 +564,7 @@ def _hygiene() -> list[dict]:
            occ={"everyday"},
            reviews=["Good for long hair."]),
     ]
+
 
 
 def _bakery() -> list[dict]:
@@ -1020,6 +1059,11 @@ def _p(
     kw: set | None = None, syn: set | None = None,
     dietary: set | None = None, allergen: set | None = None,
     occ: set | None = None, reviews: list | None = None,
+    # Nutritional data (per 100g/100ml)
+    calories: float | None = None, protein: float | None = None,
+    carbs: float | None = None, sugar: float | None = None,
+    fat: float | None = None, saturated_fat: float | None = None,
+    fiber: float | None = None, sodium: float | None = None,
 ) -> dict:
     """Create a product dict with proper types."""
     return {
@@ -1045,6 +1089,15 @@ def _p(
         "occasion_tags": occ or set(),
         "image_url": "",
         "search_text": "",
+        # Nutritional fields
+        "calories_per_100": Decimal(str(calories)) if calories is not None else None,
+        "protein_per_100": Decimal(str(protein)) if protein is not None else None,
+        "carbs_per_100": Decimal(str(carbs)) if carbs is not None else None,
+        "sugar_per_100": Decimal(str(sugar)) if sugar is not None else None,
+        "fat_per_100": Decimal(str(fat)) if fat is not None else None,
+        "saturated_fat_per_100": Decimal(str(saturated_fat)) if saturated_fat is not None else None,
+        "fiber_per_100": Decimal(str(fiber)) if fiber is not None else None,
+        "sodium_per_100": Decimal(str(sodium)) if sodium is not None else None,
     }
 
 
@@ -1369,6 +1422,109 @@ def _generate_variant_products() -> list[dict]:
     return variants
 
 
+def _electronics() -> list[dict]:
+    """Electronics: smartphones, laptops, headphones for NL search demo."""
+    return [
+        _p("SKU-ELC-001", "samsung galaxy s24 ultra", "Samsung", "electronics", "smartphone",
+           124999, "piece", 1, 4.7, 2340,
+           kw={"phone", "smartphone", "samsung", "galaxy", "android", "5g", "flagship", "camera"},
+           syn={"mobile", "cell phone", "handset"},
+           occ={"everyday", "gaming", "photography"}),
+        _p("SKU-ELC-002", "iphone 15 pro max", "Apple", "electronics", "smartphone",
+           159900, "piece", 1, 4.8, 3100,
+           kw={"phone", "smartphone", "iphone", "apple", "ios", "5g", "flagship", "camera"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "photography", "video"}),
+        _p("SKU-ELC-003", "oneplus 12", "OnePlus", "electronics", "smartphone",
+           64999, "piece", 1, 4.6, 1850,
+           kw={"phone", "smartphone", "oneplus", "android", "5g", "fast charging", "gaming"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "gaming"}),
+        _p("SKU-ELC-004", "samsung galaxy a54 5g", "Samsung", "electronics", "smartphone",
+           32999, "piece", 1, 4.4, 4200,
+           kw={"phone", "smartphone", "samsung", "5g", "mid-range", "value", "water resistant"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday"}),
+        _p("SKU-ELC-005", "realme narzo 60 5g", "Realme", "electronics", "smartphone",
+           14999, "piece", 1, 4.2, 5600,
+           kw={"phone", "smartphone", "realme", "5g", "budget", "battery", "gaming"},
+           syn={"mobile", "cell phone", "sasta phone"},
+           occ={"everyday", "budget"}),
+        _p("SKU-ELC-006", "poco x5 pro 5g", "Poco", "electronics", "smartphone",
+           18999, "piece", 1, 4.3, 8900,
+           kw={"phone", "smartphone", "poco", "xiaomi", "5g", "budget", "camera", "108mp"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "gaming", "photography"}),
+        _p("SKU-ELC-007", "redmi note 13 pro plus 5g", "Redmi", "electronics", "smartphone",
+           29999, "piece", 1, 4.5, 3400,
+           kw={"phone", "smartphone", "redmi", "xiaomi", "5g", "camera", "200mp", "fast charging"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "photography"}),
+        # Laptops
+        _p("SKU-ELC-010", "macbook air m3", "Apple", "electronics", "laptop",
+           114900, "piece", 1, 4.8, 1200,
+           kw={"laptop", "macbook", "apple", "ultrabook", "coding", "programming", "portable"},
+           syn={"notebook", "computer"},
+           occ={"office", "coding", "student"}),
+        _p("SKU-ELC-011", "hp pavilion 15 2024", "HP", "electronics", "laptop",
+           54999, "piece", 1, 4.3, 2800,
+           kw={"laptop", "hp", "pavilion", "coding", "office", "student", "mainstream"},
+           syn={"notebook", "computer"},
+           occ={"office", "coding", "student"}),
+        _p("SKU-ELC-012", "lenovo ideapad slim 3", "Lenovo", "electronics", "laptop",
+           34999, "piece", 1, 4.1, 5400,
+           kw={"laptop", "lenovo", "ideapad", "budget", "student", "lightweight", "amd"},
+           syn={"notebook", "computer", "sasta laptop"},
+           occ={"student", "office"}),
+        _p("SKU-ELC-013", "asus rog strix g16 gaming laptop", "ASUS", "electronics", "laptop",
+           109990, "piece", 1, 4.6, 980,
+           kw={"laptop", "asus", "rog", "gaming", "rtx", "high performance", "esports"},
+           syn={"gaming laptop", "notebook"},
+           occ={"gaming", "esports"}),
+        _p("SKU-ELC-014", "dell inspiron 15", "Dell", "electronics", "laptop",
+           45999, "piece", 1, 4.2, 3600,
+           kw={"laptop", "dell", "inspiron", "office", "coding", "student", "reliable"},
+           syn={"notebook", "computer"},
+           occ={"office", "coding", "student"}),
+        _p("SKU-ELC-015", "acer nitro v gaming laptop", "Acer", "electronics", "laptop",
+           67990, "piece", 1, 4.3, 1500,
+           kw={"laptop", "acer", "nitro", "gaming", "rtx", "budget gaming"},
+           syn={"gaming laptop", "notebook"},
+           occ={"gaming"}),
+        # Headphones
+        _p("SKU-ELC-020", "sony wh-1000xm5 headphones", "Sony", "electronics", "headphones",
+           29990, "piece", 1, 4.7, 4500,
+           kw={"headphones", "wireless", "noise cancellation", "anc", "bluetooth", "sony", "over-ear"},
+           syn={"earphone", "headset"},
+           occ={"travel", "work from home", "music"}),
+        _p("SKU-ELC-021", "apple airpods pro 2", "Apple", "electronics", "earbuds",
+           24900, "piece", 1, 4.8, 6200,
+           kw={"earbuds", "wireless", "noise cancellation", "anc", "bluetooth", "apple", "airpods"},
+           syn={"earphone", "headphone"},
+           occ={"travel", "music", "calls"}),
+        _p("SKU-ELC-022", "boat rockerz 550 wireless headphones", "boAt", "electronics", "headphones",
+           1499, "piece", 1, 4.1, 45000,
+           kw={"headphones", "wireless", "bluetooth", "boat", "budget", "bass", "over-ear"},
+           syn={"earphone", "headset"},
+           occ={"gym", "music", "casual"}),
+        _p("SKU-ELC-023", "jbl tune 760nc noise cancelling headphones", "JBL", "electronics", "headphones",
+           4999, "piece", 1, 4.3, 8900,
+           kw={"headphones", "wireless", "noise cancellation", "anc", "jbl", "bluetooth", "value"},
+           syn={"earphone", "headset"},
+           occ={"travel", "music", "office"}),
+        _p("SKU-ELC-024", "oneplus buds pro 2", "OnePlus", "electronics", "earbuds",
+           11999, "piece", 1, 4.4, 2100,
+           kw={"earbuds", "wireless", "noise cancellation", "anc", "bluetooth", "oneplus"},
+           syn={"earphone", "headphone"},
+           occ={"music", "calls"}),
+        _p("SKU-ELC-025", "noise buds vs104 earbuds", "Noise", "electronics", "earbuds",
+           999, "piece", 1, 3.9, 52000,
+           kw={"earbuds", "wireless", "bluetooth", "budget", "noise", "gym", "value"},
+           syn={"earphone", "headphone", "saste earbuds"},
+           occ={"gym", "daily use"}),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Assemble All Products
 # ---------------------------------------------------------------------------
@@ -1403,6 +1559,8 @@ def get_all_v2_products() -> list[dict]:
     products.extend(_footwear())
     products.extend(_accessories())
     products.extend(_medicines_otc())
+    # Electronics for NL search demo
+    products.extend(_electronics())
     # Variant products to reach 500+
     products.extend(_generate_variant_products())
     return products
@@ -1412,7 +1570,30 @@ def get_all_v2_products() -> list[dict]:
 # Main
 # ---------------------------------------------------------------------------
 def main():
+    from app.catalog.health_scorer import calculate_health_score
+    
     products = get_all_v2_products()
+    
+    # Calculate health scores for products with nutritional data
+    for product in products:
+        if any([
+            product.get("calories_per_100"),
+            product.get("sugar_per_100"),
+            product.get("protein_per_100"),
+        ]):
+            health_score, health_badge = calculate_health_score(
+                calories_per_100=product.get("calories_per_100"),
+                protein_per_100=product.get("protein_per_100"),
+                carbs_per_100=product.get("carbs_per_100"),
+                sugar_per_100=product.get("sugar_per_100"),
+                fat_per_100=product.get("fat_per_100"),
+                saturated_fat_per_100=product.get("saturated_fat_per_100"),
+                fiber_per_100=product.get("fiber_per_100"),
+                sodium_per_100=product.get("sodium_per_100"),
+                category=product.get("category", ""),
+            )
+            if health_score is not None:
+                product["health_score"] = health_score
 
     # Validate: no duplicate SKUs
     skus = [p["sku"] for p in products]
@@ -1423,6 +1604,11 @@ def main():
 
     print(f"[OK] Generated {len(products)} products across {len(set(p['category'] for p in products))} categories")
     print(f"  Categories: {sorted(set(p['category'] for p in products))}")
+    
+    # Print health score stats
+    health_scored_products = [p for p in products if p.get("health_score") is not None]
+    if health_scored_products:
+        print(f"  Health scored products: {len(health_scored_products)}")
 
     if "--mock" in sys.argv:
         print("Mock mode: validation only, not seeding.")

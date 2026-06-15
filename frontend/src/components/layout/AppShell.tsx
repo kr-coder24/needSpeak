@@ -24,6 +24,7 @@ const nav = [
   { to: "/chat", label: "Chat" },
   { to: "/occasions", label: "Occasions" },
   { to: "/recipe", label: "Recipe" },
+  { to: "/watchlist", label: "Watchlist" },
 ];
 
 export function AppShell({
@@ -39,18 +40,25 @@ export function AppShell({
   const [historyCount, setHistoryCount] = useState(0);
   const [auth, setAuth] = useState<{ token: string; user: any } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { notifications, wishlist, simulateRestock, markAsRead } = useWishlistStore();
+  const { notifications, wishlist, simulateRestock, markAsRead, fetchWishlist } = useWishlistStore();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const isChat = pathname.startsWith("/chat");
   const isAppLayout = isChat || noFooter;
 
-  // Load auth from localStorage on client mount
   useEffect(() => {
     try {
       const raw = localStorage.getItem("needspeak-auth");
       if (raw) {
-        setAuth(JSON.parse(raw));
+        const parsed = JSON.parse(raw);
+        setAuth(parsed);
+        if (parsed?.user?.id || parsed?.user?.email) {
+          fetchWishlist(parsed.user.id || parsed.user.email);
+        } else {
+          fetchWishlist("demo_user");
+        }
+      } else {
+        fetchWishlist("demo_user");
       }
     } catch (e) {}
   }, []);
@@ -113,36 +121,36 @@ export function AppShell({
   return (
     <div className={`flex flex-col bg-background relative z-0 ${isAppLayout ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       <CursorGlow />
-      <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img src={logo} alt="NeedSpeak" className="h-8 w-8" />
-            <span className="font-display text-2xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
+      <header className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center px-6 sm:px-10 lg:px-14">
+          <Link to="/" className="flex items-center gap-3 shrink-0">
+            <img src={logo} alt="NeedSpeak" className="h-7 w-auto" />
+            <span className="font-display text-xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-8 ml-12">
             {nav.map((n) => {
               const active = pathname.startsWith(n.to);
               return (
                 <Link
                   key={n.to}
                   to={n.to}
-                  className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  className={`relative py-1 text-sm transition-colors ${
                     active
-                      ? "bg-surface text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-surface/60"
+                      ? "text-foreground after:absolute after:-bottom-1 after:left-0 after:right-0 after:h-px after:bg-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {n.label}
                 </Link>
               );
             })}
-            
+
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <button className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-all hover:border-foreground/40 hover:bg-surface hover:shadow-soft">
+                <button className="ml-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm text-foreground transition-all hover:border-foreground/40 hover:bg-surface">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  Start a group cart
+                  Group Cart
                 </button>
               </DialogTrigger>
               <DialogContent className="p-0 bg-transparent border-none shadow-none w-[calc(100vw-2rem)] max-w-2xl sm:max-w-2xl outline-none [&>button]:hidden">
@@ -155,14 +163,16 @@ export function AppShell({
             </Dialog>
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
             <Link
               to="/preferences"
-              className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground hover:bg-surface hover:text-foreground"
+              className="hidden sm:inline-flex h-9 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <Sliders className="h-4 w-4" />
-              <span className="hidden sm:inline">Preferences</span>
+              <span>Preferences</span>
             </Link>
+
+            <span aria-hidden className="hidden md:block h-5 w-px bg-border/70" />
 
             {/* Dark / Light toggle */}
             <button
@@ -196,6 +206,9 @@ export function AppShell({
                     <div className="space-y-2 mb-4 max-h-[60vh] overflow-auto">
                       {notifications.map((n) => (
                         <div key={n.id} className="p-2.5 rounded-lg bg-surface/50 text-xs">
+                          {n.source === "price_guardian" && (
+                            <div className="mb-1 font-bold uppercase tracking-wide text-brand">Price Guardian</div>
+                          )}
                           {n.message}
                         </div>
                       ))}
@@ -204,7 +217,8 @@ export function AppShell({
                   {/* Demo Simulation Button */}
                   <button
                     onClick={() => {
-                      simulateRestock();
+                      const userId = auth?.user?.id || auth?.user?.email || "demo_user";
+                      simulateRestock(userId);
                     }}
                     disabled={wishlist.length === 0}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand/10 text-brand py-2 text-xs font-semibold hover:bg-brand/20 disabled:opacity-50"

@@ -1,7 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { occasions } from "@/lib/mock/needspeak";
-import { Sparkles, MessageSquare, ArrowRight } from "lucide-react";
+import { Sparkles, MessageSquare, ArrowRight, Tv, Gift, ShoppingCart, Home, Compass, Flame, Tent, Heart, BookOpen } from "lucide-react";
+
+const occasionIcons: Record<string, any> = {
+  ipl: Tv,
+  birthday: Gift,
+  weekly: ShoppingCart,
+  hostel: Home,
+  travel: Compass,
+  festival: Flame,
+  picnic: Tent,
+  "baby-shower": Heart,
+  "exam-prep": BookOpen,
+};
 
 export const Route = createFileRoute("/occasions")({
   head: () => ({
@@ -50,8 +62,11 @@ function OccasionsPage() {
 
               <div>
                 <div className="flex items-start justify-between">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-surface text-3xl shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-md">
-                    {o.emoji}
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-surface shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-md">
+                    {(() => {
+                      const Icon = occasionIcons[o.id] || Sparkles;
+                      return <Icon className="h-6 w-6 text-foreground" />;
+                    })()}
                   </div>
                   <div className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground ring-1 ring-inset ring-border/50">
                     {o.items} items est.

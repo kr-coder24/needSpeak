@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import {
   ShoppingCart, Clock, ArrowRight, Package, AlertCircle,
   Plus, Sparkles, RefreshCw, TrendingUp, Leaf, Zap, Check,
-  Activity, CalendarDays, ShieldCheck, ToggleRight
+  Activity, CalendarDays, ShieldCheck, ToggleRight, Coffee, Cookie, Milk, Salad
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -165,7 +165,7 @@ function RestockPage() {
 
     setMessages([
       ...useChatStore.getState().messages,
-      { role: "user", text: `🔄 Smart Restock: ${listName} items` },
+      { role: "user", text: `Smart Restock: ${listName} items` },
       {
         role: "assistant",
         text: `Added ${items.length} ${listName} items to your cart! Total now: ₹${mergedTotal}. You can adjust quantities or swap alternatives in the cart.`,
@@ -372,8 +372,15 @@ function RestockItemCard({ item, variant, added, onAdd }: { item: RestockItem; v
       <div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface text-2xl border border-border/50 shadow-sm">
-              {item.category === "Dairy" ? "🥛" : item.category === "Produce" ? "🥬" : item.category === "Pantry" ? "🍚" : item.category === "Beverages" ? "☕" : item.category === "Snacks" ? "🍪" : "📦"}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface border border-border/50 text-muted-foreground shadow-sm">
+              {(() => {
+                if (item.category === "Dairy") return <Milk className="h-5 w-5" />;
+                if (item.category === "Produce") return <Salad className="h-5 w-5" />;
+                if (item.category === "Pantry") return <Cookie className="h-5 w-5" />;
+                if (item.category === "Beverages") return <Coffee className="h-5 w-5" />;
+                if (item.category === "Snacks") return <Cookie className="h-5 w-5" />;
+                return <Package className="h-5 w-5" />;
+              })()}
             </div>
             <div>
               <p className="text-base font-bold text-foreground leading-tight">{item.name}</p>

@@ -960,10 +960,10 @@ function CartPageInner() {
 
       if (savings > 0) {
         setOptimizationSummary(
-          `✨ Successfully optimized! Saved ₹${savings} by swapping items for better value alternatives.`,
+          `Successfully optimized! Saved ₹${savings} by swapping items for better value alternatives.`,
         );
       } else {
-        setOptimizationSummary("✨ Cart is already fully optimized for the best value.");
+        setOptimizationSummary("Cart is already fully optimized for the best value.");
       }
 
       setSession((prev: any) => {

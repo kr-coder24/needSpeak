@@ -11,13 +11,13 @@ export function exportAsWhatsApp(data: ExportableCart): string {
       `• ${item.name} (${item.brand}) × ${item.quantity_units} ${item.unit} — ₹${(item.price_per_unit_inr * item.quantity_units).toFixed(0)}`,
   );
   return [
-    `🛒 *${data.context_summary || data.intent_type}*`,
+    `*${data.context_summary || data.intent_type}*`,
     ``,
     ...lines,
     ``,
     `*Total: ₹${data.total_price_inr.toFixed(0)}*`,
     ``,
-    `Built with NeedSpeak 🚀`,
+    `Built with NeedSpeak`,
   ].join("\n");
 }
 

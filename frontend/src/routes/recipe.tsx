@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Sparkles,
   Utensils,
+  Package,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { saveToHistory } from "@/lib/cart-history";
@@ -306,8 +307,8 @@ function RecipePage() {
                   >
                     <div className="flex items-start gap-4 min-w-0">
                       {/* Fake Image Placeholder matching Amazon style */}
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-surface/50 text-xl shadow-sm">
-                        📦
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-surface/50 text-muted-foreground shadow-sm">
+                        <Package className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">

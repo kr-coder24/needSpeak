@@ -24,7 +24,7 @@ const nav = [
   { to: "/chat", label: "Chat" },
   { to: "/occasions", label: "Occasions" },
   { to: "/recipe", label: "Recipe" },
-  { to: "/restock", label: "Restock" },
+  { to: "/watchlist", label: "Watchlist" },
 ];
 
 export function AppShell({

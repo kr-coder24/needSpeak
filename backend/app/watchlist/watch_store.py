@@ -49,64 +49,88 @@ def seed_demo_data(user_id: str):
     
     demo_watches = [
         {
-            "sku": "SEED-SKU-1",
-            "name": "Tata Salt, 1kg",
-            "brand": "Tata",
-            "current_price_inr": 25.0,
-            "target_price_inr": 20.0,
+            "sku": "SKU-CHICKEN",
+            "name": "Farm Fresh Chicken Breast",
+            "brand": "Fresh Farm",
+            "current_price_inr": 280.0,
+            "target_price_inr": 280.0,
             "drop_type": "none",
             "email_ready": False,
-            "neighbor_match": None
+            "neighbor_match": "Average Fresh Farm",
+            "competitor_price_inr": 290.0,
+            "competitor_source": "BigBasket"
         },
         {
-            "sku": "SEED-SKU-2",
-            "name": "Maggi 2-Minute Noodles",
-            "brand": "Nestle",
-            "current_price_inr": 140.0,
-            "target_price_inr": 120.0,
-            "drop_type": "recent_drop", # Price drop item
-            "email_ready": True,
-            "neighbor_match": "Available locally for ₹135"
-        },
-        {
-            "sku": "SEED-SKU-3",
-            "name": "Surf Excel Matic Liquid",
-            "brand": "Surf Excel",
-            "current_price_inr": 399.0,
-            "target_price_inr": 350.0,
+            "sku": "SKU-SONY",
+            "name": "Sony WH-1000XM5 Wireless Noise Cancelling Headphones",
+            "brand": "Sony",
+            "current_price_inr": 31385.0,
+            "target_price_inr": 22990.0,
             "drop_type": "recent_rise",
             "email_ready": False,
-            "neighbor_match": None
+            "neighbor_match": "Average Sony",
+            "competitor_price_inr": 31999.0,
+            "competitor_source": "Croma"
         },
         {
-            "sku": "SEED-SKU-4",
-            "name": "Amul Butter",
-            "brand": "Amul",
-            "current_price_inr": 54.0,
-            "target_price_inr": 50.0,
+            "sku": "SKU-DAAWAT",
+            "name": "Daawat Rozana Super Basmati Rice",
+            "brand": "Daawat",
+            "current_price_inr": 1435.0,
+            "target_price_inr": 1250.0,
             "drop_type": "none",
             "email_ready": True,
-            "neighbor_match": None
+            "neighbor_match": "Average Daawat",
+            "competitor_price_inr": 1450.0,
+            "competitor_source": "Reliance Smart"
         },
         {
-            "sku": "SEED-SKU-5",
-            "name": " आशीर्वाद Atta 5kg",
-            "brand": "Aashirvaad",
-            "current_price_inr": 240.0,
-            "target_price_inr": 200.0,
-            "drop_type": "recent_drop", # Price drop item
-            "email_ready": True,
-            "neighbor_match": "Cheaper at Reliance Smart"
-        },
-        {
-            "sku": "SEED-SKU-6",
-            "name": "Coca-Cola 1.25L",
-            "brand": "Coca-Cola",
-            "current_price_inr": 65.0,
-            "target_price_inr": 60.0,
+            "sku": "SKU-PHILIPS",
+            "name": "Philips Digital Air Fryer 4.1L with Touch Panel",
+            "brand": "Philips",
+            "current_price_inr": 9256.0,
+            "target_price_inr": 8999.0,
             "drop_type": "none",
             "email_ready": False,
-            "neighbor_match": None
+            "neighbor_match": "Average Philips",
+            "competitor_price_inr": 9499.0,
+            "competitor_source": "Amazon"
+        },
+        {
+            "sku": "SKU-LG",
+            "name": "LG 7 kg 5 Star Fully Automatic Front Load",
+            "brand": "LG",
+            "current_price_inr": 30565.0,
+            "target_price_inr": 30990.0,
+            "drop_type": "recent_drop",
+            "email_ready": True,
+            "neighbor_match": "Average LG",
+            "competitor_price_inr": 29990.0,
+            "competitor_source": "Flipkart"
+        },
+        {
+            "sku": "SKU-PAMPERS",
+            "name": "Pampers Active Baby Diapers Monthly Box",
+            "brand": "Pampers",
+            "current_price_inr": 2021.0,
+            "target_price_inr": 1499.0,
+            "drop_type": "none",
+            "email_ready": False,
+            "neighbor_match": "Average Pampers",
+            "competitor_price_inr": 2100.0,
+            "competitor_source": "FirstCry"
+        },
+        {
+            "sku": "DEMO-PURIFIER",
+            "name": "Kent Supreme RO + UV Water Purifier 8L",
+            "brand": "Kent",
+            "current_price_inr": 14715.0,
+            "target_price_inr": 13499.0,
+            "drop_type": "recent_drop",
+            "email_ready": True,
+            "neighbor_match": "Average Kent",
+            "competitor_price_inr": 13790.0,
+            "competitor_source": "Flipkart"
         }
     ]
     
@@ -124,6 +148,8 @@ def seed_demo_data(user_id: str):
             current_price_inr=dw["current_price_inr"],
             target_price_inr=dw["target_price_inr"],
             price_history=history,
+            competitor_price_inr=dw["competitor_price_inr"],
+            competitor_source=dw["competitor_source"],
             email="demo@example.com" if dw["email_ready"] else None,
             neighbor_match=dw["neighbor_match"],
             price_status=status

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as RestockRouteImport } from './routes/restock'
 import { Route as RecipeRouteImport } from './routes/recipe'
 import { Route as PreferencesRouteImport } from './routes/preferences'
@@ -24,6 +25,11 @@ import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
 import { Route as CollabJoinCodeRouteImport } from './routes/collab.join.$code'
 
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RestockRoute = RestockRouteImport.update({
   id: '/restock',
   path: '/restock',
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/restock': typeof RestockRoute
+  '/watchlist': typeof WatchlistRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/restock': typeof RestockRoute
+  '/watchlist': typeof WatchlistRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/preferences': typeof PreferencesRoute
   '/recipe': typeof RecipeRoute
   '/restock': typeof RestockRoute
+  '/watchlist': typeof WatchlistRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/recipe'
     | '/restock'
+    | '/watchlist'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/recipe'
     | '/restock'
+    | '/watchlist'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/recipe'
     | '/restock'
+    | '/watchlist'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -205,6 +217,7 @@ export interface RootRouteChildren {
   PreferencesRoute: typeof PreferencesRoute
   RecipeRoute: typeof RecipeRoute
   RestockRoute: typeof RestockRoute
+  WatchlistRoute: typeof WatchlistRoute
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
@@ -214,6 +227,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/restock': {
       id: '/restock'
       path: '/restock'
@@ -325,6 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   PreferencesRoute: PreferencesRoute,
   RecipeRoute: RecipeRoute,
   RestockRoute: RestockRoute,
+  WatchlistRoute: WatchlistRoute,
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,

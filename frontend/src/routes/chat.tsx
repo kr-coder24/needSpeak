@@ -45,6 +45,8 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
+import { useWishlistStore, type PriceStatus } from "@/store/useWishlistStore";
+import { Bell } from "lucide-react";
 
 import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
 import { detectOccasion, type OccasionSuggestion } from "@/lib/occasion-detector";
@@ -456,6 +458,7 @@ function CartItemRow({
   onRemove,
   onSwap,
   preferredBrands,
+  priceStatus,
 }: {
   item: any;
   qty: number;
@@ -464,6 +467,7 @@ function CartItemRow({
   onRemove: () => void;
   onSwap?: (altSku: string) => void;
   preferredBrands?: string[];
+  priceStatus?: PriceStatus;
 }) {
   const effectiveTotal = (item.price_per_unit_inr * qty).toFixed(0);
   const [showAlternatives, setShowAlternatives] = useState(false);
@@ -508,6 +512,10 @@ function CartItemRow({
   const productBadge = getFakeProductBadge(item);
   const priceAdvice = getFakePriceAdvice(item);
 
+  const { addToWishlist, wishlist } = useWishlistStore();
+  const wId = item.sku || item.name;
+  const inWishlist = wishlist.some((w) => w.id === wId);
+
   return (
     <div className={`rounded-xl border shadow-sm transition-all hover:shadow-md hover:bg-background ${
       effHealthBadge === "excellent" ? "border-green-200/60 bg-green-50/30" :
@@ -522,13 +530,46 @@ function CartItemRow({
               <h4 className="truncate text-sm font-semibold capitalize leading-tight text-foreground">
                 {item.name}
               </h4>
-              <button
-                onClick={onRemove}
-                aria-label="Remove item"
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              {priceStatus && (
+                <div 
+                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                    priceStatus.color_key === 'green' ? 'bg-green-500' :
+                    priceStatus.color_key === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  title={priceStatus.label}
+                />
+              )}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!inWishlist) {
+                      addToWishlist(getStoredUserId(), {
+                        id: wId,
+                        name: item.name,
+                        image_url: item.image_url,
+                        current_price_inr: item.price_per_unit_inr || item.total_price_inr || item.price || 100,
+                        brand: item.brand,
+                      });
+                    }
+                  }}
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                    inWishlist
+                      ? "bg-brand text-white"
+                      : "bg-surface text-muted-foreground hover:bg-brand/10 hover:text-brand"
+                  }`}
+                  title={inWishlist ? "Watching" : "Watch Price"}
+                >
+                  <Bell className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={onRemove}
+                  aria-label="Remove item"
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
               <span className="font-medium capitalize text-foreground/70">{item.brand}</span>
@@ -901,6 +942,48 @@ function ChatPage() {
 
   // Load user preferred brands for display in cart items
   const [userPreferredBrands] = useState<string[]>(() => loadPreferences().preferredBrands);
+
+  const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>({});
+
+  useEffect(() => {
+    if (cartData?.cart) {
+      const items = cartData.cart.map((it: any) => ({
+        sku: it.sku || it.name,
+        current_price_inr: it.price_per_unit_inr || it.total_price_inr || it.price || 0,
+      }));
+
+      const extraItems = intentGroups.flatMap((g: any) =>
+        (g.cart || []).map((it: any) => ({
+          sku: it.sku || it.name,
+          current_price_inr: it.price_per_unit_inr || it.total_price_inr || it.price || 0,
+        }))
+      );
+      
+      const allItems = [...items, ...extraItems];
+
+      fetch("/api/watchlist/price-status/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: getStoredUserId(),
+          items: allItems,
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.items) {
+            const map: Record<string, PriceStatus> = {};
+            data.items.forEach((it: any) => {
+              if (it.price_status) {
+                map[it.sku] = it.price_status;
+              }
+            });
+            setPriceStatuses(map);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [cartData, intentGroups]);
 
   // Track pending clarification context so follow-up answers include original request
   const pendingClarificationRef = useRef<string | null>(null);
@@ -1838,6 +1921,7 @@ function ChatPage() {
                                     onRemove={() => setRemovedKeys((prev) => [...prev, key])}
                                     onSwap={(altSku) => swapItem(item.sku, altSku)}
                                     preferredBrands={userPreferredBrands}
+                                    priceStatus={priceStatuses[key]}
                                   />
                                 );
                               })}
@@ -1879,6 +1963,7 @@ function ChatPage() {
                               onRemove={() => setRemovedKeys((prev) => [...prev, key])}
                               onSwap={(altSku) => swapItem(item.sku, altSku)}
                               preferredBrands={userPreferredBrands}
+                              priceStatus={priceStatuses[key]}
                             />
                           );
                         })}

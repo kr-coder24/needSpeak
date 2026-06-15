@@ -546,7 +546,7 @@ function CartItemRow({
                 if (friendCount >= 3) {
                   return (
                     <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-                      👥 {friendCount} friends bought
+                      👥 {friendCount} friends bought last month
                     </span>
                   );
                 }

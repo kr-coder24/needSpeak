@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Check, CreditCard, Loader2, Package } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { DealStatusPill } from "@/components/common/DealStatusIndicator";
+import { getPriceStatusBatch, type PriceStatus } from "@/lib/watchlist-api";
 
 export const Route = createFileRoute("/checkout/$id")({
   component: CheckoutPage,
@@ -14,6 +16,7 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
+  const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>({});
 
   useEffect(() => {
     fetch(`/api/reservation/${reservationId}`)
@@ -22,6 +25,30 @@ function CheckoutPage() {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, [reservationId]);
+
+  useEffect(() => {
+    const items = (reservation?.reserved_items || [])
+      .map((item: any) => ({
+        sku: String(item.sku || item.name || ""),
+        current_price_inr: Number(item.price_per_unit || item.total || 0),
+      }))
+      .filter((item: any) => item.sku && item.current_price_inr > 0);
+
+    if (items.length === 0) return;
+
+    let cancelled = false;
+    getPriceStatusBatch("demo_user", items)
+      .then((result) => {
+        if (!cancelled) {
+          setPriceStatuses(Object.fromEntries(result.items.map((item) => [item.sku, item.price_status])));
+        }
+      })
+      .catch((error) => console.error("Could not load checkout Price Guardian dots", error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reservation]);
 
   const handlePayment = async () => {
     if (!customerEmail.trim()) {

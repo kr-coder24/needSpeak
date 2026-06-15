@@ -1,5 +1,9 @@
 # NeedSpeak / Context-to-Cart Implementation Plan
 
+## Price Guardian Notification Addition
+
+For the Price Guardian watchlist feature, alert delivery is dual-channel: when a simulated price drop, competitor win, or neighbor resale match triggers, the backend attempts/simulates the email alert and the frontend also adds the same alert to the existing AppShell notification bell. This replaces the earlier watchlist-only notification assumption so mailing and the notification bar stay in sync for demos.
+
 ## Agent Handoff Prompt - Start Here
 
 You are taking over the NeedSpeak / Context-to-Cart Amazon HackOn project in

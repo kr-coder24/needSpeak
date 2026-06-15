@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Sliders,
   Bell,
+  Image,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { downloadCSV, copyWhatsAppToClipboard, type ExportableCart } from "@/lib/cart-export";
@@ -29,6 +30,9 @@ import { loadHistory } from "@/lib/cart-history";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
 import { BudgetFingerprint } from "@/components/common/BudgetFingerprint";
+import { DealStatusPill } from "@/components/common/DealStatusIndicator";
+import { useWatchStore } from "@/store/useWatchStore";
+import { getPriceStatusBatch, type PriceStatus } from "@/lib/watchlist-api";
 
 export const Route = createFileRoute("/cart/$id")({
   head: () => ({
@@ -561,6 +565,129 @@ function getStoredUserId(): string {
   }
 }
 
+function getStoredUserEmail(): string {
+  try {
+    const raw = localStorage.getItem("needspeak-auth");
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    return parsed?.user?.email || "";
+  } catch {
+    return "";
+  }
+}
+
+function getCartPrice(item: any): number {
+  return Number(item.price_per_unit_inr || item.total_price_inr || item.total || 0);
+}
+
+function getCartStatusKey(item: any): string {
+  return String(item.sku || item.name || "");
+}
+
+function WatchButton({ item }: { item: any }) {
+  const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState<number>(Number(item.price_per_unit_inr || item.total_price_inr || 0));
+  const [competitorText, setCompetitorText] = useState("");
+  const [email, setEmail] = useState(getStoredUserEmail());
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [watching, setWatching] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const addWatch = useWatchStore((state) => state.addWatch);
+
+  const startWatching = async () => {
+    if (saving || watching) return;
+    setSaving(true);
+    try {
+      await addWatch(
+        {
+          sku: item.sku || item.name,
+          name: item.name,
+          brand: item.brand || "",
+          current_price_inr: getCartPrice(item),
+          target_price_inr: target,
+          competitor_text: competitorText.trim() || undefined,
+          user_id: getStoredUserId(),
+          email: email.trim() || undefined,
+        },
+        screenshot,
+      );
+      setWatching(true);
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-border/30 bg-background/40 p-4">
+      <button
+        onClick={() => setOpen((value) => !value)}
+        disabled={watching}
+        className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors ${
+          watching
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+            : "border-brand/25 bg-brand/10 text-brand hover:bg-brand/15"
+        }`}
+      >
+        <Bell className="h-3.5 w-3.5" />
+        {watching ? "Watching" : "Watch price"}
+      </button>
+
+      {open && !watching && (
+        <div className="mt-3 grid gap-3 rounded-xl border border-border/50 bg-card/70 p-4 sm:grid-cols-2">
+          <label className="space-y-1.5 text-xs font-semibold text-foreground">
+            Notify if price drops to
+            <input
+              type="number"
+              min={1}
+              value={target}
+              onChange={(e) => setTarget(Number(e.target.value))}
+              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="space-y-1.5 text-xs font-semibold text-foreground">
+            Alert email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="space-y-1.5 text-xs font-semibold text-foreground sm:col-span-2">
+            Saw it cheaper elsewhere?
+            <input
+              value={competitorText}
+              onChange={(e) => setCompetitorText(e.target.value)}
+              placeholder="Flipkart - Rs 1800"
+              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-brand/50 hover:text-foreground sm:col-span-2">
+            <Image className="h-4 w-4" />
+            <span className="truncate">{screenshot ? screenshot.name : "Attach competitor screenshot"}</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => setScreenshot(e.target.files?.[0] || null)}
+            />
+          </label>
+          <button
+            onClick={startWatching}
+            disabled={saving || !target}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-bold text-background transition-colors hover:bg-foreground/90 disabled:opacity-50 sm:col-span-2"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+            Start watching
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CartPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -597,6 +724,7 @@ function CartPage() {
   const [reservationMessage, setReservationMessage] = useState<string>("");
   const [narrative, setNarrative] = useState<string | null>(null);
   const [narrativeLoading, setNarrativeLoading] = useState(false);
+  const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>({});
 
   // Fetch session data from the backend
   useEffect(() => {
@@ -657,6 +785,38 @@ function CartPage() {
     session?.total_price_inr ||
     cartItems.reduce((s: number, it: any) => s + (it.total_price_inr || 0), 0);
   const budgetPct = budget ? Math.min(100, (total / budget) * 100) : 0;
+  const priceStatusKey = cartItems
+    .map((item: any) => `${getCartStatusKey(item)}:${getCartPrice(item)}`)
+    .filter(Boolean)
+    .join("|");
+
+  useEffect(() => {
+    const items = cartItems
+      .map((item: any) => ({
+        sku: getCartStatusKey(item),
+        current_price_inr: getCartPrice(item),
+      }))
+      .filter((item: any) => item.sku && item.current_price_inr > 0);
+
+    if (items.length === 0) {
+      setPriceStatuses({});
+      return;
+    }
+
+    let cancelled = false;
+    getPriceStatusBatch(getStoredUserId(), items)
+      .then((result) => {
+        if (cancelled) return;
+        setPriceStatuses(
+          Object.fromEntries(result.items.map((item) => [item.sku, item.price_status])),
+        );
+      })
+      .catch((error) => console.error("Could not load Price Guardian dots", error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [priceStatusKey]);
 
   const runAutoOptimize = async () => {
     if (!session) return;
@@ -913,9 +1073,30 @@ function CartPage() {
     );
   }
 
+  // ── Derived insights (frontend-only mock metrics) ───────────────────────
+  const avgPrice = cartItems.length ? Math.round(total / cartItems.length) : 0;
+  const uniqueBrands = new Set(cartItems.map((i: any) => i.brand).filter(Boolean)).size;
+  const co2Saved = (cartItems.length * 0.42).toFixed(1);
+  const greenScore = Math.min(98, 62 + cartItems.length * 4 + (budget && total <= budget ? 8 : 0));
+  const savings = budget ? Math.max(0, budget - total) : Math.round(total * 0.12);
+  const cheapest = cartItems.reduce(
+    (a: any, b: any) => (!a || b.total_price_inr < a.total_price_inr ? b : a),
+    null as any,
+  );
+  const priciest = cartItems.reduce(
+    (a: any, b: any) => (!a || b.total_price_inr > a.total_price_inr ? b : a),
+    null as any,
+  );
+  const suggestions = [
+    { name: "Cold-pressed mustard oil", brand: "Fortune", price: 219, tag: "Pairs well" },
+    { name: "Pink Himalayan salt", brand: "Tata", price: 89, tag: "Often bought" },
+    { name: "Fresh coriander", brand: "Local", price: 15, tag: "Trending" },
+  ];
+
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-10">
+        {/* ── Hero ────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand/15 to-brand/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-brand shadow-sm shadow-brand/10 border border-brand/20">
@@ -925,19 +1106,15 @@ function CartPage() {
               {intentSummary || intentTypeLabel || "Your Cart"}
             </h1>
             <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-surface/80 to-surface/40 px-3 py-1.5 backdrop-blur-sm border border-border/40 shadow-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface/60 px-3 py-1.5 border border-border/40">
                 <span className="text-foreground font-semibold">{cartItems.length}</span> items
               </span>
               {budget && (
-                <>
-                  <span className="text-border">·</span>
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-surface/80 to-surface/40 px-3 py-1.5 backdrop-blur-sm border border-border/40 shadow-sm">
-                    budget <span className="text-foreground font-semibold">₹{budget}</span>
-                  </span>
-                </>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface/60 px-3 py-1.5 border border-border/40">
+                  budget <span className="text-foreground font-semibold">₹{budget}</span>
+                </span>
               )}
-              <span className="text-border">·</span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-brand/10 to-brand/5 px-3 py-1.5 backdrop-blur-sm border border-brand/20 text-foreground font-semibold shadow-sm shadow-brand/5">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-1.5 border border-brand/20 text-foreground font-semibold">
                 total <span className="text-brand">₹{total}</span>
               </span>
             </p>
@@ -951,7 +1128,83 @@ function CartPage() {
           </button>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
+        {/* ── Live insights strip ─────────────────────────────────────── */}
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Avg / item", value: `₹${avgPrice}`, icon: Wallet, tone: "brand" },
+            { label: "You save", value: `₹${savings}`, icon: TrendingDown, tone: "success" },
+            { label: "CO₂ avoided", value: `${co2Saved} kg`, icon: Leaf, tone: "success" },
+            { label: "Brands", value: `${uniqueBrands}`, icon: Sparkles, tone: "amber" },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="group relative overflow-hidden rounded-2xl border-2 border-border/50 bg-gradient-to-br from-card to-background/40 p-4 shadow-sm backdrop-blur-sm transition-all hover:scale-[1.03] hover:shadow-lg hover:border-brand/40"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {s.label}
+                </span>
+                <s.icon
+                  className={`h-3.5 w-3.5 ${
+                    s.tone === "success"
+                      ? "text-success"
+                      : s.tone === "amber"
+                        ? "text-amber-500"
+                        : "text-brand"
+                  }`}
+                />
+              </div>
+              <div className="mt-1.5 text-xl font-bold text-foreground">{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Smart insights row ──────────────────────────────────────── */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-success/30 bg-gradient-to-br from-success/10 to-success/5 px-4 py-3">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-success">
+              <Leaf className="h-3 w-3" /> Green Score
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-foreground">{greenScore}</span>
+              <span className="text-[10px] text-muted-foreground">/ 100</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-success/15">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-success to-success/70"
+                style={{ width: `${greenScore}%` }}
+              />
+            </div>
+          </div>
+          {cheapest && (
+            <div className="rounded-xl border border-brand/30 bg-gradient-to-br from-brand/10 to-brand/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-brand">
+                <TrendingDown className="h-3 w-3" /> Best value pick
+              </div>
+              <div className="mt-1 truncate text-sm font-bold text-foreground capitalize">
+                {cheapest.name}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                ₹{cheapest.total_price_inr} · {cheapest.brand}
+              </div>
+            </div>
+          )}
+          {priciest && (
+            <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                <TrendingUp className="h-3 w-3" /> Premium pick
+              </div>
+              <div className="mt-1 truncate text-sm font-bold text-foreground capitalize">
+                {priciest.name}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                ₹{priciest.total_price_inr} · {priciest.brand}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
           {/* Items */}
           <div className="space-y-4">
             {cartItems.map((it: any, idx: number) => (
@@ -969,6 +1222,7 @@ function CartPage() {
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-surface/80 to-surface/40 px-2.5 py-1 text-xs font-semibold text-foreground/70 border border-border/40 shadow-sm">
                         {it.brand}
                       </span>
+                      <DealStatusPill status={priceStatuses[getCartStatusKey(it)]} />
                       {it.substituted && (
                         <span className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-success/20 to-success/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-success border border-success/30 shadow-sm shadow-success/10">
                           <Check className="h-3 w-3" />
@@ -1008,6 +1262,8 @@ function CartPage() {
                     </div>
                   </div>
                 </div>
+
+                <WatchButton item={it} />
 
                 {/* Alternatives */}
                 {it.alternatives && it.alternatives.length > 0 && (
@@ -1259,6 +1515,68 @@ function CartPage() {
                     </>
                   )}
                 </button>
+              </div>
+
+              {/* Delivery Estimate */}
+              <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-5 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm">
+                    <RefreshCw className="h-4 w-4 text-brand" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground">Delivery</span>
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success">
+                    <Check className="h-2.5 w-2.5" /> Today
+                  </span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between rounded-lg bg-surface/40 px-3 py-2 border border-border/30">
+                    <span className="text-muted-foreground">Window</span>
+                    <span className="font-bold text-foreground">2–3 hours</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-surface/40 px-3 py-2 border border-border/30">
+                    <span className="text-muted-foreground">Slot</span>
+                    <span className="font-bold text-foreground">6:00–7:00 PM</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-success/10 px-3 py-2 border border-success/30">
+                    <span className="text-muted-foreground">Delivery fee</span>
+                    <span className="font-bold text-success">FREE</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Frequently bought together */}
+              <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/80 to-background/50 p-5 shadow-lg backdrop-blur-md">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-500/10 shadow-sm">
+                    <Plus className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground">Often paired</span>
+                </div>
+                <div className="space-y-2">
+                  {suggestions.map((s) => (
+                    <div
+                      key={s.name}
+                      className="group flex items-center justify-between gap-2 rounded-xl border border-border/40 bg-surface/30 p-2.5 transition-all hover:border-brand/40 hover:bg-brand/5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-bold text-foreground">
+                            {s.name}
+                          </span>
+                          <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600">
+                            {s.tag}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {s.brand} · ₹{s.price}
+                        </div>
+                      </div>
+                      <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand transition-all group-hover:scale-110 group-hover:bg-brand group-hover:text-brand-foreground">
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Export */}

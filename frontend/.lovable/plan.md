@@ -1,71 +1,84 @@
 ## Goal
 
-Replace the blank Lovable scaffold with your actual needSpeak codebase from the uploaded ZIP, then enhance only the **homepage UX** with:
+Overhaul `src/routes/watchlist.tsx` so it feels as clean as the rest of the app: one chart, compact cards that reveal detail on hover, and a strict neutral palette — without losing any data.
 
-1. A subtle cursor-following ambient light (no bright colors — stays inside the warm beige/ink palette).
-2. More content broken into small, modular components.
-3. A lightweight engaging visual on the hero (no heavy 3D — keeps bundle small and on-brand).
+## Color scheme (strict)
 
-Everything else (AppShell, routes, mock data, backend wiring) stays untouched.
+Remove every ad-hoc emerald/orange/amber/red tint used today (`bg-emerald-500/8`, `from-emerald-500/12 ... to-orange-500/10`, green/orange/red status badges, colored CO2 icon, orange `ReferenceLine`, etc.).
 
----
+Use only the existing tokens already used by the rest of the site:
+- surfaces: `bg-background`, `bg-card`, `bg-surface`
+- borders: `border-border`
+- text: `text-foreground`, `text-muted-foreground`
+- accent: `text-brand` / `bg-brand` (sparingly, for the one selected state and chart line)
+- destructive only for the remove button
 
-## Step 1 — Import the project
+Status / trend / "best price" badges all collapse to the same neutral pill (`border-border bg-surface text-muted-foreground`) with the brand token used only for the currently-selected item. Chart reference lines become `var(--border)` / `var(--muted-foreground)` dashed strokes instead of orange/slate.
 
-- Extract `needspeak-src.zip` into `/dev-server/`, overwriting the scaffold. Skip `.git`, `node_modules`, `.tanstack`, `.lovable` cache.
-- Run `bun install` so the lockfile resolves.
+## Layout (new structure)
 
-## Step 2 — Cursor-follow ambient lighting (global, very subtle)
-
-Add a tiny hook + provider that tracks the cursor and writes `--cursor-x` / `--cursor-y` CSS variables on `<body>`. Use it to drive a fixed radial gradient layer behind the app:
-
+```text
+┌──────────────────────────────────────────────────────────┐
+│ HeroCommandCenter  (kept, recolored to neutral)          │
+├──────────────────────────────────────────────────────────┤
+│ SignalRail         (kept, recolored to neutral)          │
+├──────────────────────────────────────────────────────────┤
+│ Price Guardian banner  (kept, recolored to neutral)      │
+├──────────────────────────────────────────────────────────┤
+│ ┌─ Compact watch list (left) ──┐ ┌─ Detail panel (right)┐│
+│ │ • Sony WH-1000XM5            │ │  Selected item title  ││
+│ │ • LG Washing Machine  ←hover │ │  Current / target /   ││
+│ │ • Air Fryer                  │ │  low / high / vol /   ││
+│ │ • …                          │ │  AI confidence        ││
+│ │                              │ │                       ││
+│ │                              │ │  ── ONE chart ──      ││
+│ │                              │ │  full price history   ││
+│ │                              │ │  + target + competitor││
+│ │                              │ │  + neighbor dot       ││
+│ │                              │ │                       ││
+│ │                              │ │  Why-this-price /     ││
+│ │                              │ │  neighbor breakdown   ││
+│ └──────────────────────────────┘ └───────────────────────┘│
+├──────────────────────────────────────────────────────────┤
+│ WatchMatrix table  (kept, recolored to neutral)          │
+└──────────────────────────────────────────────────────────┘
 ```
-background: radial-gradient(
-  600px circle at var(--cursor-x) var(--cursor-y),
-  oklch(0.93 0.02 75 / 0.55), transparent 60%
-);
-```
 
-- Uses existing `--surface` / `--accent` tones only — no neon, no purples.
-- Layer sits behind content with `pointer-events: none`, `z-index: -1`.
-- Throttled with `requestAnimationFrame`; disabled on touch devices and when `prefers-reduced-motion`.
-- Each interactive card on the homepage also gets a localized "spotlight" border tint via `onMouseMove` updating its own `--mx/--my`. Keeps the effect feeling alive without being loud.
+### Compact cards (left column)
+- Replace the current 2-col grid of large `WatchCard`s with a single vertical list of slim rows (~56px tall).
+- Collapsed row shows only: product name (truncate), current price, tiny trend pill.
+- On `hover` (and on the currently-selected row) the row expands inline to reveal: SKU/brand, target price, low/high/volatility/AI-confidence chips, status badge, email-on badge, remove button. Implemented with `group` + `group-hover:` height/opacity transitions (no JS state for hover).
+- Clicking a row sets it as the selected item that drives the right-side detail panel.
+- Default selection: first watch on load.
 
-Files:
+### Detail panel (right column) — the single chart
+- One `ComparisonChart` instance, fed by the selected watch. All sparklines per card are removed.
+- Chart keeps every data series currently rendered (price area, target reference line, competitor reference line, neighbor match dot) — just restyled to neutral tokens.
+- Above the chart: the selected item's headline numbers (current, target, low/high, volatility, AI confidence) that used to live inside each card.
+- Below the chart: the `Breakdown` block (neighbor-match math or "why this price" math) for the selected item only.
 
-- `src/hooks/use-cursor-glow.ts` (new) — global tracker.
-- `src/components/effects/CursorGlow.tsx` (new) — fixed background layer.
-- `src/components/effects/SpotlightCard.tsx` (new) — wrapper for hover-tinted cards.
-- Mount `<CursorGlow />` once inside `AppShell` (only file touched outside the homepage).
+### Data preservation checklist
+Nothing is dropped — each field just moves location:
+| Data | Old location | New location |
+|---|---|---|
+| name / brand / SKU | each card header | compact row (name) + detail panel header (brand+SKU) |
+| status / trend / email-on badges | each card | expanded row (hover) |
+| current / target price | each card | compact row (current) + detail panel |
+| 30-day low / high / volatility / AI confidence | each card chip row | expanded row chips + detail panel summary |
+| sparkline per card | each card | removed — superseded by single full chart |
+| neighbor-match breakdown | each card | detail panel |
+| "why this price" breakdown | each card | detail panel |
+| full price-history chart | each card (expandable) | single shared chart in detail panel |
+| remove action | each card | expanded row (hover) |
 
-## Step 3 — Modular homepage sections
-
-Break `src/routes/index.tsx` into small section components under `src/components/home/`:
-
-- `HeroPrompt.tsx` — existing hero + prompt box, now wrapped in a soft animated gradient mesh (pure CSS, slow drifting blobs in beige/clay tones, ~5% opacity).
-- `OccasionsStrip.tsx` — existing occasions grid, now using `SpotlightCard`.
-- `HowItWorks.tsx` (new) — 3 steps: Describe → Review → Checkout. Numbered, editorial, serif headings.
-- `InputTypesGrid.tsx` (new) — promotes the 5 input types (text, recipe, image, WhatsApp, PDF) as their own bento section with mini examples.
-- `LiveExamples.tsx` (new) — "prompt → cart preview" cards using items from `lib/mock/needspeak.ts` so it stays in sync with backend data shape. Pure presentation, no new API calls.
-- `Stats.tsx` (new) — small editorial stat row (avg cart time, items matched, ₹ saved) sourced from mock constants.
-- `FaqTeaser.tsx` (new) — 3 collapsible FAQs using existing `accordion` shadcn component.
-- `FinalCta.tsx` — existing dark CTA, unchanged styling.
-
-`index.tsx` just composes these in order. No backend calls added or changed.
-
-## Step 4 — Visual polish (still subtle)
-
-- Hero gets one slow CSS-animated "aurora" layer (two large blurred radial gradients in `--surface` and `--accent` drifting over 30s). No WebGL, no Spline runtime — keeps the page fast and consistent with the editorial Anthropic-style aesthetic you already established. If you specifically want a Spline scene later, I can swap the aurora for a `@splinetool/react-spline` embed in one section; I'm leaving it out by default because it adds ~300KB and clashes slightly with the calm beige look.
-- All new colors pulled from existing tokens (`--surface`, `--accent`, `--brand` at low alpha). Zero hardcoded hex.
-
-## Out of scope
-
-- No backend / API / auth changes.
-- No edits to other routes (`/chat`, `/occasions`, etc.) beyond the single `AppShell` line that mounts `<CursorGlow />`.
-- No new dependencies unless you approve adding Spline.
+Empty state and loading state remain, restyled to neutral.
 
 ## Technical notes
 
-- All cursor tracking uses `pointermove` + `requestAnimationFrame` coalescing; no re-renders.
-- `prefers-reduced-motion: reduce` disables both the cursor glow and the hero aurora.
-- New section components are pure presentational and tree-shake cleanly.
+- File touched: `src/routes/watchlist.tsx` only. `useWatchStore`, `watchlist-api`, and `AppShell` are untouched.
+- New local component `WatchRow` (compact, hover-expand via Tailwind `group`/`group-hover` — no extra state).
+- Lift selection state into `WatchlistPage`: `const [selectedId, setSelectedId] = useState<string | null>(null)`, default to `watches[0]?.watch_id` once data loads.
+- `WatchCard`, `Sparkline`, and the per-card `expanded` state are removed.
+- `ComparisonChart` and `Breakdown` are kept but recolored (no orange/slate/emerald hex literals — use CSS vars).
+- `PriceTrendBadge` / `WatchStatusBadge` simplified to a single neutral pill variant; label text preserved.
+- Page wrapper loses the `bg-gradient-to-b from-emerald-500/8 …` and the emerald/orange banner gradient; both become plain `bg-background` / `bg-card`.

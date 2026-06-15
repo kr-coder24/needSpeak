@@ -118,10 +118,6 @@ def _parse_brands_form(value: str | None) -> list[str]:
 # ---------------------------------------------------------------------------
 # Startup / Shutdown
 # ---------------------------------------------------------------------------
-from apscheduler.schedulers.background import BackgroundScheduler
-from app.inventory.cleanup import cleanup_expired_reservations
-
-scheduler = BackgroundScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -138,18 +134,8 @@ async def lifespan(app: FastAPI):
     products = load_all_products()
     logger.info(f"Loaded {len(products)} products into memory cache")
 
-    scheduler.add_job(
-        cleanup_expired_reservations,
-        "interval",
-        minutes=5,
-        id="cleanup_reservations",
-    )
-    scheduler.start()
-    logger.info("Started reservation cleanup scheduler")
-
     yield  # App runs
 
-    scheduler.shutdown()
     logger.info("Context-to-Cart shutting down...")
 
 
@@ -955,169 +941,62 @@ async def predict_restock_timeline(req: RestockRequest):
         raise HTTPException(status_code=500, detail="Failed to generate restock timeline")
 
 # ---------------------------------------------------------------------------
-# POST /api/cart/{session_id}/reserve — Reserve Inventory
 # ---------------------------------------------------------------------------
-from app.inventory.models import (
-    ReserveRequest,
-    ReservationResponse,
-    PaymentIntentRequest,
-    PaymentIntentResponse,
-)
-from app.inventory.reservations import (
-    reserve_items,
-    get_reservation_metadata as get_reservation,
-    commit_reservation,
-)
+# POST /api/cart/{session_id}/reserve  — Simulated Reservation (Demo)
+# POST /api/reservation/{reservation_id} — Simulated Reservation Details
+# POST /api/payment/create-intent       — Simulated Payment Intent
+# POST /api/payment/confirm             — Simulated Payment Confirm
+# ---------------------------------------------------------------------------
+from datetime import timezone
 
-@app.post("/api/cart/{session_id}/reserve", response_model=ReservationResponse)
-async def reserve_cart_items(session_id: str, req: ReserveRequest, request: Request):
-    """Reserve inventory for cart items."""
-    mock_mode = getattr(request.state, "mock_mode", False) or config.MOCK_MODE
-    user_id = request.headers.get("X-User-ID", "demo_user")
-    
-    success, failed_skus, reservation_id, metadata = reserve_items(
-        items=[item.model_dump() for item in req.items],
-        session_id=session_id,
-        user_id=user_id,
-        idempotency_key=req.idempotency_key,
-        mock_mode=mock_mode,
-    )
-    
-    status_val = "reserved" if success else ("partial_failed" if len(failed_skus) < len(req.items) else "failed")
-    return ReservationResponse(
-        reservation_id=reservation_id or f"res_{session_id}",
-        status=status_val,
-        reserved_items=metadata.get("reserved_items", []),
-        failed_items=metadata.get("failed_items", []),
-        total_amount=metadata.get("total_amount", 0.0),
-        expires_at=metadata.get("expires_at", ""),
-        message=metadata.get("message", ""),
-    )
+@app.post("/api/cart/{session_id}/reserve")
+async def reserve_cart_items(session_id: str, request: Request):
+    """Simulated reservation — instantly confirms all items for demo."""
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    items = body.get("items", [])
+    total = sum(float(i.get("price", 0)) * int(i.get("qty", 1)) for i in items)
+    reservation_id = f"res_{uuid.uuid4().hex[:12]}"
+    expires_at = (datetime.now(timezone.utc).replace(microsecond=0).isoformat() + "Z")
+    return {
+        "reservation_id": reservation_id,
+        "status": "reserved",
+        "reserved_items": items,
+        "failed_items": [],
+        "total_amount": total,
+        "expires_at": expires_at,
+        "message": "Inventory reserved (simulated)",
+    }
 
 
 @app.get("/api/reservation/{reservation_id}")
 async def get_reservation_details(reservation_id: str):
-    """Get reservation details."""
-    reservation = get_reservation(reservation_id)
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Reservation not found")
-        
-    try:
-        from app.collab.carbon_footprint import compute_cart_carbon
-        from app.collab.models import CollabCartItem
-        
-        metadata = reservation.get("metadata", {})
-        reserved_items = metadata.get("reserved_items", [])
-        
-        collab_items = []
-        for item in reserved_items:
-            collab_items.append(
-                CollabCartItem(
-                    id=item.get("sku", ""),
-                    sku=item.get("sku", ""),
-                    name=item.get("name", "Unknown"),
-                    quantity=item.get("qty", 1),
-                    category="general",
-                    unit="unit",
-                    unit_quantity=1,
-                    added_by="demo_user",
-                    added_by_name="Demo User"
-                )
-            )
-            
-        if collab_items:
-            carbon = compute_cart_carbon(collab_items)
-            metadata["carbon_breakdown"] = carbon.model_dump()
-        else:
-            metadata["carbon_breakdown"] = None
-            
-        reservation["metadata"] = metadata
-    except Exception as e:
-        logger.error(f"Failed to attach carbon breakdown to reservation: {e}")
-        
-    return reservation
+    """Simulated reservation lookup — always returns a valid reservation."""
+    return {
+        "reservation_id": reservation_id,
+        "status": "reserved",
+        "total_amount": 0,
+        "metadata": {"reserved_items": [], "carbon_breakdown": None},
+    }
 
 
-@app.post("/api/payment/create-intent", response_model=PaymentIntentResponse)
-async def create_payment_intent(req: PaymentIntentRequest):
-    """Create payment intent with Razorpay or Stripe."""
-    reservation = get_reservation(req.reservation_id)
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Reservation not found")
-    
-    if reservation["status"] != "reserved":
-        raise HTTPException(status_code=400, detail="Reservation is not in reserved state")
-    
-    amount = reservation["total_amount"]
-    payment_provider = os.getenv("PAYMENT_PROVIDER", "razorpay").lower()
-    
-    try:
-        if payment_provider == "razorpay" and os.getenv("RAZORPAY_KEY_ID") and os.getenv("RAZORPAY_KEY_SECRET"):
-            import razorpay
-            client = razorpay.Client(
-                auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
-            )
-            
-            order = client.order.create({
-                "amount": int(amount * 100),
-                "currency": "INR",
-                "receipt": req.reservation_id,
-                "notes": {
-                    "reservation_id": req.reservation_id,
-                    "customer_email": req.customer_email or "",
-                }
-            })
-            
-            return PaymentIntentResponse(
-                client_secret=order["id"],
-                amount=amount,
-                currency="INR",
-                reservation_id=req.reservation_id,
-            )
-        
-        elif payment_provider == "stripe" and os.getenv("STRIPE_SECRET_KEY"):
-            import stripe
-            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-            
-            intent = stripe.PaymentIntent.create(
-                amount=int(amount * 100),
-                currency="inr",
-                metadata={"reservation_id": req.reservation_id},
-            )
-            
-            return PaymentIntentResponse(
-                client_secret=intent.client_secret,
-                amount=amount,
-                currency="INR",
-                reservation_id=req.reservation_id,
-            )
-    except Exception as e:
-        logger.warning(f"Payment provider setup failed ({e}), falling back to simulated credentials.")
-        
-    return PaymentIntentResponse(
-        client_secret=f"fake_secret_{uuid.uuid4().hex[:12]}",
-        amount=amount,
-        currency="INR",
-        reservation_id=req.reservation_id,
-    )
+@app.post("/api/payment/create-intent")
+async def create_payment_intent(request: Request):
+    """Simulated payment intent — returns a fake client_secret."""
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    reservation_id = body.get("reservation_id", f"res_{uuid.uuid4().hex[:8]}")
+    amount = float(body.get("amount", 0))
+    return {
+        "client_secret": f"fake_secret_{uuid.uuid4().hex[:16]}",
+        "amount": amount,
+        "currency": "INR",
+        "reservation_id": reservation_id,
+    }
 
-
-class ConfirmPaymentRequest(BaseModel):
-    reservation_id: str
-    payment_id: str
 
 @app.post("/api/payment/confirm")
-async def confirm_payment(req: ConfirmPaymentRequest):
-    """Confirm payment and commit reservation."""
-    reservation = get_reservation(req.reservation_id)
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Reservation not found")
-    
-    commit_reservation(req.reservation_id, [])
-    
+async def confirm_payment(request: Request):
+    """Simulated payment confirmation — always succeeds."""
     return {"success": True, "message": "Order confirmed (Simulated)"}
-
-
 
 
 

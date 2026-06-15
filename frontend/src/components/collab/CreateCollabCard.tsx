@@ -14,9 +14,11 @@ interface CreateCollabCardProps {
     communityCode: string;
     communityName: string;
   }) => void;
+  onJoin?: (data: { code: string }) => void;
   onCancel: () => void;
   className?: string;
   isCreating?: boolean;
+  isJoining?: boolean;
 }
 
 const BUDGET_PRESETS = [500, 1000, 2000, 5000];
@@ -41,15 +43,19 @@ const HIGHLIGHTS = [
 
 export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
   onSubmit,
+  onJoin,
   onCancel,
   className,
   isCreating = false,
+  isJoining = false,
 }) => {
+  const [mode, setMode] = React.useState<"create" | "join">("create");
   const [name, setName] = React.useState("");
   const [hostName, setHostName] = React.useState("");
   const [budget, setBudget] = React.useState<number>(1000);
   const [communityCode, setCommunityCode] = React.useState("");
   const [communities, setCommunities] = React.useState<CommunityGroup[]>([]);
+  const [joinCode, setJoinCode] = React.useState("");
 
   React.useEffect(() => {
     listCommunities()
@@ -58,6 +64,7 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
   }, []);
 
   const canSubmit = name.trim().length > 0 && hostName.trim().length > 0 && !isCreating;
+  const canJoin = joinCode.trim().length >= 4 && !isJoining;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +76,12 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
       communityCode: communityCode.trim(),
       communityName: communityCode.trim(),
     });
+  };
+
+  const handleJoinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canJoin || !onJoin) return;
+    onJoin({ code: joinCode.trim().toUpperCase() });
   };
 
   return (
@@ -124,164 +137,251 @@ export const CreateCollabCard: React.FC<CreateCollabCardProps> = ({
       </aside>
 
       {/* ── Right pane: form ─────────────────────────────────────── */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-7 p-7 sm:p-9">
-        <header>
-          <span className="font-display text-[11px] uppercase tracking-[0.22em] text-muted-foreground md:hidden">
-            New session
-          </span>
-          <h3 className="mt-1 font-display text-2xl font-medium tracking-tight text-foreground md:text-xl">
-            Set up your group cart
-          </h3>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Three quick details. You can change everything later.
-          </p>
-        </header>
-
-        <div className="space-y-5">
-          {/* Session name */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="cc-name"
-              className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              What are you shopping for
-            </label>
-            <input
-              id="cc-name"
-              type="text"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isCreating}
-              placeholder="Hackathon snacks, Goa trip, Diwali party…"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
-            />
-          </div>
-
-          {/* Host name */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="cc-host"
-              className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              Your name
-            </label>
-            <input
-              id="cc-host"
-              type="text"
-              value={hostName}
-              onChange={(e) => setHostName(e.target.value)}
-              disabled={isCreating}
-              placeholder="How should the group see you?"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
-            />
-          </div>
-
-          {/* Budget */}
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <label
-                htmlFor="cc-budget"
-                className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-              >
-                Soft budget
-              </label>
-              <span className="text-xs text-muted-foreground">optional</span>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {BUDGET_PRESETS.map((b) => {
-                const active = budget === b;
-                return (
-                  <button
-                    type="button"
-                    key={b}
-                    onClick={() => setBudget(b)}
-                    disabled={isCreating}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs transition-all",
-                      active
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground",
-                    )}
-                  >
-                    ₹{b.toLocaleString("en-IN")}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                ₹
-              </span>
-              <input
-                id="cc-budget"
-                type="number"
-                min={0}
-                value={budget}
-                onChange={(e) => setBudget(parseInt(e.target.value, 10) || 0)}
-                disabled={isCreating}
-                className="w-full rounded-xl border border-border bg-background py-3 pl-8 pr-4 text-base text-foreground transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="cc-community"
-              className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              Community or PIN code
-            </label>
-            <div className="relative">
-              <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                id="cc-community"
-                type="text"
-                value={communityCode}
-                onChange={(e) => setCommunityCode(e.target.value)}
-                disabled={isCreating}
-                placeholder="e.g. 110016 or IITD-hostel"
-                list="cc-communities"
-                className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-4 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
-              />
-              <datalist id="cc-communities">
-                {communities.map((community) => (
-                  <option key={community.code} value={community.code}>
-                    {community.name}
-                  </option>
-                ))}
-              </datalist>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Optional. Same code unlocks neighbourhood bulk-buy deals.
-            </p>
-          </div>
+      <div className="flex flex-col gap-5 p-7 sm:p-9">
+        {/* Mode toggle */}
+        <div className="flex gap-1 rounded-xl border border-border bg-surface/50 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("create")}
+            className={cn(
+              "flex-1 rounded-lg py-2 text-sm font-medium transition-all",
+              mode === "create"
+                ? "bg-foreground text-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Create new
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("join")}
+            className={cn(
+              "flex-1 rounded-lg py-2 text-sm font-medium transition-all",
+              mode === "join"
+                ? "bg-foreground text-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Join with code
+          </button>
         </div>
 
-        <footer className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-5">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onCancel}
-            disabled={isCreating}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={!canSubmit}
-            className="group gap-2 rounded-full bg-foreground px-5 text-background hover:bg-foreground/90 disabled:opacity-50"
-          >
-            {isCreating ? "Creating…" : "Open the cart"}
-            {!isCreating && (
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            )}
-          </Button>
-        </footer>
-      </form>
+        {mode === "join" ? (
+          /* ── JOIN FORM ── */
+          <form onSubmit={handleJoinSubmit} className="flex flex-1 flex-col gap-6">
+            <header>
+              <h3 className="font-display text-2xl font-medium tracking-tight text-foreground md:text-xl">
+                Join a group cart
+              </h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Enter the 6-character code your friend shared with you.
+              </p>
+            </header>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="cc-join-code"
+                className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Share code
+              </label>
+              <input
+                id="cc-join-code"
+                type="text"
+                autoFocus
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                disabled={isJoining}
+                maxLength={6}
+                placeholder="e.g. Q9LHY8"
+                className="w-full rounded-xl border border-border bg-background px-4 py-4 text-center font-mono text-2xl font-bold tracking-[0.4em] text-foreground placeholder:text-muted-foreground/40 placeholder:tracking-[0.3em] transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
+              />
+              <p className="text-xs text-muted-foreground">
+                You'll pick your name on the next screen.
+              </p>
+            </div>
+
+            <footer className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-5">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onCancel}
+                disabled={isJoining}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!canJoin}
+                className="group gap-2 rounded-full bg-foreground px-5 text-background hover:bg-foreground/90 disabled:opacity-50"
+              >
+                {isJoining ? "Joining…" : "Join cart"}
+                {!isJoining && (
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                )}
+              </Button>
+            </footer>
+          </form>
+        ) : (
+          /* ── CREATE FORM ── */
+          <form onSubmit={handleSubmit} className="flex flex-col gap-7">
+            <header>
+              <h3 className="font-display text-2xl font-medium tracking-tight text-foreground md:text-xl">
+                Set up your group cart
+              </h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Three quick details. You can change everything later.
+              </p>
+            </header>
+
+            <div className="space-y-5">
+              {/* Session name */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="cc-name"
+                  className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                >
+                  What are you shopping for
+                </label>
+                <input
+                  id="cc-name"
+                  type="text"
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isCreating}
+                  placeholder="Hackathon snacks, Goa trip, Diwali party…"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
+                />
+              </div>
+
+              {/* Host name */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="cc-host"
+                  className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                >
+                  Your name
+                </label>
+                <input
+                  id="cc-host"
+                  type="text"
+                  value={hostName}
+                  onChange={(e) => setHostName(e.target.value)}
+                  disabled={isCreating}
+                  placeholder="How should the group see you?"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
+                />
+              </div>
+
+              {/* Budget */}
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <label
+                    htmlFor="cc-budget"
+                    className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                  >
+                    Soft budget
+                  </label>
+                  <span className="text-xs text-muted-foreground">optional</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {BUDGET_PRESETS.map((b) => {
+                    const active = budget === b;
+                    return (
+                      <button
+                        type="button"
+                        key={b}
+                        onClick={() => setBudget(b)}
+                        disabled={isCreating}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs transition-all",
+                          active
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-background text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+                        )}
+                      >
+                        ₹{b.toLocaleString("en-IN")}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    ₹
+                  </span>
+                  <input
+                    id="cc-budget"
+                    type="number"
+                    min={0}
+                    value={budget}
+                    onChange={(e) => setBudget(parseInt(e.target.value, 10) || 0)}
+                    disabled={isCreating}
+                    className="w-full rounded-xl border border-border bg-background py-3 pl-8 pr-4 text-base text-foreground transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="cc-community"
+                  className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                >
+                  Community or PIN code
+                </label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    id="cc-community"
+                    type="text"
+                    value={communityCode}
+                    onChange={(e) => setCommunityCode(e.target.value)}
+                    disabled={isCreating}
+                    placeholder="e.g. 110016 or IITD-hostel"
+                    list="cc-communities"
+                    className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-4 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  />
+                  <datalist id="cc-communities">
+                    {communities.map((community) => (
+                      <option key={community.code} value={community.code}>
+                        {community.name}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Optional. Same code unlocks neighbourhood bulk-buy deals.
+                </p>
+              </div>
+            </div>
+
+            <footer className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-5">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onCancel}
+                disabled={isCreating}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!canSubmit}
+                className="group gap-2 rounded-full bg-foreground px-5 text-background hover:bg-foreground/90 disabled:opacity-50"
+              >
+                {isCreating ? "Creating…" : "Open the cart"}
+                {!isCreating && (
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                )}
+              </Button>
+            </footer>
+          </form>
+        )}
+      </div>
     </motion.div>
   );
 };

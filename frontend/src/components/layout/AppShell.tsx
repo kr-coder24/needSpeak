@@ -6,7 +6,7 @@ import { useWishlistStore } from "@/store/useWishlistStore";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
 import { getStoredAuth } from "@/routes/login";
-import { createCollabSession } from "@/lib/collab-api";
+import { createCollabSession, resolveShareCode } from "@/lib/collab-api";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -84,6 +84,21 @@ export function AppShell({
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreatingCollab, setIsCreatingCollab] = useState(false);
+  const [isJoiningCollab, setIsJoiningCollab] = useState(false);
+
+  const handleJoinCollab = async (data: { code: string }) => {
+    setIsJoiningCollab(true);
+    try {
+      const { session_id } = await resolveShareCode(data.code);
+      setIsDialogOpen(false);
+      navigate({ to: `/collab/${session_id}` });
+    } catch (err) {
+      console.error(err);
+      alert("Invalid code or session not found. Double-check the code and try again.");
+    } finally {
+      setIsJoiningCollab(false);
+    }
+  };
 
   const handleCreateCollab = async (data: {
     name: string;
@@ -155,8 +170,10 @@ export function AppShell({
               <DialogContent className="p-0 bg-transparent border-none shadow-none w-[calc(100vw-2rem)] max-w-2xl sm:max-w-2xl outline-none [&>button]:hidden">
                 <CreateCollabCard
                   onSubmit={handleCreateCollab}
+                  onJoin={handleJoinCollab}
                   onCancel={() => setIsDialogOpen(false)}
                   isCreating={isCreatingCollab}
+                  isJoining={isJoiningCollab}
                 />
               </DialogContent>
             </Dialog>

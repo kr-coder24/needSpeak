@@ -1,14 +1,13 @@
 /**
- * BudgetFingerprint — Visual "spending personality" card
- * Derived from cart item analysis (brands, prices, dietary tags, quantities).
- * 
- * Persistence:
- *   - Always: Zustand + persist middleware (localStorage)
- *   - When logged in: Also syncs to backend (DynamoDB in AWS mode, in-memory in mock)
+ * BudgetFingerprint — "Shopper DNA" card
  */
 
 import { useEffect, useMemo, useRef } from "react";
-import { Fingerprint } from "lucide-react";
+import {
+  Fingerprint, Gem, Wallet, BarChart3, Heart, Drumstick,
+  Sparkles, Scale, Search, HandHeart, Leaf, Salad,
+  Package, Backpack, Target, TrendingUp, Repeat, ShoppingCart,
+} from "lucide-react";
 import { computeBudgetFingerprint, type BudgetFingerprintResult } from "@/lib/budget-fingerprint";
 import { useShopperDnaStore } from "@/store/useShopperDnaStore";
 
@@ -16,8 +15,32 @@ interface BudgetFingerprintProps {
   cartItems: any[];
   budget?: number | null;
   totalSpent?: number;
-  /** Pass the logged-in user ID to enable backend sync */
   userId?: string;
+}
+
+// Map legacy emoji to a Lucide icon component
+const emojiIcon: Record<string, any> = {
+  "💎": Gem,
+  "💰": Wallet,
+  "✨": Sparkles,
+  "⚖️": Scale,
+  "❤️": Heart,
+  "🔍": Search,
+  "🙏": HandHeart,
+  "🌱": Leaf,
+  "🥬": Salad,
+  "🍗": Drumstick,
+  "📦": Package,
+  "🎒": Backpack,
+  "🎯": Target,
+  "📈": TrendingUp,
+  "🔄": Repeat,
+  "📊": BarChart3,
+  "🛒": ShoppingCart,
+};
+
+function iconFor(emoji: string) {
+  return emojiIcon[emoji] || BarChart3;
 }
 
 export function BudgetFingerprint({ cartItems, budget, totalSpent, userId }: BudgetFingerprintProps) {
@@ -33,7 +56,6 @@ export function BudgetFingerprint({ cartItems, budget, totalSpent, userId }: Bud
     [cartItems, budget, totalSpent],
   );
 
-  // Hydrate from backend on first mount if user is logged in
   useEffect(() => {
     if (userId && !hydratedRef.current) {
       hydratedRef.current = true;
@@ -41,7 +63,6 @@ export function BudgetFingerprint({ cartItems, budget, totalSpent, userId }: Bud
     }
   }, [userId, hydrateFromBackend]);
 
-  // Persist to Zustand store (+ backend if userId provided) once per cart render
   useEffect(() => {
     if (fingerprint.traits.length > 0 && !persistedRef.current) {
       updateFingerprint(fingerprint, userId);
@@ -49,82 +70,78 @@ export function BudgetFingerprint({ cartItems, budget, totalSpent, userId }: Bud
     }
   }, [fingerprint, updateFingerprint, userId]);
 
-  // Reset ref when cart items change significantly
   useEffect(() => {
     persistedRef.current = false;
   }, [cartItems.length]);
 
   if (!cartItems || cartItems.length === 0) return null;
 
-  // Use accumulated top traits if available, otherwise use current session traits
   const displayTraits = topTraits.length > 0 && totalSessions > 1 ? topTraits : fingerprint.traits;
+  const ArchetypeIcon = iconFor(fingerprint.archetypeEmoji);
 
   return (
-    <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md overflow-hidden relative">
-      {/* Subtle background decoration */}
-      <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/5 blur-2xl" />
-      <div className="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-success/5 blur-2xl" />
-
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
       {/* Header */}
-      <div className="relative flex items-center gap-2.5 mb-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm shadow-brand/10">
-          <Fingerprint className="h-4.5 w-4.5 text-brand" />
+      <div className="flex items-center gap-3 mb-5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <Fingerprint className="h-4 w-4 text-foreground" />
         </div>
-        <div>
-          <span className="text-sm font-bold text-foreground">Shopper DNA</span>
-          <p className="text-[10px] text-muted-foreground font-medium">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Shopper DNA
+          </p>
+          <p className="text-sm font-semibold text-foreground truncate">
             {totalSessions > 1
               ? `Profile built from ${totalSessions} carts`
-              : "Your spending personality"}
+              : "Your spending profile"}
           </p>
         </div>
       </div>
 
-      {/* Archetype badge */}
-      <div className="relative mb-4 flex items-center gap-3 rounded-xl bg-gradient-to-r from-brand/10 via-brand/5 to-transparent px-4 py-3 border border-brand/20">
-        <span className="text-2xl">{fingerprint.archetypeEmoji}</span>
-        <div>
-          <div className="text-sm font-bold text-foreground">{fingerprint.archetypeLabel}</div>
-          <div className="text-[10px] text-muted-foreground font-medium">
+      {/* Archetype */}
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background border border-border">
+          <ArchetypeIcon className="h-5 w-5 text-foreground" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-base font-semibold text-foreground truncate">{fingerprint.archetypeLabel}</div>
+          <div className="text-xs text-muted-foreground">
             Avg ₹{fingerprint.avgPricePerItem}/item · {cartItems.length} items
           </div>
         </div>
       </div>
 
       {/* Traits */}
-      <div className="relative space-y-2">
-        {displayTraits.map((trait, idx) => (
-          <div
-            key={trait.label}
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 bg-surface/40 border border-border/30 transition-all duration-300 hover:bg-surface/60 hover:border-brand/20"
-            style={{ animationDelay: `${idx * 80}ms` }}
-          >
-            <span className="text-base flex-shrink-0">{trait.emoji}</span>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-foreground truncate">{trait.label}</div>
-              <div className="text-[10px] text-muted-foreground truncate">{trait.description}</div>
-            </div>
-            {/* Confidence dot */}
+      <div className="space-y-2">
+        {displayTraits.map((trait) => {
+          const Icon = iconFor(trait.emoji);
+          const dotColor =
+            trait.confidence >= 0.7
+              ? "bg-emerald-500"
+              : trait.confidence >= 0.5
+                ? "bg-amber-500"
+                : "bg-rose-500";
+          return (
             <div
-              className="h-2 w-2 rounded-full flex-shrink-0"
-              style={{
-                backgroundColor:
-                  trait.confidence >= 0.7
-                    ? "var(--color-success)"
-                    : trait.confidence >= 0.5
-                      ? "var(--color-brand)"
-                      : "var(--color-muted-foreground)",
-                opacity: trait.confidence,
-              }}
-            />
-          </div>
-        ))}
+              key={trait.label}
+              className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <Icon className="h-4 w-4 text-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-foreground truncate">{trait.label}</div>
+                <div className="text-xs text-muted-foreground truncate">{trait.description}</div>
+              </div>
+              <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} aria-hidden />
+            </div>
+          );
+        })}
       </div>
 
-      {/* Footer insight */}
       {fingerprint.dominantBrand && fingerprint.brandLoyal && (
-        <div className="relative mt-4 pt-3 border-t border-border/30">
-          <p className="text-[10px] text-muted-foreground font-medium">
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-xs text-muted-foreground">
             <span className="text-foreground font-semibold">{fingerprint.dominantBrand}</span> is
             your go-to brand in this cart
           </p>

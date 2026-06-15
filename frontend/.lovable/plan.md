@@ -1,43 +1,82 @@
-## 1. Mock data — fill every surface
+## Step 0 — Sync the real app into the sandbox
 
-- **Watchlist (`src/lib/watchlist-mock.ts` + `useWatchStore`)**: expand `MOCK_WATCHES` from 6 → 12 items (add Samsung Galaxy Buds, iPad Air, Nespresso Vertuo, Mi Air Purifier, Levi's 511 jeans, Kindle Paperwhite). Each gets 30-day history, varied statuses (`watching` / `price_dropped` / `neighbor_match` / `already_cheaper`), competitor sources, neighbor matches where relevant. Bump `MOCK_STATS` totals accordingly. Hydrate the store from mocks on first load if the API returns empty.
-- **History (`src/routes/history.tsx`)**: seed `cart-history` localStorage with 6 realistic past carts (IPL party, birthday, weekly groceries, Diwali, recipe, restock) when empty.
-- **Restock (`src/routes/restock.tsx`)** + **Occasions (`src/routes/occasions.tsx`)**: add mock items/occasions so the lists are populated on a fresh load.
-- **Preferences / Shopper DNA**: pre-populate `useShopperDnaStore` with mock dietary tags, budget fingerprint, brand affinities so the page never looks empty.
+The sandbox only has the starter template; the real app lives in `important-files3.zip`. Before any UI work:
 
-## 2. Chat / Cart page — collapsible cards + premium feel (image 1 + 2)
+- Extract the zip to a temp dir, verify there is no `.git` directory inside (already confirmed: none).
+- `rsync -a --exclude='.git' --exclude='.git/**'` the extracted tree into `/dev-server/`, overwriting `src/`, `package.json`, `tsconfig.json`, `vite.config.ts`.
+- `bun install` so the new dependencies (zustand store, etc.) resolve.
+- Sanity-check that `src/routes/watchlist.tsx`, `preferences.tsx`, `cart.$id.tsx`, `components/common/DealStatusIndicator.tsx`, `components/common/BudgetFingerprint.tsx`, `components/layout/AppShell.tsx` are now present.
 
-In `src/routes/chat.tsx`:
+No edits land until this sync is clean.
 
-- **Collapsible product cards**: collapse every item by default to a compact row (name • qty • price • status chip). Click the card (or chevron) to expand and reveal: matched-from line, "Watch price" button, ALTERNATIVES grid. Track open state with a `Set<string>` keyed by item id. Only one card open at a time (accordion behavior) to keep the page short.
-- **Scroll bug**: remove the inner `overflow-y-auto` from the cart column / `Conversation` wrapper so the page uses a single natural document scroll. Sticky right-rail (`Why this cart?` + `Final Review`) becomes `position: sticky; top: 96px` instead of its own scroll container.
-- **Shorten without losing features**: collapsed rows are ~56px tall vs current ~280px. All features (alternatives, swap, watch price, matched-from, badges) stay — just hidden until expanded.
-- **History cards (image 2)**: trim card chrome — remove the redundant `Generated via AI prompt` line under each title (keep it once as a small chip), shrink the ITEMS/TOTAL stat blocks to a single inline row, tighten padding from `p-6` → `p-5`, switch the box-icon placeholder to a real category emoji-free lucide icon (`Package` outline) at smaller size. Both action buttons get equal weight in a single row.
+## Step 1 — Watchlist: lock page scroll, only left column scrolls
 
-## 3. Watchlist page — premium polish (image 3)
+File: `src/routes/watchlist.tsx`
 
-In `src/routes/watchlist.tsx`:
+- Wrap the page in `h-screen overflow-hidden flex flex-col` so the route itself never scrolls.
+- Convert the main body to a two-column grid (`grid-cols-[minmax(0,1fr)_minmax(0,2fr)]` on `lg`, stacked on mobile) that fills remaining height.
+- Left column (the watched-items list): `h-full overflow-y-auto pr-2` — the only scroll region.
+- Right column (chart / hero product / detail panel): `h-full overflow-hidden`, chart container is `sticky top-0` and sized to its parent, no inner scroll, no `overflow-x-auto` on the graph.
+- Mobile fallback: keep page scroll disabled, swap to vertical stack where the list region still owns the scroll.
 
-- **Header**: serif H1 `Price Guardian` paired with an espresso eyebrow `LIVE TRACKING`. KPI strip becomes 4 uniform cream cards with hairline borders, uppercase micro-labels, large serif numbers, and a small trend chip (`↑ ₹2,340 this week` etc.) under each. Right-aligned action cluster: ghost `Simulate`, solid espresso `+ Add watch`, icon-only refresh — all sharing one rounded pill group.
-- **Left list**: each watch row is a uniform card with thumbnail placeholder, name, brand, price, and a single `Chip` (success/warning/danger) for deal status — no inline `Best price / Fair price / Higher than usual` text noise.
-- **Right detail**: graph height fixed at `h-[320px]`, soft espresso area fill on cream, hairline grid, popover tooltip. KPI tiles above the graph. Neighbor-match / competitor cards below in a uniform 2-col grid.
-- **Hover on left card** opens a `HoverCard` with 30-day low/high, confidence %, and last-checked timestamp.
-- Replace any hardcoded greens/reds with `--chip-success-*` / `--chip-warning-*` / `--chip-danger-*` tokens.
+## Step 2 — Cart page: vertical alignment + sizing overhaul
 
-## 4. Remove banners (images 4–7)
+File: `src/routes/cart.$id.tsx` (the page from image 4 downward — Total / Shopper DNA / following sections).
 
-- Delete the `Zero-Shot Cart Generation Pilot` banner from `src/routes/occasions.tsx` (and any `⚡ Zap` lead icon).
-- Delete the `Recipe-to-Cart AI Pipeline` + `PILOT FEATURE` banner from `src/routes/recipe.tsx`.
-- Remove the residual lightning-bolt icon and party-popper SVG/emoji wherever they appear in `history.tsx` / chat header.
-- Sweep all routes for stray decorative emojis (🎉 🎊 ⚡ 🛍️) and drop them — lucide icons only, sized consistently.
+- From the price summary card onward, drop the multi-column grid and stack everything in a single `max-w-2xl mx-auto flex flex-col gap-6` column so Total → Shopper DNA → following blocks all share the same width and vertical rhythm.
+- Normalize card sizing: `rounded-2xl p-6`, headings `text-sm font-semibold uppercase tracking-wide text-muted-foreground`, primary numeric value `text-3xl font-semibold`, supporting copy `text-sm text-muted-foreground`.
+- Kill ad-hoc oversized boxes (the `₹1748` card currently dwarfs its neighbours): clamp value typography to one scale, remove extra inner padding, equalize gap with siblings.
+- Ensure the top metrics strip (image 5: AVG/ITEM, YOU SAVE, CO₂, BRANDS) uses `grid-cols-2 md:grid-cols-4`, equal card heights via `auto-rows-fr`, single text scale.
 
-## 5. Verify
+## Step 3 — DealStatusIndicator: formal copy + restore traffic-light dots
 
-- Typecheck.
-- Walk `/chat` (collapse/expand, no inner scroll), `/watchlist` (hover, graph, KPIs), `/history`, `/occasions`, `/recipe` in preview at 1280 + 414 widths.
+File: `src/components/common/DealStatusIndicator.tsx`
 
-### Technical notes
+- Remove the 📉 / 📈 / sparkles emojis from header and label.
+- Replace `Buy Now` / `Wait` / `Avoid` emoji-led copy with a small uppercase status label (`BUY NOW`, `HOLD`, `OVERPRICED`) plus a one-line formal description ("Currently 18% below the 30-day average.").
+- Bring back the colored dot: `span` with `h-2 w-2 rounded-full` and `bg-emerald-500` (good price), `bg-amber-500` (fair), `bg-rose-500` (poor). Dot sits left of the status label.
+- Keep the 30-day pill timeline but recolor the trailing "Now" pill to match the same status color so the signal is consistent.
 
-- New mock seeds live in `src/lib/watchlist-mock.ts`, `src/lib/mock/needspeak.ts`, and a new `src/lib/mock/history-seed.ts`.
-- Card collapse state: local `useState<Set<string>>` in chat page; one-at-a-time toggle.
-- No new dependencies. Reuses existing `Chip`, `HoverCard`, `recharts`.
+## Step 4 — BudgetFingerprint + Review Cart button: de-emoji, professionalize
+
+Files: `src/components/common/BudgetFingerprint.tsx`, plus the Review Cart button (currently in `src/routes/cart.$id.tsx` / `AppShell.tsx`).
+
+- Strip emojis (💎, 💰, 📊, ❤️, 🍗, fingerprint) from each persona row. Replace with a 20px lucide icon (`Gem`, `Wallet`, `BarChart3`, `Leaf`, `Drumstick`, `Fingerprint`) in a neutral square `h-9 w-9 rounded-lg bg-muted` container.
+- Persona row typography: title `text-sm font-semibold`, subtitle `text-xs text-muted-foreground`, active-state ring instead of filled pill.
+- Review Cart CTA: rebuild as a single `Button` variant — `h-11 px-5 rounded-xl text-sm font-semibold tracking-tight`, label `Review Cart` (no emoji, no compounded word), with a `ChevronRight` trailing icon. Remove the oversized treatment.
+
+## Step 5 — Remove the blue handbag logo
+
+The logo from image 6 (`src/assets/needspeak-logo.png` based on the zip listing) appears in `AppShell.tsx` and likely `Footer.tsx` / `login.tsx`.
+
+- Delete every `<img src={logo}>` / import referencing `needspeak-logo`.
+- Replace with a text wordmark only (existing brand name in `font-semibold tracking-tight`) so nav layouts don't collapse.
+- Remove the now-unused asset import; leave the file on disk untouched (no asset deletion).
+
+## Step 6 — Preferences page: vertical structure + size cleanup
+
+File: `src/routes/preferences.tsx`
+
+- Restructure the page as a single-column `max-w-3xl mx-auto space-y-8` flow: Strategy → Brands → Constraints stacked vertically (no side-by-side sections, no oversized full-width container).
+- Each section becomes a `Card` with `p-6`, section header pattern: small uppercase eyebrow (`text-xs font-semibold tracking-[0.14em] text-muted-foreground`) + `text-lg font-semibold` title + one-line helper.
+- Strategy: 3 option cards in a `grid grid-cols-1 sm:grid-cols-3 gap-3`, each card `p-4 rounded-xl`, icon `h-5 w-5`, title `text-base font-semibold`, body `text-sm text-muted-foreground`. Sub-sections (Quality Bias, Pack Sizing) sit BELOW in a single inner card with `grid-cols-2`, chip buttons reduced to `h-9 px-3 text-sm`.
+- Brands and Constraints follow the same sizing primitives so the three sections read as one consistent stack.
+- Remove the existing oversized outer container and any `min-h-screen` padding that's inflating perceived box size.
+
+## Step 7 — Restore red / yellow / green dots wherever deal status renders
+
+Audit usages of `DealStatusIndicator` and any inline price-quality badges in `cart.$id.tsx`, `watchlist.tsx`, `restock.tsx`, `chat.tsx`. Replace any text-only / emoji-only status with the shared 8px colored dot from Step 3 so the traffic-light signal is consistent across the app.
+
+## Cross-cutting design rules (apply during every step)
+
+- Section eyebrows and metric labels in UPPERCASE with `tracking-[0.12em]`.
+- Visual hierarchy by size: hero metric `text-3xl`, section title `text-lg`, body `text-sm`, meta `text-xs`. No mid-range sizes.
+- Icons: lucide only, `h-4 w-4` inline / `h-5 w-5` in cards. No emojis anywhere user-facing.
+- Cards: `rounded-2xl`, `border`, `p-6`, consistent `gap-6` between siblings.
+- Respect responsive pattern: text containers `min-w-0`, fixed widgets `shrink-0`.
+
+## Technical notes
+
+- All edits stay in presentation layer: route files + `components/common/*` + `components/layout/AppShell.tsx`. No store, API, or schema changes.
+- After Step 0 the regenerated `routeTree.gen.ts` from the zip will be picked up; if Vite complains, delete it and let the plugin regenerate.
+- Verification: build output clean, then visual check of `/watchlist`, `/cart/:id`, `/preferences` at desktop and mobile widths via the preview.

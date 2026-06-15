@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { ChevronDown, History, LogOut, ShoppingCart, Sliders, Sun, Moon, User, Users, Bell, Sparkles } from "lucide-react";
-import logo from "@/assets/needspeak-logo.png";
+
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
@@ -124,7 +124,6 @@ export function AppShell({
       <header className="sticky top-0 z-40 shrink-0 border-b border-border/60 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-[1400px] items-center px-6 sm:px-10 lg:px-14">
           <Link to="/" className="flex items-center gap-3 shrink-0">
-            <img src={logo} alt="NeedSpeak" className="h-7 w-auto" />
             <span className="font-display text-xl font-bold tracking-tight uppercase">NEEDSPEAK</span>
           </Link>
 

@@ -13,7 +13,7 @@ import {
   Sparkles,
   ShieldCheck,
 } from "lucide-react";
-import logo from "@/assets/needspeak-logo.png";
+
 
 export const Route = createFileRoute("/login")({
   head: () => ({

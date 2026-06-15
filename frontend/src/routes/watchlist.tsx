@@ -327,31 +327,108 @@ function WatchlistPage() {
           {/* Right Panel: Selected Item Detail — fixed, no inner scroll */}
           <div className="flex-1 min-w-0 h-full overflow-hidden rounded-3xl border border-white/40 dark:border-white/[0.06] bg-white/45 dark:bg-white/[0.04] backdrop-blur-xl p-6 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.10)]">
             {selectedItem ? (
-              <div className="flex h-full flex-col gap-6 overflow-hidden">
+              <div className="flex h-full flex-col gap-5 overflow-y-auto">
 
-                {/* Product header: just name + price */}
+                {/* Badge row */}
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  {selectedItem.status && (
+                    <span className="px-2 py-0.5 rounded-md bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wide">
+                      {statusCopy[selectedItem.status] || selectedItem.status}
+                    </span>
+                  )}
+                  {selectedItem.price_status && (
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
+                      selectedItem.price_status.color_key === "green" ? "bg-emerald-100 text-emerald-700" :
+                      selectedItem.price_status.color_key === "yellow" ? "bg-amber-100 text-amber-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {selectedItem.price_status.label} {selectedItem.price_status.confidence}%
+                    </span>
+                  )}
+                  {selectedItem.email_sent && (
+                    <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-medium">
+                      ✉ Email sent
+                    </span>
+                  )}
+                  {selectedItem.neighbor_match && (
+                    <span className="px-2 py-0.5 rounded-md bg-brand/10 text-brand text-[10px] font-medium">
+                      📍 {selectedItem.neighbor_match.distance_km} km
+                    </span>
+                  )}
+                  {selectedItem.co2_saved_kg > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-green-50 text-green-700 text-[10px] font-medium">
+                      🌱 {selectedItem.co2_saved_kg} kg CO₂
+                    </span>
+                  )}
+                </div>
+
+                {/* Product header */}
                 <div className="flex justify-between items-start gap-4 shrink-0">
                   <div className="min-w-0">
-                    <h2 className="text-2xl font-semibold tracking-tight text-foreground truncate">{selectedItem.name}</h2>
-                    <p className="text-[11px] text-muted-foreground mt-1 font-medium uppercase tracking-[0.12em]">
-                      {selectedItem.brand || "Generic"}
+                    <h2 className="text-xl font-bold tracking-tight text-foreground truncate">{selectedItem.name}</h2>
+                    <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                      {selectedItem.brand || "Generic"} · SKU {selectedItem.sku}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-3xl font-semibold text-foreground tabular-nums tracking-tight">
+                    <div className="text-2xl font-bold text-foreground tabular-nums tracking-tight">
                       Rs {selectedItem.current_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                     </div>
                     {selectedItem.target_price_inr && (
-                      <p className="text-[11px] text-muted-foreground mt-1 font-medium tabular-nums">
-                        target Rs {selectedItem.target_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
+                        target Rs {selectedItem.target_price_inr.toLocaleString("en-IN")}
                       </p>
                     )}
                   </div>
                 </div>
 
+                {/* Stats row: LOW | HIGH | VOLATILITY | CONFIDENCE | SAVED | GREEN */}
+                <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+                  <div className="rounded-xl border border-border/40 bg-surface/50 p-2.5 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Low</div>
+                    <div className="text-sm font-bold tabular-nums mt-0.5">
+                      Rs {(selectedItem.price_status?.thirty_day_low_inr || selectedItem.current_price_inr * 0.85).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/40 bg-surface/50 p-2.5 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">High</div>
+                    <div className="text-sm font-bold tabular-nums mt-0.5">
+                      Rs {(selectedItem.price_status?.thirty_day_high_inr || selectedItem.current_price_inr * 1.15).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/40 bg-surface/50 p-2.5 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Volatility</div>
+                    <div className="text-sm font-bold tabular-nums mt-0.5">
+                      {(() => {
+                        const low = selectedItem.price_status?.thirty_day_low_inr || selectedItem.current_price_inr * 0.85;
+                        const high = selectedItem.price_status?.thirty_day_high_inr || selectedItem.current_price_inr * 1.15;
+                        return (((high - low) / high) * 100).toFixed(1);
+                      })()}%
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/40 bg-surface/50 p-2.5 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Confidence</div>
+                    <div className="text-sm font-bold tabular-nums mt-0.5">
+                      {selectedItem.price_status?.confidence || 80}%
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/40 bg-surface/50 p-2.5 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Saved</div>
+                    <div className="text-sm font-bold tabular-nums mt-0.5 text-emerald-600">
+                      Rs {(selectedItem.logistics_saved_inr || 0).toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/40 bg-surface/50 p-2.5 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Green</div>
+                    <div className="text-sm font-bold tabular-nums mt-0.5 text-green-600">
+                      🌱 {selectedItem.co2_saved_kg || 0}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Price history chart */}
-                <div className="flex-1 min-h-0 rounded-2xl border border-white/40 dark:border-white/[0.06] bg-white/35 dark:bg-white/[0.02] backdrop-blur-xl p-4 md:p-6 flex flex-col">
-                  <h3 className="font-medium text-[13px] text-muted-foreground mb-3 uppercase tracking-[0.12em] shrink-0">
+                <div className="flex-1 min-h-[200px] rounded-2xl border border-border/30 bg-surface/30 p-4 flex flex-col">
+                  <h3 className="font-semibold text-[11px] text-muted-foreground mb-3 uppercase tracking-wider shrink-0">
                     Price History · 30 Days
                   </h3>
                   <div className="flex-1 min-h-0 w-full">
@@ -378,6 +455,53 @@ function WatchlistPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Bottom cards: CO2 | Logistics | Competitor */}
+                <div className="grid grid-cols-3 gap-2 shrink-0">
+                  <div className="rounded-xl border border-green-200/60 bg-green-50/50 p-3 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-green-600">CO₂ Avoided</div>
+                    <div className="text-base font-bold text-green-700 mt-1">{selectedItem.co2_saved_kg || 0} kg</div>
+                  </div>
+                  <div className="rounded-xl border border-blue-200/60 bg-blue-50/50 p-3 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-blue-600">Logistics Saved</div>
+                    <div className="text-base font-bold text-blue-700 mt-1">Rs {(selectedItem.logistics_saved_inr || 0).toLocaleString("en-IN")}</div>
+                  </div>
+                  <div className="rounded-xl border border-purple-200/60 bg-purple-50/50 p-3 text-center">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-purple-600">Competitor</div>
+                    <div className="text-base font-bold text-purple-700 mt-1">
+                      {selectedItem.competitor_price_inr ? `Rs ${selectedItem.competitor_price_inr.toLocaleString("en-IN")}` : "N/A"}
+                    </div>
+                    {selectedItem.competitor_source && (
+                      <div className="text-[9px] text-purple-600 mt-0.5">{selectedItem.competitor_source}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Neighbor match section */}
+                {selectedItem.neighbor_match && (
+                  <div className="rounded-xl border border-brand/20 bg-brand/5 p-4 shrink-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">📍</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-brand">
+                        Neighbor Price · {selectedItem.neighbor_match.distance_km} km
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-[9px] text-muted-foreground font-medium">Original</div>
+                        <div className="text-sm font-bold">Rs {selectedItem.neighbor_match.original_price_inr.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-muted-foreground font-medium">Logistics saved</div>
+                        <div className="text-sm font-bold text-blue-600">Rs {selectedItem.neighbor_match.logistics_cost_saved_inr.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-muted-foreground font-medium">Your price</div>
+                        <div className="text-sm font-bold text-emerald-600">Rs {selectedItem.neighbor_match.neighbor_price_inr.toLocaleString("en-IN")}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               </div>
             ) : (

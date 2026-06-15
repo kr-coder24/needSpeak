@@ -94,21 +94,22 @@ export const useWatchStore = create<WatchState>((set, get) => ({
       let stats: WatchStats = emptyStats;
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
+        const timeout = setTimeout(() => controller.abort(), 2000);
         const [w, s] = await Promise.all([
           getWatches(userId),
           getWatchStats(userId),
-          seedDemoNotifications(),
         ]);
         clearTimeout(timeout);
         watches = w;
         stats = s;
+        seedDemoNotifications();
       } catch {
-        // API unavailable or timed out — fall through to mocks
+        // API unavailable or timed out — use mocks
       }
       if (!watches || watches.length === 0) {
         watches = MOCK_WATCHES;
         stats = MOCK_STATS;
+        seedDemoNotifications();
       }
       set({ watches, stats, loading: false });
     } catch {

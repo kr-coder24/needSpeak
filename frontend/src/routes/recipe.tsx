@@ -312,9 +312,7 @@ function RecipePage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="truncate text-base font-bold text-foreground capitalize">{it.name}</h4>
-                          <span className="inline-flex shrink-0 items-center rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
-                            <Sparkles className="mr-0.5 h-2.5 w-2.5" /> AI Matched
-                          </span>
+                          
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                           <span className="font-semibold text-foreground bg-surface px-1.5 rounded">

@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Sparkles } from "lucide-react";
-import logo from "@/assets/needspeak-logo.png";
+
 import * as React from "react";
 
 export function Footer() {
@@ -26,10 +26,6 @@ export function Footer() {
           {/* Brand/Identity Section */}
           <div className="md:col-span-5 space-y-6">
             <Link to="/" className="flex items-center gap-2.5 group w-fit">
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-surface border border-border/60 transition-all duration-300 group-hover:scale-105 group-hover:rotate-3 group-hover:border-brand/40">
-                <img src={logo} alt="" className="h-6 w-6" />
-                <div className="absolute inset-0 -z-10 rounded-xl bg-brand/10 opacity-0 blur-sm transition-opacity group-hover:opacity-100" />
-              </div>
               <span className="font-display text-2xl font-bold tracking-tight uppercase transition-colors duration-200 group-hover:text-brand">
                 NEEDSPEAK
               </span>

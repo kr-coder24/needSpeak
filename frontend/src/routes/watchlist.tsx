@@ -145,7 +145,7 @@ function WatchlistPage() {
 
   return (
     <AppShell noFooter={true}>
-      <div className="flex flex-col min-h-full bg-background/30 text-foreground">
+      <div className="flex h-full flex-col overflow-hidden bg-background/30 text-foreground">
         
         {/* Main Header Card */}
         <div className="shrink-0 px-6 py-4 border-b border-border bg-card/65 backdrop-blur-md">
@@ -210,11 +210,11 @@ function WatchlistPage() {
           </div>
         </div>
 
-        {/* Outer Split Pane Layout */}
-        <div className="flex flex-col md:flex-row max-w-7xl w-full mx-auto p-4 md:p-6 gap-6">
+        {/* Outer Split Pane Layout — only left list scrolls */}
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row max-w-7xl w-full mx-auto p-4 md:p-6 gap-6 overflow-hidden">
 
-          {/* Left Panel: Watchlist Cards */}
-          <div className="w-full md:w-[350px] shrink-0 flex flex-col gap-3">
+          {/* Left Panel: Watchlist Cards — the only scroll region */}
+          <div className="w-full md:w-[350px] shrink-0 flex flex-col gap-3 h-full overflow-y-auto pr-1">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-xs">
                 <Loader2 className="h-6 w-6 animate-spin mb-2" /> Loading...
@@ -265,150 +265,96 @@ function WatchlistPage() {
                   <button
                     key={item.sku}
                     onClick={() => setSelectedSku(item.sku)}
-                    className={`flex flex-col text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-soft group relative ${
-                      isSelected 
-                        ? "border-brand bg-card shadow-md shadow-brand/5 scale-[0.99]" 
-                        : "border-border bg-card/45 hover:border-border-hover hover:bg-card"
+                    className={`group relative flex flex-col text-left p-4 rounded-2xl border backdrop-blur-xl transition-all duration-300 ${
+                      isSelected
+                        ? "border-brand/40 bg-white/55 dark:bg-white/[0.06] shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)]"
+                        : "border-white/40 dark:border-white/[0.06] bg-white/35 dark:bg-white/[0.03] hover:bg-white/55 dark:hover:bg-white/[0.06] hover:border-white/60 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.10)]"
                     }`}
                   >
-                    <div className="flex justify-between items-start gap-2 w-full">
-                      <h3 className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-brand transition-colors">
+                    {/* Default: name + price + brand only */}
+                    <div className="flex justify-between items-start gap-3 w-full">
+                      <h3 className="font-semibold text-[15px] leading-snug text-foreground line-clamp-1 tracking-tight">
                         {item.name}
                       </h3>
-                      <span className="font-black text-sm text-foreground shrink-0">
+                      <span className="font-semibold text-[15px] text-foreground shrink-0 tabular-nums">
                         Rs {item.current_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </span>
                     </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground/80 font-medium">
+                      {item.brand || "Generic"}
+                    </p>
 
-                    <div className="mt-2 flex items-center justify-between w-full text-xs">
-                      <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${statusColor}`}>
-                        {labelText}
-                      </span>
-                      {item.target_price_inr && (
-                        <span className="text-muted-foreground font-semibold">
-                          tgt Rs {item.target_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-2.5 pt-2.5 border-t border-border/40 flex items-center justify-between w-full text-[10px] text-muted-foreground font-semibold">
-                      <span className="capitalize">{item.brand || "Generic"}</span>
-                      {item.neighbor_match && (
-                        <span className="text-brand flex items-center gap-0.5">
-                          <Check className="h-3 w-3" /> local match
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Hover-only badges */}
-                    {hoverBadges.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1 opacity-0 max-h-0 overflow-hidden group-hover:opacity-100 group-hover:max-h-24 transition-all duration-200">
-                        {hoverBadges.map((b) => (
-                          <span
-                            key={b.label}
-                            className={`px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider ${b.cls}`}
-                          >
-                            {b.label}
-                          </span>
-                        ))}
+                    {/* Hover: reveal all properties */}
+                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
+                      <div className="overflow-hidden">
+                        <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusColor}`}>
+                              {labelText}
+                            </span>
+                            {item.target_price_inr && (
+                              <span className="text-muted-foreground font-medium tabular-nums">
+                                tgt Rs {item.target_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                              </span>
+                            )}
+                          </div>
+                          {(hoverBadges.length > 0 || item.neighbor_match) && (
+                            <div className="flex flex-wrap gap-1">
+                              {hoverBadges.map((b) => (
+                                <span
+                                  key={b.label}
+                                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold uppercase tracking-wider ${b.cls}`}
+                                >
+                                  {b.label}
+                                </span>
+                              ))}
+                              {item.neighbor_match && (
+                                <span className="px-2 py-0.5 rounded-full border border-brand/20 bg-brand/5 text-brand text-[9px] font-semibold uppercase tracking-wider inline-flex items-center gap-0.5">
+                                  <Check className="h-2.5 w-2.5" /> local match
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </button>
                 );
               })
             )}
           </div>
 
-          {/* Right Panel: Selected Item Detail */}
-          <div className="flex-1 flex flex-col bg-card border border-border rounded-3xl p-6 shadow-soft">
+          {/* Right Panel: Selected Item Detail — fixed, no inner scroll */}
+          <div className="flex-1 min-w-0 h-full overflow-hidden rounded-3xl border border-white/40 dark:border-white/[0.06] bg-white/45 dark:bg-white/[0.04] backdrop-blur-xl p-6 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.10)]">
             {selectedItem ? (
-              <div className="flex flex-col gap-6">
-                
-                {/* Product Meta Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-5">
-                  <div>
-                    <h2 className="text-2xl font-black text-foreground">{selectedItem.name}</h2>
-                    <p className="text-xs text-muted-foreground mt-1 font-semibold uppercase tracking-wider">
-                      {selectedItem.brand || "Generic"} · SKU {selectedItem.sku}
+              <div className="flex h-full flex-col gap-6 overflow-hidden">
+
+                {/* Product header: just name + price */}
+                <div className="flex justify-between items-start gap-4 shrink-0">
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground truncate">{selectedItem.name}</h2>
+                    <p className="text-[11px] text-muted-foreground mt-1 font-medium uppercase tracking-[0.12em]">
+                      {selectedItem.brand || "Generic"}
                     </p>
                   </div>
-
-                  <div className="text-left md:text-right shrink-0">
-                    <div className="text-3xl font-black text-foreground">
+                  <div className="text-right shrink-0">
+                    <div className="text-3xl font-semibold text-foreground tabular-nums tracking-tight">
                       Rs {selectedItem.current_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                     </div>
                     {selectedItem.target_price_inr && (
-                      <p className="text-xs text-muted-foreground mt-1 font-semibold">
+                      <p className="text-[11px] text-muted-foreground mt-1 font-medium tabular-nums">
                         target Rs {selectedItem.target_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Unified Metrics — one continuous strip (Image 2 + Image 3 merged) */}
-                <div className="bg-surface/40 border border-border/60 rounded-2xl divide-y divide-border/50 overflow-hidden">
-                  <div className="grid grid-cols-3 md:grid-cols-6 divide-x divide-border/50">
-                    {[
-                      { k: "LOW", v: `Rs ${itemLow.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` },
-                      { k: "HIGH", v: `Rs ${itemHigh.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` },
-                      { k: "VOLATILITY", v: `${itemVolatility}%` },
-                      { k: "CONFIDENCE", v: `${itemConfidence}%` },
-                      { k: "SAVED", v: `Rs ${itemSaved.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, accent: "text-success" },
-                      { k: "GREEN", v: `${itemConfidence}`, accent: "text-brand" },
-                    ].map((m) => (
-                      <div key={m.k} className="px-3 py-3 text-center">
-                        <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">{m.k}</span>
-                        <span className={`text-sm font-black ${m.accent || "text-foreground"}`}>{m.v}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 divide-x divide-border/50">
-                    <div className="px-4 py-3">
-                      <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">CO2 AVOIDED</span>
-                      <span className="text-sm font-black text-foreground">{selectedItem.co2_saved_kg.toFixed(2)} kg</span>
-                    </div>
-                    <div className="px-4 py-3">
-                      <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">LOGISTICS SAVED</span>
-                      <span className="text-sm font-black text-foreground">Rs {selectedItem.logistics_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-                    </div>
-                    <div className="px-4 py-3 flex items-baseline justify-between gap-3">
-                      <div>
-                        <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">COMPETITOR</span>
-                        <span className="text-sm font-black text-foreground">
-                          Rs {selectedItem.competitor_price_inr ? selectedItem.competitor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "N/A"}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-bold text-brand uppercase">{selectedItem.competitor_source || "—"}</span>
-                    </div>
-                  </div>
-                  {selectedItem.neighbor_match && (
-                    <div className="px-4 py-3 grid grid-cols-3 gap-3 text-center bg-surface/30">
-                      <div className="col-span-3 flex items-center gap-1.5 text-[10px] uppercase font-extrabold tracking-wider text-foreground/80">
-                        <Scale className="h-3.5 w-3.5 text-brand" />
-                        Neighbor Price · {selectedItem.neighbor_match.distance_km} km
-                      </div>
-                      <div>
-                        <div className="text-[9px] uppercase font-bold text-muted-foreground">Original</div>
-                        <div className="text-sm font-black text-foreground">Rs {selectedItem.neighbor_match.original_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] uppercase font-bold text-muted-foreground">Logistics Saved</div>
-                        <div className="text-sm font-black text-destructive">-Rs {selectedItem.neighbor_match.logistics_cost_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] uppercase font-bold text-brand">Your Price</div>
-                        <div className="text-sm font-black text-brand">Rs {selectedItem.neighbor_match.neighbor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Recharts Price History Plot */}
-                <div className="bg-surface/30 border border-border rounded-2xl p-4 md:p-6">
-                  <h3 className="font-bold text-sm text-foreground mb-4 flex items-center gap-1.5">
-                    Price History (30 Days + Projections)
+                {/* Price history chart */}
+                <div className="flex-1 min-h-0 rounded-2xl border border-white/40 dark:border-white/[0.06] bg-white/35 dark:bg-white/[0.02] backdrop-blur-xl p-4 md:p-6 flex flex-col">
+                  <h3 className="font-medium text-[13px] text-muted-foreground mb-3 uppercase tracking-[0.12em] shrink-0">
+                    Price History · 30 Days
                   </h3>
-                  <div className="h-[220px] w-full">
+                  <div className="flex-1 min-h-0 w-full">
                     {chartData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -419,39 +365,10 @@ function WatchlistPage() {
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(156,163,175,0.15)" vertical={false} />
-                          <XAxis 
-                            dataKey="day" 
-                            stroke="#888888" 
-                            fontSize={10} 
-                            tickLine={false} 
-                            axisLine={false} 
-                            tickCount={15}
-                          />
-                          <YAxis 
-                            stroke="#888888" 
-                            fontSize={10} 
-                            tickLine={false} 
-                            axisLine={false}
-                            domain={['auto', 'auto']}
-                            tickFormatter={(v) => `₹${v}`}
-                          />
-                          <Tooltip 
-                            contentStyle={{ 
-                              background: 'var(--background)', 
-                              border: '1px border var(--border)', 
-                              borderRadius: '12px',
-                              fontSize: '11px',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                            }} 
-                          />
-                          <Area 
-                            type="monotone" 
-                            dataKey="Price" 
-                            stroke="var(--color-brand, #3b82f6)" 
-                            strokeWidth={2} 
-                            fillOpacity={1} 
-                            fill="url(#priceGrad)" 
-                          />
+                          <XAxis dataKey="day" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} tickCount={15} />
+                          <YAxis stroke="#888888" fontSize={10} tickLine={false} axisLine={false} domain={['auto', 'auto']} tickFormatter={(v) => `₹${v}`} />
+                          <Tooltip contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '11px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+                          <Area type="monotone" dataKey="Price" stroke="var(--color-brand, #3b82f6)" strokeWidth={2} fillOpacity={1} fill="url(#priceGrad)" />
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
@@ -464,10 +381,10 @@ function WatchlistPage() {
 
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground h-full">
                 <AlertCircle className="h-10 w-10 text-muted-foreground/50 mb-3" />
-                <h4 className="font-bold text-foreground">No watch selected</h4>
-                <p className="text-xs max-w-xs mt-1">Select an item from the left pane to view detailed price history, neighbor matching, and logistics.</p>
+                <h4 className="font-semibold text-foreground">No watch selected</h4>
+                <p className="text-xs max-w-xs mt-1">Select an item from the left to view its price history.</p>
               </div>
             )}
           </div>

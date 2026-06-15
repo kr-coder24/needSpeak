@@ -1185,32 +1185,32 @@ function CartPageInner() {
         {/* ── Hero ────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand/15 to-brand/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-brand shadow-sm shadow-brand/10 border border-brand/20">
-              <Sparkles className="h-3 w-3 animate-pulse" /> ReviewCart
-            </div>
-            <h1 className="mt-4 truncate bg-gradient-to-br from-foreground via-foreground/90 to-foreground/60 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Review Cart
+            </p>
+            <h1 className="mt-2 truncate text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               {intentSummary || intentTypeLabel || "Your Cart"}
             </h1>
-            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface/60 px-3 py-1.5 border border-border/40">
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
                 <span className="text-foreground font-semibold">{cartItems.length}</span> items
               </span>
               {budget && (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface/60 px-3 py-1.5 border border-border/40">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
                   budget <span className="text-foreground font-semibold">₹{budget}</span>
                 </span>
               )}
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-1.5 border border-brand/20 text-foreground font-semibold">
-                total <span className="text-brand">₹{total}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-foreground font-semibold">
+                total <span>₹{total}</span>
               </span>
             </p>
           </div>
           <button
             onClick={() => setCompareOpen(true)}
-            className="group inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border-2 border-border/60 bg-gradient-to-br from-card to-background/50 px-4 text-sm font-semibold shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 hover:scale-105 active:scale-100"
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
           >
-            <ArrowLeftRight className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
-            <span className="hidden sm:inline">CompareCart</span>
+            <ArrowLeftRight className="h-4 w-4" />
+            <span className="hidden sm:inline">Compare Cart</span>
           </button>
         </div>
 
@@ -1337,32 +1337,32 @@ function CartPageInner() {
               )}
 
               {budget ? (
-                <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md">
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm shadow-brand/10">
-                      <Wallet className="h-4.5 w-4.5 text-brand" />
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                      <Wallet className="h-4 w-4 text-foreground" />
                     </div>
-                    <span className="text-sm font-bold text-foreground">Budget Tracker</span>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Budget Tracker
+                    </p>
                   </div>
-                  <div className="flex items-baseline justify-between mb-4">
-                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <span className="text-3xl font-semibold text-foreground tracking-tight">
                       ₹{total}
                     </span>
-                    <span className="text-sm font-medium text-muted-foreground">of ₹{budget}</span>
+                    <span className="text-sm text-muted-foreground">of ₹{budget}</span>
                   </div>
-                  <div className="relative h-3 overflow-hidden rounded-full bg-gradient-to-r from-surface/80 to-surface/40 shadow-inner">
+                  <div className="relative h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
-                        total > budget
-                          ? "bg-gradient-to-r from-destructive to-destructive/80 shadow-lg shadow-destructive/20"
-                          : "bg-gradient-to-r from-brand to-brand/80 shadow-lg shadow-brand/20"
+                      className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${
+                        total > budget ? "bg-rose-500" : "bg-emerald-500"
                       }`}
                       style={{ width: `${budgetPct}%` }}
                     />
                   </div>
                   <div
-                    className={`mt-3 flex items-center justify-between text-xs font-bold ${
-                      total > budget ? "text-destructive" : "text-success"
+                    className={`mt-3 flex items-center justify-between text-xs font-semibold ${
+                      total > budget ? "text-rose-600" : "text-emerald-600"
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -1379,7 +1379,7 @@ function CartPageInner() {
                     <button
                       onClick={runAutoOptimize}
                       disabled={optimizing}
-                      className="flex items-center gap-1 text-brand hover:text-brand/80 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1 text-foreground hover:text-foreground/70 transition-colors disabled:opacity-50"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
                       Auto-Optimize
@@ -1387,21 +1387,21 @@ function CartPageInner() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-background/90 via-background/70 to-background/50 p-6 shadow-xl backdrop-blur-md">
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand/20 to-brand/10 shadow-sm shadow-brand/10">
-                      <Wallet className="h-4.5 w-4.5 text-brand" />
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                      <Wallet className="h-4 w-4 text-foreground" />
                     </div>
-                    <span className="text-sm font-bold text-foreground">Cart Total</span>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Cart Total
+                    </p>
                   </div>
-                  <div className="mb-2">
-                    <span className="text-3xl font-bold bg-gradient-to-br from-brand to-brand/70 bg-clip-text text-transparent">
-                      ₹{total}
-                    </span>
+                  <div className="text-3xl font-semibold text-foreground tracking-tight">
+                    ₹{total}
                   </div>
-                  <div className="text-xs text-muted-foreground font-medium">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     No budget constraint
-                  </div>
+                  </p>
                 </div>
               )}
 
@@ -1486,23 +1486,22 @@ function CartPageInner() {
                 <button
                   onClick={handleReserve}
                   disabled={reserving || reservationStatus === "success"}
-                  className="group relative mt-6 inline-flex h-12 w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand via-brand to-brand/90 text-sm font-bold text-brand-foreground shadow-[0_4px_24px_rgba(var(--color-brand),0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(var(--color-brand),0.35)] active:scale-100 disabled:pointer-events-none disabled:opacity-60 disabled:grayscale"
+                  className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-foreground px-5 text-sm font-semibold text-background tracking-tight transition-colors hover:bg-foreground/90 disabled:pointer-events-none disabled:opacity-60"
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
                   {reserving ? (
                     <>
-                      <Loader2 className="mr-2 h-4.5 w-4.5 animate-spin" />
-                      <span>Reserving...</span>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Reserving</span>
                     </>
                   ) : reservationStatus === "success" ? (
                     <>
-                      <Check className="mr-2 h-4.5 w-4.5" />
+                      <Check className="h-4 w-4" />
                       <span>Reserved</span>
                     </>
                   ) : (
                     <>
                       <span>Proceed to Checkout</span>
-                      <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                      <ArrowRight className="h-4 w-4" />
                     </>
                   )}
                 </button>

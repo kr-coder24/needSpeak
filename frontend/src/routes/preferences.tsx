@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { loadPreferences, savePreferences, type UserPreferences } from "@/lib/preferences";
-import { 
-  Check, Plus, Save, Sparkles, X, 
-  Settings2, Bot, ShieldBan, ThumbsUp, ThumbsDown, 
+import {
+  Check, Plus, Save, Sparkles, X,
+  ShieldBan, ThumbsUp,
   Banknote, Scale, Package, ShieldCheck
 } from "lucide-react";
 
@@ -245,21 +245,21 @@ function PreferencesPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
 
         {/* Page header */}
-        <div className="flex flex-col gap-6 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Preferences</p>
-            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-foreground">AI Persona</h1>
-            <p className="mt-3 max-w-xl text-sm text-muted-foreground">
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-foreground">AI Persona</h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
               Teach the assistant how you shop. It learns your budget, brand loyalties, and dietary constraints.
             </p>
           </div>
           <button
             onClick={handleSave}
             disabled={saveState === "saving"}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-foreground px-6 text-sm font-semibold text-background shadow-soft transition-colors hover:bg-foreground/90 disabled:opacity-60"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-5 text-sm font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-60"
           >
             {saveState === "saving" ? (
               <span className="flex items-center gap-2"><div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> Saving</span>
@@ -271,89 +271,77 @@ function PreferencesPage() {
           </button>
         </div>
 
-        {/* Context note (was hero banner) */}
-        <div className="mt-6 flex items-start justify-between gap-4 rounded-lg border border-border bg-surface/40 p-4">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <div>
-              <p className="text-xs font-semibold text-foreground">Global context matrix</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                These settings are passed to the assistant on every cart, instantly personalising results.
-              </p>
-            </div>
-          </div>
-          <span className="shrink-0 rounded-full border border-border bg-card px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Agentic memory
-          </span>
-        </div>
+        <div className="mt-8 space-y-6">
 
-        {/* --- Natural Language Setup --- */}
-        <section className="py-10 border-b border-border">
-          <div className="rounded-lg border border-border bg-card p-6 shadow-soft">
-            <div className="mb-1 flex items-center gap-2">
-              <h2 className="font-display text-xl font-semibold text-foreground">Natural language setup</h2>
-              <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Beta</span>
+          {/* Natural language setup */}
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Natural Language Setup</p>
+              <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Beta</span>
             </div>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Describe how you shop. The assistant extracts and maps your preferences automatically.
+            <h2 className="text-lg font-semibold text-foreground">Describe how you shop</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The assistant extracts and maps your preferences automatically.
             </p>
-            <div>
-              <div className="relative">
-                <textarea
-                  className="min-h-[120px] w-full resize-none rounded-lg border border-border bg-background p-4 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground/60"
-                  placeholder='e.g., "I prefer to buy bulk packs for cleaning supplies. We are a strict vegan household. I love Tata products but absolutely avoid Nestle. Keep things budget-friendly."'
-                  value={magicText}
-                  onChange={(event) => setMagicText(event.target.value)}
-                  disabled={isExtracting}
-                />
-                <button
-                  type="button"
-                  onClick={handleMagicExtract}
-                  disabled={isExtracting || !magicText.trim()}
-                  className="absolute bottom-3 right-3 inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-4 text-xs font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
-                >
-                  {isExtracting ? (
-                    <><div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-background border-t-transparent" /> Parsing</>
-                  ) : (
-                    <>Extract preferences</>
-                  )}
-                </button>
-              </div>
+            <div className="relative mt-4">
+              <textarea
+                className="min-h-[110px] w-full resize-none rounded-lg border border-border bg-background p-4 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground/60"
+                placeholder='e.g., "I prefer bulk packs for cleaning supplies. We are a strict vegan household. I love Tata products but avoid Nestle."'
+                value={magicText}
+                onChange={(event) => setMagicText(event.target.value)}
+                disabled={isExtracting}
+              />
+              <button
+                type="button"
+                onClick={handleMagicExtract}
+                disabled={isExtracting || !magicText.trim()}
+                className="absolute bottom-3 right-3 inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-4 text-xs font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+              >
+                {isExtracting ? (
+                  <><div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-background border-t-transparent" /> Parsing</>
+                ) : (
+                  <>Extract preferences</>
+                )}
+              </button>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* --- Decision Style --- */}
-        <section className="grid gap-6 border-b border-border py-10 lg:grid-cols-[240px_1fr]">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Scale className="h-4 w-4" /> Strategy
-            </h2>
-            <p className="mt-2 text-xs text-muted-foreground pr-4">How should the AI evaluate alternatives and resolve cart ambiguities?</p>
-          </div>
-          <div className="grid gap-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-              {budgetOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setBudgetStyle(option.id)}
-                  className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition-all hover:shadow-md ${
-                    budgetStyle === option.id
-                      ? "border-brand bg-brand/5 ring-1 ring-brand"
-                      : "border-border bg-card hover:border-brand/50"
-                  }`}
-                >
-                  <option.icon className={`mb-3 h-6 w-6 ${budgetStyle === option.id ? "text-brand" : "text-muted-foreground"}`} />
-                  <div className={`font-bold ${budgetStyle === option.id ? "text-brand" : "text-foreground"}`}>{option.title}</div>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{option.desc}</p>
-                </button>
-              ))}
+          {/* STRATEGY */}
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-muted-foreground" />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Strategy</p>
             </div>
-            
-            <div className="grid sm:grid-cols-2 gap-6 p-5 rounded-2xl border border-border bg-surface/30">
+            <h2 className="mt-1 text-lg font-semibold text-foreground">Decision style</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              How should the AI evaluate alternatives and resolve cart ambiguities?
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {budgetOptions.map((option) => {
+                const active = budgetStyle === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setBudgetStyle(option.id)}
+                    className={`group rounded-xl border p-4 text-left transition-colors ${
+                      active
+                        ? "border-foreground bg-muted/50 ring-1 ring-foreground"
+                        : "border-border bg-background hover:border-foreground/40"
+                    }`}
+                  >
+                    <option.icon className={`mb-2 h-5 w-5 ${active ? "text-foreground" : "text-muted-foreground"}`} />
+                    <div className="text-base font-semibold text-foreground">{option.title}</div>
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{option.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid gap-5 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-bold uppercase text-muted-foreground mb-3">Quality Bias</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2">Quality Bias</p>
                 <div className="flex flex-wrap gap-2">
                   {qualityOptions.map((option) => (
                     <Pill key={option.id} label={option.title} active={qualityPreference === option.id} onClick={() => setQualityPreference(option.id)} />
@@ -361,7 +349,7 @@ function PreferencesPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase text-muted-foreground mb-3">Pack Sizing</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2">Pack Sizing</p>
                 <div className="flex flex-wrap gap-2">
                   {packOptions.map((option) => (
                     <Pill key={option.id} label={option.title} active={packSizePreference === option.id} onClick={() => setPackSizePreference(option.id)} />
@@ -369,142 +357,149 @@ function PreferencesPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* --- Brands --- */}
-        <section className="grid gap-6 border-b border-border py-10 lg:grid-cols-[240px_1fr]">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Package className="h-4 w-4" /> Brands
-            </h2>
-            <p className="mt-2 text-xs text-muted-foreground pr-4">Direct the AI to prioritize or completely filter out specific manufacturers.</p>
-          </div>
-          <div className="grid gap-8">
-            <div className="rounded-2xl border border-green-200 bg-green-50/30 p-5">
-              <div className="mb-4 flex items-center gap-2 text-sm font-bold text-green-800">
-                <ThumbsUp className="h-4 w-4" /> Always look for
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {brandOptions.map((brand) => (
-                  <Pill key={brand} label={brand} active={preferredBrands.includes(brand)} onClick={() => setPreferredBrands((prev) => toggleValue(prev, brand))} />
-                ))}
-                {preferredBrands.filter((brand) => !brandOptions.includes(brand)).map((brand) => (
-                  <Pill key={brand} label={brand} active onClick={() => setPreferredBrands((prev) => toggleValue(prev, brand))} />
-                ))}
-              </div>
-              <div className="mt-4 flex max-w-sm gap-2">
-                <input
-                  value={customBrand}
-                  onChange={(event) => setCustomBrand(event.target.value)}
-                  placeholder="Type brand name..."
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-green-200 bg-white px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+          {/* BRANDS */}
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-muted-foreground" />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Brands</p>
+            </div>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">Preferred & avoided manufacturers</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Direct the AI to prioritize or filter out specific brands.
+            </p>
+
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl border border-border bg-background p-4">
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  <ThumbsUp className="h-3.5 w-3.5" /> Always Look For
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {brandOptions.map((brand) => (
+                    <Pill key={brand} label={brand} active={preferredBrands.includes(brand)} onClick={() => setPreferredBrands((prev) => toggleValue(prev, brand))} />
+                  ))}
+                  {preferredBrands.filter((brand) => !brandOptions.includes(brand)).map((brand) => (
+                    <Pill key={brand} label={brand} active onClick={() => setPreferredBrands((prev) => toggleValue(prev, brand))} />
+                  ))}
+                </div>
+                <div className="mt-3 flex max-w-sm gap-2">
+                  <input
+                    value={customBrand}
+                    onChange={(event) => setCustomBrand(event.target.value)}
+                    placeholder="Type brand name..."
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-foreground/40"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setPreferredBrands((prev) => addCustomValue(prev, customBrand));
+                        setCustomBrand("");
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
                       setPreferredBrands((prev) => addCustomValue(prev, customBrand));
                       setCustomBrand("");
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreferredBrands((prev) => addCustomValue(prev, customBrand));
-                    setCustomBrand("");
-                  }}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-white hover:bg-green-700 transition-colors"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
+                    }}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="rounded-2xl border border-red-200 bg-red-50/30 p-5">
-              <div className="mb-4 flex items-center gap-2 text-sm font-bold text-red-800">
-                <ShieldBan className="h-4 w-4" /> Strictly Avoid
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {brandOptions.map((brand) => (
-                  <Pill key={brand} label={brand} active={avoidedBrands.includes(brand)} tone="negative" onClick={() => setAvoidedBrands((prev) => toggleValue(prev, brand))} />
-                ))}
-                {avoidedBrands.filter((brand) => !brandOptions.includes(brand)).map((brand) => (
-                  <Pill key={brand} label={brand} active tone="negative" onClick={() => setAvoidedBrands((prev) => toggleValue(prev, brand))} />
-                ))}
-              </div>
-              <div className="mt-4 flex max-w-sm gap-2">
-                <input
-                  value={customAvoidBrand}
-                  onChange={(event) => setCustomAvoidBrand(event.target.value)}
-                  placeholder="Type brand to ban..."
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-red-200 bg-white px-4 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+              <div className="rounded-xl border border-border bg-background p-4">
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-700">
+                  <ShieldBan className="h-3.5 w-3.5" /> Strictly Avoid
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {brandOptions.map((brand) => (
+                    <Pill key={brand} label={brand} active={avoidedBrands.includes(brand)} tone="negative" onClick={() => setAvoidedBrands((prev) => toggleValue(prev, brand))} />
+                  ))}
+                  {avoidedBrands.filter((brand) => !brandOptions.includes(brand)).map((brand) => (
+                    <Pill key={brand} label={brand} active tone="negative" onClick={() => setAvoidedBrands((prev) => toggleValue(prev, brand))} />
+                  ))}
+                </div>
+                <div className="mt-3 flex max-w-sm gap-2">
+                  <input
+                    value={customAvoidBrand}
+                    onChange={(event) => setCustomAvoidBrand(event.target.value)}
+                    placeholder="Type brand to ban..."
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-foreground/40"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setAvoidedBrands((prev) => addCustomValue(prev, customAvoidBrand));
+                        setCustomAvoidBrand("");
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
                       setAvoidedBrands((prev) => addCustomValue(prev, customAvoidBrand));
                       setCustomAvoidBrand("");
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAvoidedBrands((prev) => addCustomValue(prev, customAvoidBrand));
-                    setCustomAvoidBrand("");
-                  }}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
+                    }}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* --- Constraints & Dietary --- */}
-        <section className="grid gap-6 py-10 lg:grid-cols-[240px_1fr]">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" /> Hard Constraints
-            </h2>
-            <p className="mt-2 text-xs text-muted-foreground pr-4">Items violating these rules will be aggressively filtered out of the results.</p>
-          </div>
-          <div className="grid gap-8 p-6 rounded-2xl border border-border bg-surface/30">
-            <div>
-              <div className="mb-3 text-sm font-bold text-foreground">Dietary Restrictions</div>
-              <div className="flex flex-wrap gap-2">
-                {dietaryOptions.map((option) => (
-                  <Pill key={option.id} label={option.label} active={diet === option.id} onClick={() => setDiet(option.id)} />
-                ))}
-              </div>
+          {/* CONSTRAINTS */}
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Hard Constraints</p>
             </div>
-            <div>
-              <div className="mb-3 text-sm font-bold text-foreground">Allergen Filters</div>
-              <div className="flex flex-wrap gap-2">
-                {allergyOptions.map((allergy) => (
-                  <Pill
-                    key={allergy}
-                    label={allergy.charAt(0).toUpperCase() + allergy.slice(1)}
-                    active={allergies.includes(allergy)}
-                    tone="negative"
-                    onClick={() => setAllergies((prev) => toggleValue(prev, allergy))}
-                  />
-                ))}
-                {allergies.map((allergy) =>
-                  allergyOptions.includes(allergy) ? null : (
-                    <button
+            <h2 className="mt-1 text-lg font-semibold text-foreground">Dietary & allergens</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Items violating these rules are filtered out of every result.
+            </p>
+
+            <div className="mt-5 space-y-5 rounded-xl border border-border bg-muted/30 p-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2">Dietary Restrictions</p>
+                <div className="flex flex-wrap gap-2">
+                  {dietaryOptions.map((option) => (
+                    <Pill key={option.id} label={option.label} active={diet === option.id} onClick={() => setDiet(option.id)} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2">Allergen Filters</p>
+                <div className="flex flex-wrap gap-2">
+                  {allergyOptions.map((allergy) => (
+                    <Pill
                       key={allergy}
-                      type="button"
+                      label={allergy.charAt(0).toUpperCase() + allergy.slice(1)}
+                      active={allergies.includes(allergy)}
+                      tone="negative"
                       onClick={() => setAllergies((prev) => toggleValue(prev, allergy))}
-                      className="inline-flex h-9 items-center gap-2 rounded-xl border border-red-500 bg-red-50 px-3 text-sm font-bold text-red-700 hover:bg-red-100"
-                    >
-                      {allergy}
-                      <X className="h-4 w-4" />
-                    </button>
-                  ),
-                )}
+                    />
+                  ))}
+                  {allergies.map((allergy) =>
+                    allergyOptions.includes(allergy) ? null : (
+                      <button
+                        key={allergy}
+                        type="button"
+                        onClick={() => setAllergies((prev) => toggleValue(prev, allergy))}
+                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-500 bg-rose-50 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                      >
+                        {allergy}
+                        <X className="h-4 w-4" />
+                      </button>
+                    ),
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
+
 
         {saveState === "error" && (
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm animate-in fade-in slide-in-from-bottom-4">

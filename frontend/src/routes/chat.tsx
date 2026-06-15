@@ -374,43 +374,43 @@ function getFakeProductBadge(item: any): { label: string; color: string; icon: s
 
 // ─── Fake Price History for Demo ──────────────────────────────────────────────
 
-function getFakePriceAdvice(item: any): { trend: "buy" | "wait" | "good"; label: string; detail: string; color: string } {
+function getFakePriceAdvice(item: any): { trend: "buy" | "wait" | "good"; label: string; detail: string; dotClass: string; textClass: string } {
   const price = item.price_per_unit_inr || 0;
-  const name = (item.name || "").toLowerCase();
-  
+
   // Deterministic "random" based on SKU/name hash for consistent results
   const hash = (item.sku || item.name || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
   const variant = hash % 3;
-  
+
   if (variant === 0) {
-    const lowPrice = Math.round(price * 0.82);
     return {
       trend: "buy",
-      label: "Buy Now",
-      detail: `Lowest in 30 days! Was ₹${Math.round(price * 1.15)} last week. Current price is ${Math.round((1 - 0.82) * 100)}% below avg.`,
-      color: "text-green-600"
+      label: "BUY NOW",
+      detail: `Lowest in 30 days. Was ₹${Math.round(price * 1.15)} last week — currently 18% below the 30-day average.`,
+      dotClass: "bg-emerald-500",
+      textClass: "text-emerald-700",
     };
   }
   if (variant === 1) {
     return {
       trend: "good",
-      label: "Fair Price",
-      detail: `Price is stable. Avg ₹${Math.round(price * 1.03)} over last 90 days. No major sale expected soon.`,
-      color: "text-blue-600"
+      label: "FAIR PRICE",
+      detail: `Price is stable. 90-day average ₹${Math.round(price * 1.03)}. No major sale expected soon.`,
+      dotClass: "bg-amber-500",
+      textClass: "text-amber-700",
     };
   }
   return {
     trend: "wait",
-    label: "Wait if possible",
-    detail: `Price rose 12% this week. Usually drops during month-end sales. Lowest was ₹${Math.round(price * 0.75)} last month.`,
-    color: "text-amber-600"
+    label: "HOLD",
+    detail: `Price rose 12% this week. Typically drops during month-end. 30-day low was ₹${Math.round(price * 0.75)}.`,
+    dotClass: "bg-rose-500",
+    textClass: "text-rose-700",
   };
 }
 
 function PriceHistoryTooltip({ item }: { item: any }) {
   const [open, setOpen] = useState(false);
   const advice = getFakePriceAdvice(item);
-  const trendIcon = advice.trend === "buy" ? "📉" : advice.trend === "wait" ? "📈" : "➡️";
 
   return (
     <div className="relative inline-flex">
@@ -424,17 +424,17 @@ function PriceHistoryTooltip({ item }: { item: any }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-7 z-50 w-56 rounded-xl border border-border bg-background p-3 shadow-lg shadow-black/10 animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="text-sm">{trendIcon}</span>
-              <span className={`text-xs font-bold ${advice.color}`}>{advice.label}</span>
+          <div className="absolute right-0 top-7 z-50 w-60 rounded-xl border border-border bg-background p-3 shadow-lg shadow-black/10 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={`h-2 w-2 rounded-full ${advice.dotClass}`} />
+              <span className={`text-[11px] font-semibold tracking-[0.12em] ${advice.textClass}`}>{advice.label}</span>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">{advice.detail}</p>
             <div className="mt-2 flex gap-1">
               {[65, 70, 82, 75, 90, 85, 100].map((h, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
                   <div
-                    className={`w-full rounded-sm ${i === 6 ? "bg-brand" : "bg-muted-foreground/20"}`}
+                    className={`w-full rounded-sm ${i === 6 ? advice.dotClass : "bg-muted-foreground/20"}`}
                     style={{ height: `${h * 0.2}px` }}
                   />
                 </div>

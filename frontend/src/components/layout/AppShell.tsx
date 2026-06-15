@@ -229,7 +229,7 @@ export function AppShell({
               )}
             </div>
 
-            {/* Cart — count from localStorage history */}
+            {/* Cart — navigates to cart history */}
             <Link
               to="/history"
               className="inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-3 text-sm font-medium text-background hover:bg-foreground/90"
@@ -242,6 +242,22 @@ export function AppShell({
                 </span>
               )}
             </Link>
+
+            {/* Review Cart — goes to active cart review page */}
+            <button
+              onClick={() => {
+                const stored = JSON.parse(localStorage.getItem("needspeak-chat-store") || "{}");
+                const sessionId = stored?.state?.cartData?.session_id;
+                if (sessionId) {
+                  navigate({ to: "/cart/$id", params: { id: sessionId } });
+                } else {
+                  navigate({ to: "/chat" });
+                }
+              }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-brand/30 bg-brand/10 px-3 text-sm font-medium text-brand hover:bg-brand/20"
+            >
+              Review
+            </button>
 
             {/* User Auth */}
             {auth && auth.user ? (

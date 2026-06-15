@@ -1422,6 +1422,109 @@ def _generate_variant_products() -> list[dict]:
     return variants
 
 
+def _electronics() -> list[dict]:
+    """Electronics: smartphones, laptops, headphones for NL search demo."""
+    return [
+        _p("SKU-ELC-001", "samsung galaxy s24 ultra", "Samsung", "electronics", "smartphone",
+           124999, "piece", 1, 4.7, 2340,
+           kw={"phone", "smartphone", "samsung", "galaxy", "android", "5g", "flagship", "camera"},
+           syn={"mobile", "cell phone", "handset"},
+           occ={"everyday", "gaming", "photography"}),
+        _p("SKU-ELC-002", "iphone 15 pro max", "Apple", "electronics", "smartphone",
+           159900, "piece", 1, 4.8, 3100,
+           kw={"phone", "smartphone", "iphone", "apple", "ios", "5g", "flagship", "camera"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "photography", "video"}),
+        _p("SKU-ELC-003", "oneplus 12", "OnePlus", "electronics", "smartphone",
+           64999, "piece", 1, 4.6, 1850,
+           kw={"phone", "smartphone", "oneplus", "android", "5g", "fast charging", "gaming"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "gaming"}),
+        _p("SKU-ELC-004", "samsung galaxy a54 5g", "Samsung", "electronics", "smartphone",
+           32999, "piece", 1, 4.4, 4200,
+           kw={"phone", "smartphone", "samsung", "5g", "mid-range", "value", "water resistant"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday"}),
+        _p("SKU-ELC-005", "realme narzo 60 5g", "Realme", "electronics", "smartphone",
+           14999, "piece", 1, 4.2, 5600,
+           kw={"phone", "smartphone", "realme", "5g", "budget", "battery", "gaming"},
+           syn={"mobile", "cell phone", "sasta phone"},
+           occ={"everyday", "budget"}),
+        _p("SKU-ELC-006", "poco x5 pro 5g", "Poco", "electronics", "smartphone",
+           18999, "piece", 1, 4.3, 8900,
+           kw={"phone", "smartphone", "poco", "xiaomi", "5g", "budget", "camera", "108mp"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "gaming", "photography"}),
+        _p("SKU-ELC-007", "redmi note 13 pro plus 5g", "Redmi", "electronics", "smartphone",
+           29999, "piece", 1, 4.5, 3400,
+           kw={"phone", "smartphone", "redmi", "xiaomi", "5g", "camera", "200mp", "fast charging"},
+           syn={"mobile", "cell phone"},
+           occ={"everyday", "photography"}),
+        # Laptops
+        _p("SKU-ELC-010", "macbook air m3", "Apple", "electronics", "laptop",
+           114900, "piece", 1, 4.8, 1200,
+           kw={"laptop", "macbook", "apple", "ultrabook", "coding", "programming", "portable"},
+           syn={"notebook", "computer"},
+           occ={"office", "coding", "student"}),
+        _p("SKU-ELC-011", "hp pavilion 15 2024", "HP", "electronics", "laptop",
+           54999, "piece", 1, 4.3, 2800,
+           kw={"laptop", "hp", "pavilion", "coding", "office", "student", "mainstream"},
+           syn={"notebook", "computer"},
+           occ={"office", "coding", "student"}),
+        _p("SKU-ELC-012", "lenovo ideapad slim 3", "Lenovo", "electronics", "laptop",
+           34999, "piece", 1, 4.1, 5400,
+           kw={"laptop", "lenovo", "ideapad", "budget", "student", "lightweight", "amd"},
+           syn={"notebook", "computer", "sasta laptop"},
+           occ={"student", "office"}),
+        _p("SKU-ELC-013", "asus rog strix g16 gaming laptop", "ASUS", "electronics", "laptop",
+           109990, "piece", 1, 4.6, 980,
+           kw={"laptop", "asus", "rog", "gaming", "rtx", "high performance", "esports"},
+           syn={"gaming laptop", "notebook"},
+           occ={"gaming", "esports"}),
+        _p("SKU-ELC-014", "dell inspiron 15", "Dell", "electronics", "laptop",
+           45999, "piece", 1, 4.2, 3600,
+           kw={"laptop", "dell", "inspiron", "office", "coding", "student", "reliable"},
+           syn={"notebook", "computer"},
+           occ={"office", "coding", "student"}),
+        _p("SKU-ELC-015", "acer nitro v gaming laptop", "Acer", "electronics", "laptop",
+           67990, "piece", 1, 4.3, 1500,
+           kw={"laptop", "acer", "nitro", "gaming", "rtx", "budget gaming"},
+           syn={"gaming laptop", "notebook"},
+           occ={"gaming"}),
+        # Headphones
+        _p("SKU-ELC-020", "sony wh-1000xm5 headphones", "Sony", "electronics", "headphones",
+           29990, "piece", 1, 4.7, 4500,
+           kw={"headphones", "wireless", "noise cancellation", "anc", "bluetooth", "sony", "over-ear"},
+           syn={"earphone", "headset"},
+           occ={"travel", "work from home", "music"}),
+        _p("SKU-ELC-021", "apple airpods pro 2", "Apple", "electronics", "earbuds",
+           24900, "piece", 1, 4.8, 6200,
+           kw={"earbuds", "wireless", "noise cancellation", "anc", "bluetooth", "apple", "airpods"},
+           syn={"earphone", "headphone"},
+           occ={"travel", "music", "calls"}),
+        _p("SKU-ELC-022", "boat rockerz 550 wireless headphones", "boAt", "electronics", "headphones",
+           1499, "piece", 1, 4.1, 45000,
+           kw={"headphones", "wireless", "bluetooth", "boat", "budget", "bass", "over-ear"},
+           syn={"earphone", "headset"},
+           occ={"gym", "music", "casual"}),
+        _p("SKU-ELC-023", "jbl tune 760nc noise cancelling headphones", "JBL", "electronics", "headphones",
+           4999, "piece", 1, 4.3, 8900,
+           kw={"headphones", "wireless", "noise cancellation", "anc", "jbl", "bluetooth", "value"},
+           syn={"earphone", "headset"},
+           occ={"travel", "music", "office"}),
+        _p("SKU-ELC-024", "oneplus buds pro 2", "OnePlus", "electronics", "earbuds",
+           11999, "piece", 1, 4.4, 2100,
+           kw={"earbuds", "wireless", "noise cancellation", "anc", "bluetooth", "oneplus"},
+           syn={"earphone", "headphone"},
+           occ={"music", "calls"}),
+        _p("SKU-ELC-025", "noise buds vs104 earbuds", "Noise", "electronics", "earbuds",
+           999, "piece", 1, 3.9, 52000,
+           kw={"earbuds", "wireless", "bluetooth", "budget", "noise", "gym", "value"},
+           syn={"earphone", "headphone", "saste earbuds"},
+           occ={"gym", "daily use"}),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Assemble All Products
 # ---------------------------------------------------------------------------
@@ -1456,6 +1559,8 @@ def get_all_v2_products() -> list[dict]:
     products.extend(_footwear())
     products.extend(_accessories())
     products.extend(_medicines_otc())
+    # Electronics for NL search demo
+    products.extend(_electronics())
     # Variant products to reach 500+
     products.extend(_generate_variant_products())
     return products

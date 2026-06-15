@@ -460,7 +460,6 @@ function CartItemRow({
   onRemove,
   onSwap,
   preferredBrands,
-  priceStatus,
 }: {
   item: any;
   qty: number;
@@ -469,7 +468,6 @@ function CartItemRow({
   onRemove: () => void;
   onSwap?: (altSku: string) => void;
   preferredBrands?: string[];
-  priceStatus?: PriceStatus;
 }) {
   const effectiveTotal = (item.price_per_unit_inr * qty).toFixed(0);
   const [showAlternatives, setShowAlternatives] = useState(false);
@@ -498,18 +496,14 @@ function CartItemRow({
   const productBadge = getFakeProductBadge(item);
   const priceAdvice = getFakePriceAdvice(item);
 
-  const { addToWishlist, wishlist } = useWishlistStore();
-  const wId = item.sku || item.name;
-  const inWishlist = wishlist.some((w) => w.id === wId);
-
   return (
     <div className="rounded-xl border border-border/60 bg-card shadow-soft transition-shadow hover:shadow-pop">
       <div className="group p-3.5">
         {/* Top row: Name + Price */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h4 className="truncate text-sm font-semibold capitalize leading-tight text-foreground">
+              <h4 className="truncate text-[13px] font-semibold capitalize leading-snug text-foreground">
                 {item.name}
               </h4>
               <div className="flex items-center gap-1 shrink-0">
@@ -544,15 +538,16 @@ function CartItemRow({
                 </button>
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-              <span className="font-medium capitalize text-foreground/70">{item.brand}</span>
-              <span className="text-border">•</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground/60 capitalize">{item.brand}</span>
+              <span className="text-muted-foreground/30">·</span>
               <span>{item.unit_quantity}{item.unit}</span>
+
             </div>
           </div>
-          <div className="flex flex-col items-end shrink-0">
-            <div className="flex items-center gap-1">
-              <span className="text-base font-bold tabular-nums text-foreground">₹{effectiveTotal}</span>
+          <div className="flex flex-col items-end shrink-0 gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[15px] font-bold tabular-nums tracking-tight text-foreground">₹{effectiveTotal}</span>
               <PriceHistoryTooltip item={item} />
             </div>
             <span className="text-[10px] text-muted-foreground tabular-nums">₹{item.price_per_unit_inr} × {qty}</span>
@@ -597,28 +592,28 @@ function CartItemRow({
           )}
         </div>
 
-        {/* Bottom row: Quantity control + match info */}
-        <div className="mt-3 flex items-center justify-between gap-2">
+        {/* Bottom row: Quantity + source */}
+        <div className="mt-3 flex items-center justify-between">
           <QuantityControl value={qty} onDecrement={onDecrement} onIncrement={onIncrement} />
-          <div className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-[10px] text-muted-foreground border border-border/30">
-            <Check className="h-3 w-3 text-success" />
-            <span className="truncate max-w-[140px]">
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70">
+            <Check className="h-3 w-3 text-emerald-500" />
+            <span className="truncate max-w-[120px]">
               {item.substituted
                 ? item.substitution_reason || "Substituted"
                 : item.matched_from?.length > 0
                   ? item.matched_from[0]
                   : "Matched"}
             </span>
-          </div>
+          </span>
         </div>
       </div>
 
-      {/* Alternatives toggle button */}
+      {/* Alternatives toggle */}
       {alternatives.length > 0 && (
         <>
           <button
             onClick={() => setShowAlternatives(!showAlternatives)}
-            className="flex w-full items-center justify-center gap-1.5 border-t border-border/30 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-surface/50 hover:text-foreground"
+            className="flex w-full items-center justify-center gap-1.5 border-t border-border/20 py-2.5 text-[10px] font-medium text-muted-foreground/70 transition-colors hover:bg-surface/50 hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
             {showAlternatives ? "Hide" : "Show"} {alternatives.length} alternative
@@ -899,48 +894,6 @@ function ChatPage() {
 
   // Load user preferred brands for display in cart items
   const [userPreferredBrands] = useState<string[]>(() => loadPreferences().preferredBrands);
-
-  const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>({});
-
-  useEffect(() => {
-    if (cartData?.cart) {
-      const items = cartData.cart.map((it: any) => ({
-        sku: it.sku || it.name,
-        current_price_inr: it.price_per_unit_inr || it.total_price_inr || it.price || 0,
-      }));
-
-      const extraItems = intentGroups.flatMap((g: any) =>
-        (g.cart || []).map((it: any) => ({
-          sku: it.sku || it.name,
-          current_price_inr: it.price_per_unit_inr || it.total_price_inr || it.price || 0,
-        }))
-      );
-      
-      const allItems = [...items, ...extraItems];
-
-      fetch("/api/watchlist/price-status/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: getStoredUserId(),
-          items: allItems,
-        }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.items) {
-            const map: Record<string, PriceStatus> = {};
-            data.items.forEach((it: any) => {
-              if (it.price_status) {
-                map[it.sku] = it.price_status;
-              }
-            });
-            setPriceStatuses(map);
-          }
-        })
-        .catch(console.error);
-    }
-  }, [cartData, intentGroups]);
 
   // Track pending clarification context so follow-up answers include original request
   const pendingClarificationRef = useRef<string | null>(null);
@@ -1878,7 +1831,6 @@ function ChatPage() {
                                     onRemove={() => setRemovedKeys((prev) => [...prev, key])}
                                     onSwap={(altSku) => swapItem(item.sku, altSku)}
                                     preferredBrands={userPreferredBrands}
-                                    priceStatus={priceStatuses[key]}
                                   />
                                 );
                               })}
@@ -1920,7 +1872,6 @@ function ChatPage() {
                               onRemove={() => setRemovedKeys((prev) => [...prev, key])}
                               onSwap={(altSku) => swapItem(item.sku, altSku)}
                               preferredBrands={userPreferredBrands}
-                              priceStatus={priceStatuses[key]}
                             />
                           );
                         })}

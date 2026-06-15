@@ -145,7 +145,7 @@ function WatchlistPage() {
 
   return (
     <AppShell noFooter={true}>
-      <div className="flex flex-col h-full bg-background/30 text-foreground overflow-hidden">
+      <div className="flex flex-col min-h-full bg-background/30 text-foreground">
         
         {/* Main Header Card */}
         <div className="shrink-0 px-6 py-4 border-b border-border bg-card/65 backdrop-blur-md">
@@ -211,10 +211,10 @@ function WatchlistPage() {
         </div>
 
         {/* Outer Split Pane Layout */}
-        <div className="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto p-4 md:p-6 gap-6">
-          
+        <div className="flex flex-col md:flex-row max-w-7xl w-full mx-auto p-4 md:p-6 gap-6">
+
           {/* Left Panel: Watchlist Cards */}
-          <div className="w-full md:w-[350px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
+          <div className="w-full md:w-[350px] shrink-0 flex flex-col gap-3">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-xs">
                 <Loader2 className="h-6 w-6 animate-spin mb-2" /> Loading...
@@ -232,6 +232,34 @@ function WatchlistPage() {
                 const labelText = 
                   item.status === "watching" ? `Fair Price ${itemConfidence}%` :
                   statusCopy[item.status] || "Watching";
+
+                // Hover badges: pulled from the old detail header so they
+                // live with the product they describe.
+                const hoverBadges: { label: string; cls: string }[] = [];
+                if (item.status === "already_cheaper" || item.price_status?.status === "best") {
+                  hoverBadges.push({
+                    label: "Already cheaper",
+                    cls: "bg-green-500/10 text-green-700 border-green-500/25",
+                  });
+                }
+                if (item.price_status?.confidence) {
+                  hoverBadges.push({
+                    label: `FAIR ${item.price_status.confidence}%`,
+                    cls: "bg-yellow-500/10 text-yellow-700 border-yellow-500/25",
+                  });
+                }
+                if (item.email) {
+                  hoverBadges.push({
+                    label: "Email sent",
+                    cls: "bg-brand/10 text-brand border-brand/20",
+                  });
+                }
+                if (item.neighbor_match) {
+                  hoverBadges.push({
+                    label: `${item.neighbor_match.distance_km} km`,
+                    cls: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20",
+                  });
+                }
 
                 return (
                   <button
@@ -271,6 +299,20 @@ function WatchlistPage() {
                         </span>
                       )}
                     </div>
+
+                    {/* Hover-only badges */}
+                    {hoverBadges.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1 opacity-0 max-h-0 overflow-hidden group-hover:opacity-100 group-hover:max-h-24 transition-all duration-200">
+                        {hoverBadges.map((b) => (
+                          <span
+                            key={b.label}
+                            className={`px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider ${b.cls}`}
+                          >
+                            {b.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </button>
                 );
               })
@@ -278,34 +320,13 @@ function WatchlistPage() {
           </div>
 
           {/* Right Panel: Selected Item Detail */}
-          <div className="flex-1 flex flex-col bg-card border border-border rounded-3xl overflow-y-auto p-6 shadow-soft">
+          <div className="flex-1 flex flex-col bg-card border border-border rounded-3xl p-6 shadow-soft">
             {selectedItem ? (
               <div className="flex flex-col gap-6">
                 
                 {/* Product Meta Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-5">
                   <div>
-                    {/* Top Badges Row */}
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <span className="px-2.5 py-1 rounded-full border text-xs font-bold bg-green-500/10 text-green-700 border-green-500/25 flex items-center gap-1">
-                        Already cheaper
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full border text-xs font-bold bg-yellow-500/10 text-yellow-700 border-yellow-500/25">
-                        FAIR PRICE {itemConfidence}%
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full border text-xs font-bold bg-muted/30 text-muted-foreground border-border/50">
-                        Average
-                      </span>
-                      {selectedItem.email && (
-                        <span className="px-2.5 py-1 rounded-full border text-xs font-bold bg-brand/10 text-brand border-brand/20 flex items-center gap-1">
-                          <Mail className="h-3.5 w-3.5" /> Email sent
-                        </span>
-                      )}
-                      <span className="px-2.5 py-1 rounded-full border text-xs font-bold bg-indigo-500/10 text-indigo-700 border-indigo-500/20">
-                        5.7 km
-                      </span>
-                    </div>
-
                     <h2 className="text-2xl font-black text-foreground">{selectedItem.name}</h2>
                     <p className="text-xs text-muted-foreground mt-1 font-semibold uppercase tracking-wider">
                       {selectedItem.brand || "Generic"} · SKU {selectedItem.sku}
@@ -324,32 +345,62 @@ function WatchlistPage() {
                   </div>
                 </div>
 
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                  <div className="bg-surface/50 border border-border/50 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">LOW</span>
-                    <span className="text-base font-black text-foreground">Rs {itemLow.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                {/* Unified Metrics — one continuous strip (Image 2 + Image 3 merged) */}
+                <div className="bg-surface/40 border border-border/60 rounded-2xl divide-y divide-border/50 overflow-hidden">
+                  <div className="grid grid-cols-3 md:grid-cols-6 divide-x divide-border/50">
+                    {[
+                      { k: "LOW", v: `Rs ${itemLow.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` },
+                      { k: "HIGH", v: `Rs ${itemHigh.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` },
+                      { k: "VOLATILITY", v: `${itemVolatility}%` },
+                      { k: "CONFIDENCE", v: `${itemConfidence}%` },
+                      { k: "SAVED", v: `Rs ${itemSaved.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, accent: "text-success" },
+                      { k: "GREEN", v: `${itemConfidence}`, accent: "text-brand" },
+                    ].map((m) => (
+                      <div key={m.k} className="px-3 py-3 text-center">
+                        <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">{m.k}</span>
+                        <span className={`text-sm font-black ${m.accent || "text-foreground"}`}>{m.v}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="bg-surface/50 border border-border/50 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">HIGH</span>
-                    <span className="text-base font-black text-foreground">Rs {itemHigh.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 divide-x divide-border/50">
+                    <div className="px-4 py-3">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">CO2 AVOIDED</span>
+                      <span className="text-sm font-black text-foreground">{selectedItem.co2_saved_kg.toFixed(2)} kg</span>
+                    </div>
+                    <div className="px-4 py-3">
+                      <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">LOGISTICS SAVED</span>
+                      <span className="text-sm font-black text-foreground">Rs {selectedItem.logistics_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    <div className="px-4 py-3 flex items-baseline justify-between gap-3">
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">COMPETITOR</span>
+                        <span className="text-sm font-black text-foreground">
+                          Rs {selectedItem.competitor_price_inr ? selectedItem.competitor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "N/A"}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-brand uppercase">{selectedItem.competitor_source || "—"}</span>
+                    </div>
                   </div>
-                  <div className="bg-surface/50 border border-border/50 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">VOLATILITY</span>
-                    <span className="text-base font-black text-foreground">{itemVolatility}%</span>
-                  </div>
-                  <div className="bg-surface/50 border border-border/50 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">CONFIDENCE</span>
-                    <span className="text-base font-black text-foreground">{itemConfidence}%</span>
-                  </div>
-                  <div className="bg-surface/50 border border-border/50 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">SAVED</span>
-                    <span className="text-base font-black text-success">Rs {itemSaved.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-                  </div>
-                  <div className="bg-surface/50 border border-border/50 rounded-2xl p-4 text-center">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">GREEN</span>
-                    <span className="text-base font-black text-brand">{itemConfidence}</span>
-                  </div>
+                  {selectedItem.neighbor_match && (
+                    <div className="px-4 py-3 grid grid-cols-3 gap-3 text-center bg-surface/30">
+                      <div className="col-span-3 flex items-center gap-1.5 text-[10px] uppercase font-extrabold tracking-wider text-foreground/80">
+                        <Scale className="h-3.5 w-3.5 text-brand" />
+                        Neighbor Price · {selectedItem.neighbor_match.distance_km} km
+                      </div>
+                      <div>
+                        <div className="text-[9px] uppercase font-bold text-muted-foreground">Original</div>
+                        <div className="text-sm font-black text-foreground">Rs {selectedItem.neighbor_match.original_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] uppercase font-bold text-muted-foreground">Logistics Saved</div>
+                        <div className="text-sm font-black text-destructive">-Rs {selectedItem.neighbor_match.logistics_cost_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] uppercase font-bold text-brand">Your Price</div>
+                        <div className="text-sm font-black text-brand">Rs {selectedItem.neighbor_match.neighbor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Recharts Price History Plot */}
@@ -357,7 +408,7 @@ function WatchlistPage() {
                   <h3 className="font-bold text-sm text-foreground mb-4 flex items-center gap-1.5">
                     Price History (30 Days + Projections)
                   </h3>
-                  <div className="h-[260px] w-full">
+                  <div className="h-[220px] w-full">
                     {chartData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -410,56 +461,6 @@ function WatchlistPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Under-Graph Information Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">CO2 AVOIDED</span>
-                    <span className="text-xl font-black text-foreground">{selectedItem.co2_saved_kg.toFixed(2)} kg</span>
-                  </div>
-                  <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">LOGISTICS SAVED</span>
-                    <span className="text-xl font-black text-foreground">Rs {selectedItem.logistics_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-                  </div>
-                  <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">COMPETITOR</span>
-                    <div className="flex items-baseline justify-between mt-1">
-                      <span className="text-xl font-black text-foreground">
-                        Rs {selectedItem.competitor_price_inr ? selectedItem.competitor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "N/A"}
-                      </span>
-                      <span className="text-xs font-bold text-brand uppercase">{selectedItem.competitor_source || "None"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Neighbor Price Match Display */}
-                {selectedItem.neighbor_match && (
-                  <div className="bg-surface/45 border border-border rounded-2xl p-5">
-                    <h3 className="font-extrabold text-sm text-foreground uppercase tracking-wider flex items-center gap-1.5 mb-4">
-                      <Scale className="h-4 w-4 text-brand" />
-                      Neighbor Price - {selectedItem.neighbor_match.distance_km} km
-                    </h3>
-                    
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Original</div>
-                        <div className="text-sm font-black text-foreground">
-                          Rs {selectedItem.neighbor_match.original_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Logistics Saved</div>
-                        <div className="text-sm font-black text-destructive">-Rs {selectedItem.neighbor_match.logistics_cost_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase font-bold text-brand mb-1">Your Price</div>
-                        <div className="text-sm font-black text-brand">
-                          Rs {selectedItem.neighbor_match.neighbor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
               </div>
             ) : (

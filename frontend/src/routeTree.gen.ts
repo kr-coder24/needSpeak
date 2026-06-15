@@ -23,6 +23,7 @@ import { Route as PaymentIdRouteImport } from './routes/payment.$id'
 import { Route as CollabIdRouteImport } from './routes/collab.$id'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as CartIdRouteImport } from './routes/cart.$id'
+import { Route as ApiParseRouteImport } from './routes/api/parse'
 import { Route as CollabJoinCodeRouteImport } from './routes/collab.join.$code'
 
 const WatchlistRoute = WatchlistRouteImport.update({
@@ -95,6 +96,11 @@ const CartIdRoute = CartIdRouteImport.update({
   path: '/cart/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiParseRoute = ApiParseRouteImport.update({
+  id: '/api/parse',
+  path: '/api/parse',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CollabJoinCodeRoute = CollabJoinCodeRouteImport.update({
   id: '/collab/join/$code',
   path: '/collab/join/$code',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/recipe': typeof RecipeRoute
   '/restock': typeof RestockRoute
   '/watchlist': typeof WatchlistRoute
+  '/api/parse': typeof ApiParseRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/recipe': typeof RecipeRoute
   '/restock': typeof RestockRoute
   '/watchlist': typeof WatchlistRoute
+  '/api/parse': typeof ApiParseRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/recipe': typeof RecipeRoute
   '/restock': typeof RestockRoute
   '/watchlist': typeof WatchlistRoute
+  '/api/parse': typeof ApiParseRoute
   '/cart/$id': typeof CartIdRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/collab/$id': typeof CollabIdRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/recipe'
     | '/restock'
     | '/watchlist'
+    | '/api/parse'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/recipe'
     | '/restock'
     | '/watchlist'
+    | '/api/parse'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/recipe'
     | '/restock'
     | '/watchlist'
+    | '/api/parse'
     | '/cart/$id'
     | '/checkout/$id'
     | '/collab/$id'
@@ -218,6 +230,7 @@ export interface RootRouteChildren {
   RecipeRoute: typeof RecipeRoute
   RestockRoute: typeof RestockRoute
   WatchlistRoute: typeof WatchlistRoute
+  ApiParseRoute: typeof ApiParseRoute
   CartIdRoute: typeof CartIdRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   CollabIdRoute: typeof CollabIdRoute
@@ -325,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/parse': {
+      id: '/api/parse'
+      path: '/api/parse'
+      fullPath: '/api/parse'
+      preLoaderRoute: typeof ApiParseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/collab/join/$code': {
       id: '/collab/join/$code'
       path: '/collab/join/$code'
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   RecipeRoute: RecipeRoute,
   RestockRoute: RestockRoute,
   WatchlistRoute: WatchlistRoute,
+  ApiParseRoute: ApiParseRoute,
   CartIdRoute: CartIdRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   CollabIdRoute: CollabIdRoute,

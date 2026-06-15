@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { occasions } from "@/lib/mock/needspeak";
-import { Sparkles, MessageSquare, ArrowRight, Zap, PartyPopper, Bot } from "lucide-react";
+import { Sparkles, MessageSquare, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/occasions")({
   head: () => ({
@@ -23,23 +23,11 @@ function OccasionsPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        
-        {/* Hackathon Pitch Banner */}
-        <div className="mb-8 flex items-center justify-between rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Zap className="h-5 w-5 text-brand" />
-            <span className="text-sm font-medium text-foreground">Zero-Shot Cart Generation Pilot</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-[10px] font-black text-white uppercase tracking-wider shadow-sm">
-            <Bot className="h-3 w-3" /> Agentic Templates
-          </div>
-        </div>
-
         {/* Header Area */}
         <div className="mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">Curated templates</p>
+          <h1 className="font-display text-5xl font-semibold tracking-tight text-foreground">
             OccasionCart
-            <PartyPopper className="h-8 w-8 text-amber-500" />
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
             Instantly initialize the NeedSpeak AI with complex scenarios. These templates merge with your 

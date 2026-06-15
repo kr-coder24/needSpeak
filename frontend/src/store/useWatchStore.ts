@@ -15,6 +15,7 @@ import {
   type WatchedItem,
 } from "@/lib/watchlist-api";
 import { useWishlistStore } from "@/store/useWishlistStore";
+import { MOCK_WATCHES, MOCK_STATS } from "@/lib/watchlist-mock";
 
 type WatchState = {
   watches: WatchedItem[];
@@ -89,7 +90,23 @@ export const useWatchStore = create<WatchState>((set, get) => ({
   fetchWatches: async (userId) => {
     set({ loading: true });
     try {
-      const [watches, stats] = await Promise.all([getWatches(userId), getWatchStats(userId), seedDemoNotifications()]);
+      let watches: WatchedItem[] = [];
+      let stats: WatchStats = emptyStats;
+      try {
+        const [w, s] = await Promise.all([
+          getWatches(userId),
+          getWatchStats(userId),
+          seedDemoNotifications(),
+        ]);
+        watches = w;
+        stats = s;
+      } catch {
+        // API unavailable — fall through to mocks
+      }
+      if (!watches || watches.length === 0) {
+        watches = MOCK_WATCHES;
+        stats = MOCK_STATS;
+      }
       set({ watches, stats });
     } finally {
       set({ loading: false });

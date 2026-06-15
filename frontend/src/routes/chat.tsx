@@ -45,8 +45,10 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
-import { useWishlistStore, type PriceStatus } from "@/store/useWishlistStore";
-import { Bell } from "lucide-react";
+import { useWishlistStore } from "@/store/useWishlistStore";
+import type { PriceStatus } from "@/lib/watchlist-api";
+import { Bell, Heart } from "lucide-react";
+import { Chip } from "@/components/common/Chip";
 
 import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
 import { detectOccasion, type OccasionSuggestion } from "@/lib/occasion-detector";
@@ -482,27 +484,11 @@ function CartItemRow({
 
   // Get health badge display info
   const getHealthBadgeInfo = (badge: string) => {
-    const badgeMap: Record<string, { label: string; color: string; icon: string }> = {
-      excellent: {
-        label: "Excellent Choice",
-        color: "bg-green-500/15 text-green-700 border-green-500/30",
-        icon: "✓",
-      },
-      good: {
-        label: "Good Choice",
-        color: "bg-blue-500/15 text-blue-700 border-blue-500/30",
-        icon: "✓",
-      },
-      moderate: {
-        label: "Moderate",
-        color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
-        icon: "⚠",
-      },
-      poor: {
-        label: "Less Healthy",
-        color: "bg-orange-500/15 text-orange-700 border-orange-500/30",
-        icon: "!",
-      },
+    const badgeMap: Record<string, { label: string; variant: "success" | "info" | "warning" | "danger" }> = {
+      excellent: { label: "Excellent choice", variant: "success" },
+      good:      { label: "Good choice",      variant: "info" },
+      moderate:  { label: "Moderate",         variant: "warning" },
+      poor:      { label: "Less healthy",     variant: "danger" },
     };
     return badgeMap[badge] || null;
   };
@@ -517,11 +503,7 @@ function CartItemRow({
   const inWishlist = wishlist.some((w) => w.id === wId);
 
   return (
-    <div className={`rounded-xl border shadow-sm transition-all hover:shadow-md hover:bg-background ${
-      effHealthBadge === "excellent" ? "border-green-200/60 bg-green-50/30" :
-      effHealthBadge === "poor" ? "border-orange-200/60 bg-orange-50/20" :
-      "border-border/50 bg-background/80"
-    } hover:border-brand/20`}>
+    <div className="rounded-xl border border-border/60 bg-card shadow-soft transition-shadow hover:shadow-pop">
       <div className="group p-3.5">
         {/* Top row: Name + Price */}
         <div className="flex items-start justify-between gap-3">
@@ -530,15 +512,6 @@ function CartItemRow({
               <h4 className="truncate text-sm font-semibold capitalize leading-tight text-foreground">
                 {item.name}
               </h4>
-              {priceStatus && (
-                <div 
-                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                    priceStatus.color_key === 'green' ? 'bg-green-500' :
-                    priceStatus.color_key === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                  title={priceStatus.label}
-                />
-              )}
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={(e) => {
@@ -555,7 +528,7 @@ function CartItemRow({
                   }}
                   className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
                     inWishlist
-                      ? "bg-brand text-white"
+                      ? "bg-brand text-brand-foreground"
                       : "bg-surface text-muted-foreground hover:bg-brand/10 hover:text-brand"
                   }`}
                   title={inWishlist ? "Watching" : "Watch Price"}
@@ -575,24 +548,6 @@ function CartItemRow({
               <span className="font-medium capitalize text-foreground/70">{item.brand}</span>
               <span className="text-border">•</span>
               <span>{item.unit_quantity}{item.unit}</span>
-              {isPreferred && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
-                  ♥ Fav
-                </span>
-              )}
-              {/* Social proof: X friends bought */}
-              {(() => {
-                const hash = (item.sku || item.name || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-                const friendCount = (hash % 5) + 2; // 2-6 friends
-                if (friendCount >= 3) {
-                  return (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-                      👥 {friendCount} friends bought last month
-                    </span>
-                  );
-                }
-                return null;
-              })()}
             </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
@@ -601,40 +556,44 @@ function CartItemRow({
               <PriceHistoryTooltip item={item} />
             </div>
             <span className="text-[10px] text-muted-foreground tabular-nums">₹{item.price_per_unit_inr} × {qty}</span>
-            {/* Price trend micro-indicator */}
-            <span className={`mt-0.5 text-[9px] font-semibold ${priceAdvice.color}`}>
-              {priceAdvice.trend === "buy" ? "📉 Best price" : priceAdvice.trend === "wait" ? "📈 Wait" : "→ Stable"}
-            </span>
           </div>
         </div>
 
-        {/* Middle row: Badges — more expressive with larger size and icons */}
+        {/* Glass chips: social proof + health */}
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {isPreferred && (
+            <Chip variant="neutral" icon={<Heart className="h-3 w-3" />}>Favourite brand</Chip>
+          )}
+          {(() => {
+            const hash = (item.sku || item.name || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
+            const friendCount = (hash % 5) + 2;
+            if (friendCount >= 3) {
+              return (
+                <Chip variant="info" icon={<Users className="h-3 w-3" />}>
+                  {friendCount} friends bought last month
+                </Chip>
+              );
+            }
+            return null;
+          })()}
           {healthInfo && (
-            <span
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${healthInfo.color}`}
+            <Chip
+              variant={healthInfo.variant}
               title={`Health Score: ${item.health_score || getFakeHealthScore(effHealthBadge) || 'N/A'}/100`}
             >
-              <span className="text-sm">{effHealthBadge === "excellent" ? "🥗" : effHealthBadge === "good" ? "👍" : effHealthBadge === "moderate" ? "⚠️" : "🚫"}</span>
               {healthInfo.label}
-            </span>
+            </Chip>
           )}
           {!healthInfo && productBadge && (
-            <span
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${productBadge.color}`}
-            >
-              <span className="text-sm">{productBadge.icon}</span> {productBadge.label}
-            </span>
+            <Chip variant="neutral">{productBadge.label}</Chip>
           )}
           {typeof item.likely_rating === "number" && item.likely_rating > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-brand/10 border border-brand/20 px-2.5 py-1 text-[11px] font-semibold text-brand shadow-sm">
-              <Sparkles className="h-3 w-3" /> {Math.round(item.likely_rating)}% match
-            </span>
+            <Chip variant="neutral" icon={<Sparkles className="h-3 w-3" />}>
+              {Math.round(item.likely_rating)}% match
+            </Chip>
           )}
           {getItemBadge(item.sku) && (
-            <span className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${getItemBadge(item.sku)!.color}`}>
-              {getItemBadge(item.sku)!.label}
-            </span>
+            <Chip variant="neutral">{getItemBadge(item.sku)!.label}</Chip>
           )}
         </div>
 
@@ -705,19 +664,17 @@ function CartItemRow({
                           </span>
                         )}
                         {isHealthierOption && (
-                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full font-semibold border bg-green-500/15 text-green-700 border-green-500/30">
-                            🌿 Healthier
-                          </span>
+                          <Chip variant="success" className="!text-[10px] !px-2 !py-0">Healthier</Chip>
                         )}
                         {!isHealthierOption && altHealthInfo && (
-                          <span className={`shrink-0 text-[8px] px-1 py-0.5 rounded-full font-medium border ${altHealthInfo.color}`}>
-                            {altHealthInfo.icon}
-                          </span>
+                          <Chip variant={altHealthInfo.variant} className="!text-[10px] !px-2 !py-0">
+                            {altHealthInfo.label}
+                          </Chip>
                         )}
                         {!altHealthInfo && altProductBadge && (
-                          <span className={`shrink-0 text-[8px] px-1 py-0.5 rounded-full font-medium border ${altProductBadge.color}`}>
-                            {altProductBadge.icon}
-                          </span>
+                          <Chip variant="neutral" className="!text-[10px] !px-2 !py-0">
+                            {altProductBadge.label}
+                          </Chip>
                         )}
                       </div>
                       <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">

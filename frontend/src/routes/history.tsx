@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { loadHistory, type CartHistoryEntry } from "@/lib/cart-history";
+import { ensureSeededHistory } from "@/lib/mock/history-seed";
 import { useChatStore } from "@/store/useChatStore";
 import { useEffect, useState } from "react";
-import { 
-  ShoppingCart, Clock, ArrowRight, Package, RefreshCw, 
-  Calendar, ChevronDown, Sparkles, Bot, BrainCircuit, 
-  ShoppingBag, Zap 
+import {
+  ShoppingCart, Clock, ArrowRight, Package, RefreshCw,
+  Calendar, ChevronDown, Sparkles,
 } from "lucide-react";
 
 export const Route = createFileRoute("/history")({
@@ -30,6 +30,7 @@ function HistoryPage() {
   const setPhase = useChatStore((s) => s.setPhase);
 
   useEffect(() => {
+    ensureSeededHistory();
     setHistory(loadHistory());
   }, []);
 
@@ -55,34 +56,15 @@ function HistoryPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        
-        {/* Hackathon Pitch Banner */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-brand/20 bg-brand/5 p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <BrainCircuit className="h-6 w-6 text-brand" />
-            <div>
-              <span className="text-sm font-bold text-foreground">Agentic Memory Engine</span>
-              <p className="text-xs text-muted-foreground mt-0.5">Past conversational contexts and generated carts are saved for instantaneous retrieval.</p>
-            </div>
-          </div>
-          <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-[10px] font-black text-white uppercase tracking-wider shadow-sm">
-            <Bot className="h-3 w-3" /> State Preserved
-          </div>
-        </div>
-
         {/* Header */}
-        <div className="mb-10 flex items-end justify-between">
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
-              Cart Memory
-            </h1>
-            <p className="mt-3 text-lg text-muted-foreground max-w-2xl">
-              Your previous AI-generated carts. Resume a past conversation or reorder instantly with one tap.
-            </p>
-          </div>
-          <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-2xl bg-surface border border-border shadow-sm text-foreground">
-            <ShoppingBag className="h-6 w-6" />
-          </div>
+        <div className="mb-10">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">Memory</p>
+          <h1 className="font-display text-5xl font-semibold tracking-tight text-foreground">
+            Cart Memory
+          </h1>
+          <p className="mt-3 text-lg text-muted-foreground max-w-2xl">
+            Your previous AI-generated carts. Resume a past conversation or reorder instantly with one tap.
+          </p>
         </div>
 
         {history.length === 0 ? (
@@ -151,10 +133,6 @@ function HistoryPage() {
                         <h3 className="line-clamp-2 text-xl font-bold tracking-tight text-foreground group-hover:text-brand transition-colors duration-300">
                           {entry.context_summary || "AI Generated Cart"}
                         </h3>
-                        <p className="mt-1.5 text-xs text-muted-foreground font-medium flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-amber-500" />
-                          Generated via AI prompt
-                        </p>
                       </div>
 
                       {/* Metrics */}
@@ -176,10 +154,10 @@ function HistoryPage() {
                           <div className="space-y-1">
                             {entry.cart.slice(0, 3).map((item: any, i: number) => (
                               <div key={i} className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-surface/80">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-surface text-lg">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-surface text-muted-foreground">
                                   {item.image_url ? (
                                     <img src={item.image_url} alt="" className="h-full w-full rounded-lg object-cover" />
-                                  ) : "📦"}
+                                  ) : <Package className="h-4 w-4" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="truncate text-xs font-bold text-foreground">
@@ -203,10 +181,10 @@ function HistoryPage() {
                               <div className="overflow-hidden space-y-1">
                                 {entry.cart.slice(3).map((item: any, i: number) => (
                                   <div key={i + 3} className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-surface/80">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-surface text-lg">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-surface text-muted-foreground">
                                       {item.image_url ? (
                                         <img src={item.image_url} alt="" className="h-full w-full rounded-lg object-cover" />
-                                      ) : "📦"}
+                                      ) : <Package className="h-4 w-4" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="truncate text-xs font-bold text-foreground">

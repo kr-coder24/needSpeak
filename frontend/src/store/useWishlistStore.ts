@@ -4,6 +4,8 @@ export type WishlistItem = {
   id: string;
   name: string;
   image_url?: string;
+  current_price_inr?: number;
+  brand?: string;
 };
 
 export type Notification = {
@@ -41,17 +43,19 @@ const demoNotifications: Notification[] = [
 type WishlistState = {
   wishlist: WishlistItem[];
   notifications: Notification[];
-  addToWishlist: (item: WishlistItem) => void;
+  addToWishlist: (...args: [WishlistItem] | [string, WishlistItem]) => void;
   addNotification: (notification: { id?: string; message: string; source?: Notification["source"] }) => void;
-  simulateRestock: () => void;
+  simulateRestock: (userId?: string) => void;
   markAsRead: () => void;
+  fetchWishlist: (userId?: string) => void;
 };
 
 export const useWishlistStore = create<WishlistState>((set) => ({
   wishlist: [],
   notifications: demoNotifications,
-  addToWishlist: (item) =>
+  addToWishlist: (...args) =>
     set((state) => {
+      const item = args.length === 2 ? args[1] : args[0];
       if (state.wishlist.find((w) => w.id === item.id)) return state;
       return { wishlist: [...state.wishlist, item] };
     }),
@@ -92,4 +96,7 @@ export const useWishlistStore = create<WishlistState>((set) => ({
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
     })),
+  fetchWishlist: () => {
+    // No-op stub: persistence is handled elsewhere; this keeps callers compiling.
+  },
 }));

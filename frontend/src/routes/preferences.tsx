@@ -245,69 +245,62 @@ function PreferencesPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        
-        {/* Hackathon Pitch Banner */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-brand/20 bg-brand/5 p-4">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="h-6 w-6 text-brand shrink-0 mt-0.5" />
-            <div>
-              <span className="text-sm font-bold text-foreground">Global Context Matrix</span>
-              <p className="text-xs text-muted-foreground mt-0.5">These settings are injected into the LLM system prompt, instantly personalizing all generated carts.</p>
-            </div>
-          </div>
-          <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-[10px] font-black text-white uppercase tracking-wider shadow-sm">
-            <Bot className="h-3 w-3" /> Agentic Memory
-          </div>
-        </div>
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
 
-        {/* Header */}
-        <div className="flex flex-col gap-4 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
+        {/* Page header */}
+        <div className="flex flex-col gap-6 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight flex items-center gap-3">
-              <Settings2 className="h-8 w-8 text-brand" />
-              AI Persona
-            </h1>
-            <p className="mt-2 text-base text-muted-foreground">
-              Teach the AI how you shop. It learns your budget, brand loyalties, and dietary constraints.
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Preferences</p>
+            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-foreground">AI Persona</h1>
+            <p className="mt-3 max-w-xl text-sm text-muted-foreground">
+              Teach the assistant how you shop. It learns your budget, brand loyalties, and dietary constraints.
             </p>
           </div>
           <button
             onClick={handleSave}
             disabled={saveState === "saving"}
-            className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl px-8 text-sm font-bold text-white shadow-lg transition-all ${
-              saveState === "saved" ? "bg-green-600 hover:bg-green-700" : "bg-brand hover:bg-brand/90 hover:scale-105"
-            } disabled:opacity-60 disabled:hover:scale-100`}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-foreground px-6 text-sm font-semibold text-background shadow-soft transition-colors hover:bg-foreground/90 disabled:opacity-60"
           >
             {saveState === "saving" ? (
-              <span className="flex items-center gap-2"><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Syncing...</span>
+              <span className="flex items-center gap-2"><div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> Saving</span>
             ) : saveState === "saved" ? (
-              <span className="flex items-center gap-2"><Check className="h-5 w-5" /> Saved to Brain</span>
+              <span className="flex items-center gap-2"><Check className="h-4 w-4" /> Saved</span>
             ) : (
-              <span className="flex items-center gap-2"><Save className="h-5 w-5" /> Update Persona</span>
+              <span className="flex items-center gap-2"><Save className="h-4 w-4" /> Update persona</span>
             )}
           </button>
         </div>
 
-        {/* --- Magic Extract Section (Highlight for Hackathon) --- */}
-        <section className="py-10 border-b border-border">
-          <div className="rounded-2xl bg-gradient-to-br from-brand/10 via-background to-background p-1 border border-brand/20 shadow-lg shadow-brand/5 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-              <Bot className="h-32 w-32" />
-            </div>
-            <div className="rounded-xl bg-card p-6 relative z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-5 w-5 text-brand" />
-                <h2 className="text-lg font-bold text-foreground">Natural Language Setup</h2>
-                <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 uppercase">Beta Feature</span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Just tell the AI how you shop. It will extract and map your preferences automatically.
+        {/* Context note (was hero banner) */}
+        <div className="mt-6 flex items-start justify-between gap-4 rounded-lg border border-border bg-surface/40 p-4">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Global context matrix</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                These settings are passed to the assistant on every cart, instantly personalising results.
               </p>
-              
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full border border-border bg-card px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Agentic memory
+          </span>
+        </div>
+
+        {/* --- Natural Language Setup --- */}
+        <section className="py-10 border-b border-border">
+          <div className="rounded-lg border border-border bg-card p-6 shadow-soft">
+            <div className="mb-1 flex items-center gap-2">
+              <h2 className="font-display text-xl font-semibold text-foreground">Natural language setup</h2>
+              <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Beta</span>
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Describe how you shop. The assistant extracts and maps your preferences automatically.
+            </p>
+            <div>
               <div className="relative">
                 <textarea
-                  className="min-h-[120px] w-full resize-none rounded-xl border border-border bg-background p-4 text-base outline-none focus:border-brand focus:ring-1 focus:ring-brand shadow-inner transition-all placeholder:text-muted-foreground/50"
+                  className="min-h-[120px] w-full resize-none rounded-lg border border-border bg-background p-4 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground/60"
                   placeholder='e.g., "I prefer to buy bulk packs for cleaning supplies. We are a strict vegan household. I love Tata products but absolutely avoid Nestle. Keep things budget-friendly."'
                   value={magicText}
                   onChange={(event) => setMagicText(event.target.value)}
@@ -317,12 +310,12 @@ function PreferencesPage() {
                   type="button"
                   onClick={handleMagicExtract}
                   disabled={isExtracting || !magicText.trim()}
-                  className="absolute bottom-4 right-4 inline-flex h-10 items-center gap-2 rounded-lg bg-foreground px-5 text-sm font-bold text-background transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                  className="absolute bottom-3 right-3 inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-4 text-xs font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
                 >
                   {isExtracting ? (
-                    <><div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> Parsing Intent...</>
+                    <><div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-background border-t-transparent" /> Parsing</>
                   ) : (
-                    <><Bot className="h-4 w-4" /> Extract Magic</>
+                    <>Extract preferences</>
                   )}
                 </button>
               </div>

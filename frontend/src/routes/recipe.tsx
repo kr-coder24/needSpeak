@@ -10,8 +10,6 @@ import {
   AlertCircle,
   Sparkles,
   Utensils,
-  ShieldCheck,
-  Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { saveToHistory } from "@/lib/cart-history";
@@ -148,21 +146,10 @@ function RecipePage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        
-        {/* Hackathon Pitch Banner */}
-        <div className="mb-8 flex items-center justify-between rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-brand" />
-            <span className="text-sm font-medium text-foreground">Recipe-to-Cart AI Pipeline</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black text-amber-800 uppercase tracking-wider">
-            <Sparkles className="h-3 w-3" /> Pilot Feature
-          </div>
-        </div>
-
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">Recipe to cart</p>
+          <h1 className="font-display text-5xl font-semibold tracking-tight text-foreground">
             Smart Recipe Cart
           </h1>
           <p className="mt-3 text-lg text-muted-foreground max-w-2xl">
@@ -198,7 +185,7 @@ function RecipePage() {
               ) : (
                 <>
                   Generate Cart
-                  <Zap className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
@@ -326,7 +313,7 @@ function RecipePage() {
                         <div className="flex items-center gap-2">
                           <h4 className="truncate text-base font-bold text-foreground capitalize">{it.name}</h4>
                           <span className="inline-flex shrink-0 items-center rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
-                            <Zap className="mr-0.5 h-2.5 w-2.5" /> AI Matched
+                            <Sparkles className="mr-0.5 h-2.5 w-2.5" /> AI Matched
                           </span>
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">

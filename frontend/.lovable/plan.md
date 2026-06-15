@@ -1,84 +1,43 @@
-## Goal
+## 1. Mock data — fill every surface
 
-Overhaul `src/routes/watchlist.tsx` so it feels as clean as the rest of the app: one chart, compact cards that reveal detail on hover, and a strict neutral palette — without losing any data.
+- **Watchlist (`src/lib/watchlist-mock.ts` + `useWatchStore`)**: expand `MOCK_WATCHES` from 6 → 12 items (add Samsung Galaxy Buds, iPad Air, Nespresso Vertuo, Mi Air Purifier, Levi's 511 jeans, Kindle Paperwhite). Each gets 30-day history, varied statuses (`watching` / `price_dropped` / `neighbor_match` / `already_cheaper`), competitor sources, neighbor matches where relevant. Bump `MOCK_STATS` totals accordingly. Hydrate the store from mocks on first load if the API returns empty.
+- **History (`src/routes/history.tsx`)**: seed `cart-history` localStorage with 6 realistic past carts (IPL party, birthday, weekly groceries, Diwali, recipe, restock) when empty.
+- **Restock (`src/routes/restock.tsx`)** + **Occasions (`src/routes/occasions.tsx`)**: add mock items/occasions so the lists are populated on a fresh load.
+- **Preferences / Shopper DNA**: pre-populate `useShopperDnaStore` with mock dietary tags, budget fingerprint, brand affinities so the page never looks empty.
 
-## Color scheme (strict)
+## 2. Chat / Cart page — collapsible cards + premium feel (image 1 + 2)
 
-Remove every ad-hoc emerald/orange/amber/red tint used today (`bg-emerald-500/8`, `from-emerald-500/12 ... to-orange-500/10`, green/orange/red status badges, colored CO2 icon, orange `ReferenceLine`, etc.).
+In `src/routes/chat.tsx`:
 
-Use only the existing tokens already used by the rest of the site:
-- surfaces: `bg-background`, `bg-card`, `bg-surface`
-- borders: `border-border`
-- text: `text-foreground`, `text-muted-foreground`
-- accent: `text-brand` / `bg-brand` (sparingly, for the one selected state and chart line)
-- destructive only for the remove button
+- **Collapsible product cards**: collapse every item by default to a compact row (name • qty • price • status chip). Click the card (or chevron) to expand and reveal: matched-from line, "Watch price" button, ALTERNATIVES grid. Track open state with a `Set<string>` keyed by item id. Only one card open at a time (accordion behavior) to keep the page short.
+- **Scroll bug**: remove the inner `overflow-y-auto` from the cart column / `Conversation` wrapper so the page uses a single natural document scroll. Sticky right-rail (`Why this cart?` + `Final Review`) becomes `position: sticky; top: 96px` instead of its own scroll container.
+- **Shorten without losing features**: collapsed rows are ~56px tall vs current ~280px. All features (alternatives, swap, watch price, matched-from, badges) stay — just hidden until expanded.
+- **History cards (image 2)**: trim card chrome — remove the redundant `Generated via AI prompt` line under each title (keep it once as a small chip), shrink the ITEMS/TOTAL stat blocks to a single inline row, tighten padding from `p-6` → `p-5`, switch the box-icon placeholder to a real category emoji-free lucide icon (`Package` outline) at smaller size. Both action buttons get equal weight in a single row.
 
-Status / trend / "best price" badges all collapse to the same neutral pill (`border-border bg-surface text-muted-foreground`) with the brand token used only for the currently-selected item. Chart reference lines become `var(--border)` / `var(--muted-foreground)` dashed strokes instead of orange/slate.
+## 3. Watchlist page — premium polish (image 3)
 
-## Layout (new structure)
+In `src/routes/watchlist.tsx`:
 
-```text
-┌──────────────────────────────────────────────────────────┐
-│ HeroCommandCenter  (kept, recolored to neutral)          │
-├──────────────────────────────────────────────────────────┤
-│ SignalRail         (kept, recolored to neutral)          │
-├──────────────────────────────────────────────────────────┤
-│ Price Guardian banner  (kept, recolored to neutral)      │
-├──────────────────────────────────────────────────────────┤
-│ ┌─ Compact watch list (left) ──┐ ┌─ Detail panel (right)┐│
-│ │ • Sony WH-1000XM5            │ │  Selected item title  ││
-│ │ • LG Washing Machine  ←hover │ │  Current / target /   ││
-│ │ • Air Fryer                  │ │  low / high / vol /   ││
-│ │ • …                          │ │  AI confidence        ││
-│ │                              │ │                       ││
-│ │                              │ │  ── ONE chart ──      ││
-│ │                              │ │  full price history   ││
-│ │                              │ │  + target + competitor││
-│ │                              │ │  + neighbor dot       ││
-│ │                              │ │                       ││
-│ │                              │ │  Why-this-price /     ││
-│ │                              │ │  neighbor breakdown   ││
-│ └──────────────────────────────┘ └───────────────────────┘│
-├──────────────────────────────────────────────────────────┤
-│ WatchMatrix table  (kept, recolored to neutral)          │
-└──────────────────────────────────────────────────────────┘
-```
+- **Header**: serif H1 `Price Guardian` paired with an espresso eyebrow `LIVE TRACKING`. KPI strip becomes 4 uniform cream cards with hairline borders, uppercase micro-labels, large serif numbers, and a small trend chip (`↑ ₹2,340 this week` etc.) under each. Right-aligned action cluster: ghost `Simulate`, solid espresso `+ Add watch`, icon-only refresh — all sharing one rounded pill group.
+- **Left list**: each watch row is a uniform card with thumbnail placeholder, name, brand, price, and a single `Chip` (success/warning/danger) for deal status — no inline `Best price / Fair price / Higher than usual` text noise.
+- **Right detail**: graph height fixed at `h-[320px]`, soft espresso area fill on cream, hairline grid, popover tooltip. KPI tiles above the graph. Neighbor-match / competitor cards below in a uniform 2-col grid.
+- **Hover on left card** opens a `HoverCard` with 30-day low/high, confidence %, and last-checked timestamp.
+- Replace any hardcoded greens/reds with `--chip-success-*` / `--chip-warning-*` / `--chip-danger-*` tokens.
 
-### Compact cards (left column)
-- Replace the current 2-col grid of large `WatchCard`s with a single vertical list of slim rows (~56px tall).
-- Collapsed row shows only: product name (truncate), current price, tiny trend pill.
-- On `hover` (and on the currently-selected row) the row expands inline to reveal: SKU/brand, target price, low/high/volatility/AI-confidence chips, status badge, email-on badge, remove button. Implemented with `group` + `group-hover:` height/opacity transitions (no JS state for hover).
-- Clicking a row sets it as the selected item that drives the right-side detail panel.
-- Default selection: first watch on load.
+## 4. Remove banners (images 4–7)
 
-### Detail panel (right column) — the single chart
-- One `ComparisonChart` instance, fed by the selected watch. All sparklines per card are removed.
-- Chart keeps every data series currently rendered (price area, target reference line, competitor reference line, neighbor match dot) — just restyled to neutral tokens.
-- Above the chart: the selected item's headline numbers (current, target, low/high, volatility, AI confidence) that used to live inside each card.
-- Below the chart: the `Breakdown` block (neighbor-match math or "why this price" math) for the selected item only.
+- Delete the `Zero-Shot Cart Generation Pilot` banner from `src/routes/occasions.tsx` (and any `⚡ Zap` lead icon).
+- Delete the `Recipe-to-Cart AI Pipeline` + `PILOT FEATURE` banner from `src/routes/recipe.tsx`.
+- Remove the residual lightning-bolt icon and party-popper SVG/emoji wherever they appear in `history.tsx` / chat header.
+- Sweep all routes for stray decorative emojis (🎉 🎊 ⚡ 🛍️) and drop them — lucide icons only, sized consistently.
 
-### Data preservation checklist
-Nothing is dropped — each field just moves location:
-| Data | Old location | New location |
-|---|---|---|
-| name / brand / SKU | each card header | compact row (name) + detail panel header (brand+SKU) |
-| status / trend / email-on badges | each card | expanded row (hover) |
-| current / target price | each card | compact row (current) + detail panel |
-| 30-day low / high / volatility / AI confidence | each card chip row | expanded row chips + detail panel summary |
-| sparkline per card | each card | removed — superseded by single full chart |
-| neighbor-match breakdown | each card | detail panel |
-| "why this price" breakdown | each card | detail panel |
-| full price-history chart | each card (expandable) | single shared chart in detail panel |
-| remove action | each card | expanded row (hover) |
+## 5. Verify
 
-Empty state and loading state remain, restyled to neutral.
+- Typecheck.
+- Walk `/chat` (collapse/expand, no inner scroll), `/watchlist` (hover, graph, KPIs), `/history`, `/occasions`, `/recipe` in preview at 1280 + 414 widths.
 
-## Technical notes
+### Technical notes
 
-- File touched: `src/routes/watchlist.tsx` only. `useWatchStore`, `watchlist-api`, and `AppShell` are untouched.
-- New local component `WatchRow` (compact, hover-expand via Tailwind `group`/`group-hover` — no extra state).
-- Lift selection state into `WatchlistPage`: `const [selectedId, setSelectedId] = useState<string | null>(null)`, default to `watches[0]?.watch_id` once data loads.
-- `WatchCard`, `Sparkline`, and the per-card `expanded` state are removed.
-- `ComparisonChart` and `Breakdown` are kept but recolored (no orange/slate/emerald hex literals — use CSS vars).
-- `PriceTrendBadge` / `WatchStatusBadge` simplified to a single neutral pill variant; label text preserved.
-- Page wrapper loses the `bg-gradient-to-b from-emerald-500/8 …` and the emerald/orange banner gradient; both become plain `bg-background` / `bg-card`.
+- New mock seeds live in `src/lib/watchlist-mock.ts`, `src/lib/mock/needspeak.ts`, and a new `src/lib/mock/history-seed.ts`.
+- Card collapse state: local `useState<Set<string>>` in chat page; one-at-a-time toggle.
+- No new dependencies. Reuses existing `Chip`, `HoverCard`, `recharts`.

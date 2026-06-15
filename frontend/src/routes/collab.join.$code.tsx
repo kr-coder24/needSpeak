@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { resolveShareCode } from "@/lib/collab-api";
+import { useCollabStore } from "@/store/useCollabStore";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/collab/join/$code")({
@@ -14,14 +14,12 @@ function JoinCollabPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    resolveShareCode(code)
-      .then((data) => {
-        navigate({ to: `/collab/${data.session_id}`, replace: true });
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Invalid or expired share link.");
-      });
+    const sessionId = useCollabStore.getState().resolveCode(code);
+    if (sessionId) {
+      navigate({ to: `/collab/${sessionId}`, replace: true });
+    } else {
+      setError("This cart isn't on this device. Group carts are shared within the same browser for the demo.");
+    }
   }, [code, navigate]);
 
   return (

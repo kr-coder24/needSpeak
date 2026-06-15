@@ -210,9 +210,30 @@ MOCK_RESPONSES: dict[str, dict] = {
 }
 
 
+def _extract_budget(query_lower: str) -> int | None:
+    """Extract budget from any query using multiple patterns."""
+    import re
+    patterns = [
+        r'(?:under|below|within|less than|upto|up to|max(?:imum)?)\s*(?:rs\.?|₹|inr)?\s*(\d[\d,]*)',
+        r'budget\s+(?:of\s+)?(?:rs\.?|₹|inr)?\s*(\d[\d,]*)',
+        r'(?:rs\.?|₹|inr)\s*(\d[\d,]*)',
+        r'(\d[\d,]*)\s*(?:rs\.?|₹|inr|rupees?)',
+    ]
+    for pat in patterns:
+        m = re.search(pat, query_lower, re.IGNORECASE)
+        if m:
+            num = int(m.group(1).replace(',', ''))
+            if num >= 100:  # sanity: ignore small numbers like "2 chips"
+                return num
+    return None
+
+
 def _get_mock_response(query: str) -> dict:
     """Return a mock response based on query keywords."""
     query_lower = query.lower()
+    
+    # Always extract budget first — universal across all categories
+    budget = _extract_budget(query_lower)
     
     # Check for keyword matches - ORDER MATTERS!
     # Check headphone/earphone BEFORE phone (since "headphone" contains "phone")
@@ -222,7 +243,7 @@ def _get_mock_response(query: str) -> dict:
             "search_intent": "Wireless headphones with noise cancellation",
             "required_specs": {},
             "preferred_features": [],
-            "max_budget_inr": None,
+            "max_budget_inr": budget,
             "budget_preference": "balanced",
             "preferred_brands": [],
             "avoided_brands": [],
@@ -243,7 +264,7 @@ def _get_mock_response(query: str) -> dict:
             "search_intent": query,
             "required_specs": {},
             "preferred_features": [],
-            "max_budget_inr": None,
+            "max_budget_inr": budget,
             "budget_preference": "balanced",
             "preferred_brands": [],
             "avoided_brands": [],
@@ -263,7 +284,7 @@ def _get_mock_response(query: str) -> dict:
         if "gaming" in query_lower:
             response["preferred_features"].append("gaming")
             response["use_cases"].append("gaming")
-        if "budget" in query_lower or "cheap" in query_lower or "affordable" in query_lower:
+        if budget or "budget" in query_lower or "cheap" in query_lower or "affordable" in query_lower or "within" in query_lower:
             response["budget_preference"] = "budget"
         if "premium" in query_lower or "flagship" in query_lower:
             response["budget_preference"] = "premium"
@@ -275,7 +296,7 @@ def _get_mock_response(query: str) -> dict:
             "search_intent": query,
             "required_specs": {},
             "preferred_features": [],
-            "max_budget_inr": None,
+            "max_budget_inr": budget,
             "budget_preference": "balanced",
             "preferred_brands": [],
             "avoided_brands": [],

@@ -285,12 +285,20 @@ def match_products(
                 score += penalty
                 missing_requirements.append(f"Over budget by ₹{product['price_inr'] - parsed_query.max_budget_inr:,}")
         
-        # 7. Budget preference (value vs premium)
+        # 7. Budget preference (value vs premium) — stronger penalty/boost
         if parsed_query.budget_preference == "budget":
-            # Boost cheaper products within category
+            # Hard cap: heavy penalty for items over 1.2× median category price
+            cat_prices = [p["price_inr"] for p in catalog if p["category"] == product["category"] and p.get("price_inr", 0) > 0]
+            if cat_prices:
+                median_price = sorted(cat_prices)[len(cat_prices) // 2]
+                if product["price_inr"] > median_price * 1.2:
+                    score -= 40  # heavy penalty for expensive items in budget mode
+                elif product["price_inr"] < median_price * 0.7:
+                    score += 20  # strong boost for genuinely cheap items
+            # Also apply max-price normalised boost
             max_price_cat = max((p["price_inr"] for p in catalog if p["category"] == product["category"]), default=200000)
             if max_price_cat > 0:
-                score += (1 - (product["price_inr"] / max_price_cat)) * 15
+                score += (1 - (product["price_inr"] / max_price_cat)) * 20
         elif parsed_query.budget_preference == "premium":
             if any(t in product.get("tags", []) for t in ["premium", "flagship", "best"]):
                 score += 10

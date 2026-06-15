@@ -28,11 +28,11 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "re
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/layout/AppShell";
-import { useCollabWebSocket } from "@/hooks/useCollabWebSocket";
+import { useCollabLocal } from "@/hooks/useCollabLocal";
+import { useCollabStore } from "@/store/useCollabStore";
 import {
   acceptCommunityDeal,
   getCommunityDeals,
-  joinCollabSession,
   type BulkDealMatch,
 } from "@/lib/collab-api";
 
@@ -126,7 +126,9 @@ function CollabPage() {
     updateQuantity,
     acceptSubstitution,
     rejectSubstitution,
-  } = useCollabWebSocket(sessionId, contributorId || undefined);
+  } = useCollabLocal(sessionId, contributorId || undefined);
+
+  const joinSessionLocal = useCollabStore((s) => s.joinSession);
 
   useEffect(() => {
     if (session) setBudgetDraft(String(session.total_budget_inr));
@@ -145,9 +147,13 @@ function CollabPage() {
     if (!joinName.trim()) return;
     setIsJoining(true);
     try {
-      const result = await joinCollabSession(sessionId, joinName.trim());
-      localStorage.setItem(`collab_${sessionId}_contributor`, result.contributor.id);
-      setContributorId(result.contributor.id);
+      const contributor = joinSessionLocal(sessionId, joinName.trim());
+      if (!contributor) {
+        alert("This group cart was not found on this device.");
+        return;
+      }
+      localStorage.setItem(`collab_${sessionId}_contributor`, contributor.id);
+      setContributorId(contributor.id);
     } catch (joinError) {
       alert(joinError instanceof Error ? joinError.message : "Could not join this cart.");
     } finally {
@@ -342,6 +348,47 @@ function CollabPage() {
                 {isConnected ? "Live sync" : "Reconnecting"}
               </span>
               <span className="text-sm text-muted-foreground">Hosted by {session.host_name}</span>
+              {/* Demo: add a simulated friend so multi-user merging shows on one screen */}
+              <button
+                onClick={() => {
+                  const presets = ["Rahul", "Priya", "Karan", "Sneha", "Arjun"];
+                  const existing = new Set(session.contributors.map((c) => c.name));
+                  const name = presets.find((n) => !existing.has(n)) || `Friend ${session.contributors.length}`;
+                  const friend = joinSessionLocal(sessionId, name);
+                  if (friend) {
+                    localStorage.setItem(`collab_${sessionId}_contributor`, friend.id);
+                    setContributorId(friend.id);
+                    toast.success(`${name} joined the cart`);
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-muted-foreground transition hover:border-brand/40 hover:text-brand"
+              >
+                <Plus className="h-3 w-3" />
+                Simulate friend
+              </button>
+              {/* Demo: switch acting contributor to simulate multiple users */}
+              {session.contributors.filter((c) => c.status === "active").length > 1 && (
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/5 px-2 py-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-brand">Acting as</span>
+                  <select
+                    value={contributorId || ""}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      localStorage.setItem(`collab_${sessionId}_contributor`, newId);
+                      setContributorId(newId);
+                    }}
+                    className="cursor-pointer rounded-md bg-transparent text-xs font-semibold text-foreground outline-none"
+                  >
+                    {session.contributors
+                      .filter((c) => c.status === "active")
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}{c.id === session.host_id ? " (host)" : ""}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
               {hasCommunity && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-xs font-bold text-success">
                   <Leaf className="h-3.5 w-3.5" />

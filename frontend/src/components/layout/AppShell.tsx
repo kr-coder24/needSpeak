@@ -6,7 +6,7 @@ import { useWishlistStore } from "@/store/useWishlistStore";
 import { useTheme } from "@/hooks/use-theme";
 import { loadHistory } from "@/lib/cart-history";
 import { getStoredAuth } from "@/routes/login";
-import { createCollabSession, resolveShareCode } from "@/lib/collab-api";
+import { useCollabStore } from "@/store/useCollabStore";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -89,12 +89,16 @@ export function AppShell({
   const handleJoinCollab = async (data: { code: string }) => {
     setIsJoiningCollab(true);
     try {
-      const { session_id } = await resolveShareCode(data.code);
+      const sessionId = useCollabStore.getState().resolveCode(data.code);
+      if (!sessionId) {
+        alert("Invalid code or session not found on this device. Ask the host to share from this browser, or create a new cart.");
+        return;
+      }
       setIsDialogOpen(false);
-      navigate({ to: `/collab/${session_id}` });
+      navigate({ to: `/collab/${sessionId}` });
     } catch (err) {
       console.error(err);
-      alert("Invalid code or session not found. Double-check the code and try again.");
+      alert("Invalid code or session not found.");
     } finally {
       setIsJoiningCollab(false);
     }
@@ -109,7 +113,7 @@ export function AppShell({
   }) => {
     setIsCreatingCollab(true);
     try {
-      const { session, contributor } = await createCollabSession(
+      const { session, contributor } = useCollabStore.getState().createSession(
         data.name,
         data.hostName,
         data.budget,

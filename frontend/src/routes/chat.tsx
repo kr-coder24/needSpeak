@@ -45,8 +45,7 @@ import { useVoiceInput } from "@/hooks/use-voice-input";
 import { getItemBadge } from "@/lib/mock/item-badges";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
-import { useWishlistStore, type PriceStatus } from "@/store/useWishlistStore";
-import { Bell } from "lucide-react";
+
 
 import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
 import { detectOccasion, type OccasionSuggestion } from "@/lib/occasion-detector";
@@ -458,7 +457,6 @@ function CartItemRow({
   onRemove,
   onSwap,
   preferredBrands,
-  priceStatus,
 }: {
   item: any;
   qty: number;
@@ -467,7 +465,6 @@ function CartItemRow({
   onRemove: () => void;
   onSwap?: (altSku: string) => void;
   preferredBrands?: string[];
-  priceStatus?: PriceStatus;
 }) {
   const effectiveTotal = (item.price_per_unit_inr * qty).toFixed(0);
   const [showAlternatives, setShowAlternatives] = useState(false);
@@ -512,82 +509,41 @@ function CartItemRow({
   const productBadge = getFakeProductBadge(item);
   const priceAdvice = getFakePriceAdvice(item);
 
-  const { addToWishlist, wishlist } = useWishlistStore();
-  const wId = item.sku || item.name;
-  const inWishlist = wishlist.some((w) => w.id === wId);
-
   return (
-    <div className={`rounded-xl border shadow-sm transition-all hover:shadow-md hover:bg-background ${
-      effHealthBadge === "excellent" ? "border-green-200/60 bg-green-50/30" :
-      effHealthBadge === "poor" ? "border-orange-200/60 bg-orange-50/20" :
-      "border-border/50 bg-background/80"
-    } hover:border-brand/20`}>
-      <div className="group p-3.5">
+    <div className="rounded-2xl border border-border/40 bg-background shadow-sm transition-all duration-200 hover:shadow-lg hover:border-border/80">
+      <div className="group p-4">
         {/* Top row: Name + Price */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h4 className="truncate text-sm font-semibold capitalize leading-tight text-foreground">
+              <h4 className="truncate text-[13px] font-semibold capitalize leading-snug text-foreground">
                 {item.name}
               </h4>
-              {priceStatus && (
-                <div 
-                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                    priceStatus.color_key === 'green' ? 'bg-green-500' :
-                    priceStatus.color_key === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                  title={priceStatus.label}
-                />
-              )}
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!inWishlist) {
-                      addToWishlist(getStoredUserId(), {
-                        id: wId,
-                        name: item.name,
-                        image_url: item.image_url,
-                        current_price_inr: item.price_per_unit_inr || item.total_price_inr || item.price || 100,
-                        brand: item.brand,
-                      });
-                    }
-                  }}
-                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-                    inWishlist
-                      ? "bg-brand text-white"
-                      : "bg-surface text-muted-foreground hover:bg-brand/10 hover:text-brand"
-                  }`}
-                  title={inWishlist ? "Watching" : "Watch Price"}
-                >
-                  <Bell className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={onRemove}
-                  aria-label="Remove item"
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <button
+                onClick={onRemove}
+                aria-label="Remove item"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-              <span className="font-medium capitalize text-foreground/70">{item.brand}</span>
-              <span className="text-border">•</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground/60 capitalize">{item.brand}</span>
+              <span className="text-muted-foreground/30">·</span>
               <span>{item.unit_quantity}{item.unit}</span>
               {isPreferred && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
-                  ♥ Fav
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-brand/8 px-1.5 py-0.5 text-[9px] font-medium text-brand">
+                  ♥ Fav brand
                 </span>
               )}
-              {/* Social proof: X friends bought */}
+              {/* Social proof */}
               {(() => {
                 const hash = (item.sku || item.name || "").split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-                const friendCount = (hash % 5) + 2; // 2-6 friends
+                const friendCount = (hash % 5) + 2;
                 if (friendCount >= 3) {
                   return (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-                      👥 {friendCount} friends bought last month
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                      👥 {friendCount} friends bought
                     </span>
                   );
                 }
@@ -595,71 +551,63 @@ function CartItemRow({
               })()}
             </div>
           </div>
-          <div className="flex flex-col items-end shrink-0">
-            <div className="flex items-center gap-1">
-              <span className="text-base font-bold tabular-nums text-foreground">₹{effectiveTotal}</span>
+          <div className="flex flex-col items-end shrink-0 gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[15px] font-bold tabular-nums tracking-tight text-foreground">₹{effectiveTotal}</span>
               <PriceHistoryTooltip item={item} />
             </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums">₹{item.price_per_unit_inr} × {qty}</span>
-            {/* Price trend micro-indicator */}
-            <span className={`mt-0.5 text-[9px] font-semibold ${priceAdvice.color}`}>
-              {priceAdvice.trend === "buy" ? "📉 Best price" : priceAdvice.trend === "wait" ? "📈 Wait" : "→ Stable"}
-            </span>
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums">₹{item.price_per_unit_inr} × {qty}</span>
           </div>
         </div>
 
-        {/* Middle row: Badges — more expressive with larger size and icons */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        {/* Badges row — compact, subtle, no heavy borders */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {healthInfo && (
             <span
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${healthInfo.color}`}
-              title={`Health Score: ${item.health_score || getFakeHealthScore(effHealthBadge) || 'N/A'}/100`}
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                effHealthBadge === "excellent" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" :
+                effHealthBadge === "good" ? "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400" :
+                effHealthBadge === "moderate" ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" :
+                "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400"
+              }`}
             >
-              <span className="text-sm">{effHealthBadge === "excellent" ? "🥗" : effHealthBadge === "good" ? "👍" : effHealthBadge === "moderate" ? "⚠️" : "🚫"}</span>
-              {healthInfo.label}
+              {effHealthBadge === "excellent" ? "●" : effHealthBadge === "good" ? "●" : effHealthBadge === "moderate" ? "●" : "●"} {healthInfo.label}
             </span>
           )}
           {!healthInfo && productBadge && (
-            <span
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${productBadge.color}`}
-            >
-              <span className="text-sm">{productBadge.icon}</span> {productBadge.label}
+            <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold ${productBadge.color}`}>
+              {productBadge.icon} {productBadge.label}
             </span>
           )}
           {typeof item.likely_rating === "number" && item.likely_rating > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-brand/10 border border-brand/20 px-2.5 py-1 text-[11px] font-semibold text-brand shadow-sm">
-              <Sparkles className="h-3 w-3" /> {Math.round(item.likely_rating)}% match
-            </span>
-          )}
-          {getItemBadge(item.sku) && (
-            <span className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${getItemBadge(item.sku)!.color}`}>
-              {getItemBadge(item.sku)!.label}
+            <span className="inline-flex items-center gap-1 rounded-md bg-brand/6 px-2 py-0.5 text-[10px] font-semibold text-brand dark:bg-brand/15">
+              <Sparkles className="h-2.5 w-2.5" /> {Math.round(item.likely_rating)}% match
             </span>
           )}
         </div>
 
-        {/* Bottom row: Quantity control + match info */}
-        <div className="mt-3 flex items-center justify-between gap-2">
+        {/* Bottom row: Quantity + source */}
+        <div className="mt-3 flex items-center justify-between">
           <QuantityControl value={qty} onDecrement={onDecrement} onIncrement={onIncrement} />
-          <div className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-[10px] text-muted-foreground border border-border/30">
-            <Check className="h-3 w-3 text-success" />
-            <span className="truncate max-w-[140px]">
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70">
+            <Check className="h-3 w-3 text-emerald-500" />
+            <span className="truncate max-w-[120px]">
               {item.substituted
                 ? item.substitution_reason || "Substituted"
                 : item.matched_from?.length > 0
                   ? item.matched_from[0]
                   : "Matched"}
             </span>
-          </div>
+          </span>
         </div>
       </div>
 
-      {/* Alternatives toggle button */}
+      {/* Alternatives toggle */}
       {alternatives.length > 0 && (
         <>
           <button
             onClick={() => setShowAlternatives(!showAlternatives)}
-            className="flex w-full items-center justify-center gap-1.5 border-t border-border/30 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-surface/50 hover:text-foreground"
+            className="flex w-full items-center justify-center gap-1.5 border-t border-border/20 py-2.5 text-[10px] font-medium text-muted-foreground/70 transition-colors hover:bg-surface/50 hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
             {showAlternatives ? "Hide" : "Show"} {alternatives.length} alternative
@@ -942,48 +890,6 @@ function ChatPage() {
 
   // Load user preferred brands for display in cart items
   const [userPreferredBrands] = useState<string[]>(() => loadPreferences().preferredBrands);
-
-  const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>({});
-
-  useEffect(() => {
-    if (cartData?.cart) {
-      const items = cartData.cart.map((it: any) => ({
-        sku: it.sku || it.name,
-        current_price_inr: it.price_per_unit_inr || it.total_price_inr || it.price || 0,
-      }));
-
-      const extraItems = intentGroups.flatMap((g: any) =>
-        (g.cart || []).map((it: any) => ({
-          sku: it.sku || it.name,
-          current_price_inr: it.price_per_unit_inr || it.total_price_inr || it.price || 0,
-        }))
-      );
-      
-      const allItems = [...items, ...extraItems];
-
-      fetch("/api/watchlist/price-status/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: getStoredUserId(),
-          items: allItems,
-        }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.items) {
-            const map: Record<string, PriceStatus> = {};
-            data.items.forEach((it: any) => {
-              if (it.price_status) {
-                map[it.sku] = it.price_status;
-              }
-            });
-            setPriceStatuses(map);
-          }
-        })
-        .catch(console.error);
-    }
-  }, [cartData, intentGroups]);
 
   // Track pending clarification context so follow-up answers include original request
   const pendingClarificationRef = useRef<string | null>(null);
@@ -1921,7 +1827,6 @@ function ChatPage() {
                                     onRemove={() => setRemovedKeys((prev) => [...prev, key])}
                                     onSwap={(altSku) => swapItem(item.sku, altSku)}
                                     preferredBrands={userPreferredBrands}
-                                    priceStatus={priceStatuses[key]}
                                   />
                                 );
                               })}
@@ -1963,7 +1868,6 @@ function ChatPage() {
                               onRemove={() => setRemovedKeys((prev) => [...prev, key])}
                               onSwap={(altSku) => swapItem(item.sku, altSku)}
                               preferredBrands={userPreferredBrands}
-                              priceStatus={priceStatuses[key]}
                             />
                           );
                         })}

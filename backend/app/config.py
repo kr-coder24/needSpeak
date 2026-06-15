@@ -41,6 +41,7 @@ DYNAMODB_TABLE_AUTH_SESSIONS = os.getenv("DYNAMODB_TABLE_AUTH_SESSIONS", "NeedSp
 DYNAMODB_TABLE_PREFERENCES = os.getenv("DYNAMODB_TABLE_PREFERENCES", "NeedSpeakUserPreferences")
 DYNAMODB_TABLE_EVENTS = os.getenv("DYNAMODB_TABLE_EVENTS", "NeedSpeakUserEvents")
 DYNAMODB_TABLE_SHOPPER_PROFILES = os.getenv("DYNAMODB_TABLE_SHOPPER_PROFILES", "NeedSpeakShopperProfiles")
+DYNAMODB_TABLE_COLLAB = os.getenv("DYNAMODB_TABLE_COLLAB", "NeedSpeakCollabSessions")
 
 # ---------------------------------------------------------------------------
 # Amazon S3

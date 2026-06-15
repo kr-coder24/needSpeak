@@ -9,6 +9,7 @@ import uuid
 from typing import Optional
 
 from app.collab.carbon_footprint import compute_cart_carbon
+from app.collab import collab_persistence
 from app.collab.models import (
     BudgetSplit,
     CollabCartItem,
@@ -21,6 +22,29 @@ from app.collab.models import (
 
 _sessions: dict[str, CollabSession] = {}
 _share_codes: dict[str, str] = {}
+_warmed = False
+
+
+def _warm_cache_once() -> None:
+    """Load persisted sessions into memory on first access (survives restart)."""
+    global _warmed
+    if _warmed:
+        return
+    _warmed = True
+    try:
+        sessions, codes = collab_persistence.load_all_sessions()
+        _sessions.update(sessions)
+        _share_codes.update(codes)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _persist(session: CollabSession) -> None:
+    """Write-through to durable storage. Best-effort."""
+    try:
+        collab_persistence.save_session(session)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def generate_share_code(length: int = 6) -> str:
@@ -59,24 +83,40 @@ def create_session(
     )
     _sessions[session_id] = session
     _share_codes[share_code] = session_id
+    _persist(session)
     return session, host
 
 
 def get_session(session_id: str) -> Optional[CollabSession]:
-    return _sessions.get(session_id)
+    _warm_cache_once()
+    session = _sessions.get(session_id)
+    if session is None:
+        # Lazy-load from durable storage (survives restart)
+        session = collab_persistence.load_session(session_id)
+        if session is not None:
+            _sessions[session_id] = session
+            _share_codes[session.share_code.upper()] = session_id
+    return session
 
 
 def resolve_share_code(share_code: str) -> Optional[str]:
-    return _share_codes.get(share_code.upper())
+    _warm_cache_once()
+    sid = _share_codes.get(share_code.upper())
+    if sid is None:
+        sid = collab_persistence.load_share_code(share_code)
+        if sid:
+            _share_codes[share_code.upper()] = sid
+    return sid
 
 
 def join_session(session_id: str, contributor_name: str) -> Optional[Contributor]:
-    session = _sessions.get(session_id)
+    session = get_session(session_id)
     if not session or not session.is_active:
         return None
 
     contributor = Contributor(id=str(uuid.uuid4()), name=contributor_name)
     session.contributors.append(contributor)
+    _persist(session)
     return contributor
 
 
@@ -189,6 +229,7 @@ def merge_resolved_item(
         merged_item = resolved_item
 
     _refresh_contributor_stats(session)
+    _persist(session)
     return merged_item
 
 
@@ -221,6 +262,7 @@ def remove_item(session_id: str, item_id: str, contributor_id: str) -> bool:
         return False
 
     _refresh_contributor_stats(session)
+    _persist(session)
     return True
 
 
@@ -258,6 +300,7 @@ def update_demand_quantity(
         )
     _recalculate_item(item)
     _refresh_contributor_stats(session)
+    _persist(session)
     return True
 
 
@@ -296,6 +339,7 @@ def apply_substitution(
     else:
         _recalculate_item(item)
     _refresh_contributor_stats(session)
+    _persist(session)
     return True
 
 
@@ -314,6 +358,7 @@ def reject_substitution(
     if not owns_demand and session.host_id != contributor_id:
         return False
     item.pending_substitution = None
+    _persist(session)
     return True
 
 
@@ -322,6 +367,7 @@ def update_budget(session_id: str, new_budget: float, contributor_id: str) -> bo
     if not session or session.host_id != contributor_id:
         return False
     session.total_budget_inr = new_budget
+    _persist(session)
     return True
 
 
@@ -335,6 +381,7 @@ def leave_session(session_id: str, contributor_id: str) -> bool:
     if not contributor:
         return False
     contributor.status = ContributorStatus.LEFT
+    _persist(session)
     return True
 
 
@@ -399,6 +446,10 @@ def get_budget_split(session_id: str) -> Optional[list[BudgetSplit]]:
 def clear_sessions_for_tests() -> None:
     _sessions.clear()
     _share_codes.clear()
+    try:
+        collab_persistence.delete_all_for_tests()
+    except Exception:
+        pass
     try:
         from app.collab.bulk_buy import clear_bulk_deals_for_tests
         from app.collab.community_store import clear_communities_for_tests

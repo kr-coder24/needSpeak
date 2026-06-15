@@ -134,6 +134,13 @@ async def lifespan(app: FastAPI):
     products = load_all_products()
     logger.info(f"Loaded {len(products)} products into memory cache")
 
+    # Warm collab sessions from durable storage (survive restart — Option C)
+    try:
+        from app.collab.collab_store import _warm_cache_once
+        _warm_cache_once()
+    except Exception as e:
+        logger.warning(f"Could not warm collab sessions: {e}")
+
     yield  # App runs
 
     logger.info("Context-to-Cart shutting down...")

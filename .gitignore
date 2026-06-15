@@ -39,3 +39,6 @@ a_reports/
 ui-ux-pro-max-skill/
 backend/transcript_output*.txt
 .github/
+
+# Collab session local persistence (Option C mock-mode store)
+backend/.collab_sessions.json

@@ -496,6 +496,10 @@ function CartItemRow({
   const productBadge = getFakeProductBadge(item);
   const priceAdvice = getFakePriceAdvice(item);
 
+  const { addToWishlist, wishlist } = useWishlistStore();
+  const wId = item.sku || item.name;
+  const inWishlist = wishlist.some((w) => w.id === wId);
+
   return (
     <div className="rounded-xl border border-border/60 bg-card shadow-soft transition-shadow hover:shadow-pop">
       <div className="group p-3.5">

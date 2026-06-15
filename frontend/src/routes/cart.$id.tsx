@@ -984,6 +984,7 @@ function CartPage() {
       }
 
       // Redirect to checkout page
+      localStorage.setItem(`checkout_items_${data.reservation_id}`, JSON.stringify(cartItems));
       setTimeout(
         () => navigate({ to: "/checkout/$id", params: { id: data.reservation_id } }),
         1500,

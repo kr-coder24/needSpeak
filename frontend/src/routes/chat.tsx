@@ -1419,8 +1419,10 @@ function ChatPage() {
       unavailable_items: entry.unavailable_items,
     };
     
-    // Use saved groups, or fallback to a single group representing the old flat cart
-    const restoredGroups = entry.intents?.length ? entry.intents : [restoredGroup];
+    // Use saved groups (only non-empty), or fallback to a single group representing the old flat cart
+    const savedGroups = (entry.intents?.length ? entry.intents : [restoredGroup])
+      .filter((g: any) => (g.cart?.length ?? 0) > 0);
+    const restoredGroups = savedGroups.length > 0 ? savedGroups : [restoredGroup];
     setIntentGroups((prevGroups) => (prev ? [...(prevGroups || []), ...restoredGroups] : restoredGroups));
     if (entry.budget_inr) setBudgetInput(String(entry.budget_inr));
     setPhase("cart");
@@ -1826,10 +1828,19 @@ function ChatPage() {
 
                 {/* Items list — grouped by intent if multiple, flat if single/restored */}
                 <div className="flex-1 overflow-y-auto p-4">
-                  {intentGroups.length > 1 ? (
-                    /* Multi-intent: render each group as a labelled section */
+                  {(() => {
+                    // Filter out empty groups (e.g. low-confidence history entries with no items)
+                    const nonEmptyGroups = intentGroups.filter((g: any) => (g.cart?.length ?? 0) > 0);
+                    // Count items across non-empty groups
+                    const groupedItemCount = nonEmptyGroups.reduce((s: number, g: any) => s + (g.cart?.length ?? 0), 0);
+                    const flatItemCount = cartData.cart?.length ?? 0;
+                    // Use grouped view ONLY if multiple non-empty groups AND they cover all cart items
+                    const useGrouped = nonEmptyGroups.length > 1 && groupedItemCount >= flatItemCount;
+                    return useGrouped;
+                  })() ? (
+                    /* Multi-intent: render each non-empty group as a labelled section */
                     <div className="space-y-6">
-                      {intentGroups.map((group: any, gi: number) => {
+                      {intentGroups.filter((g: any) => (g.cart?.length ?? 0) > 0).map((group: any, gi: number) => {
                         const groupItems = (group.cart ?? []).filter((_: any, idx: number) => {
                           const key = String(_.sku ?? `${gi}-${idx}`);
                           return !removedKeys.includes(key);
@@ -1839,6 +1850,7 @@ function ChatPage() {
                           const qty = quantities[key] ?? it.quantity_units;
                           return s + it.price_per_unit_inr * qty;
                         }, 0);
+                        const visibleGroups = intentGroups.filter((g: any) => (g.cart?.length ?? 0) > 0);
 
                         return (
                           <div key={gi}>
@@ -1882,7 +1894,7 @@ function ChatPage() {
                               </div>
                             )}
                             {/* Divider between groups */}
-                            {gi < intentGroups.length - 1 && (
+                            {gi < visibleGroups.length - 1 && (
                               <div className="mt-5 border-t border-border/40" />
                             )}
                           </div>

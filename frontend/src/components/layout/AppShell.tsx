@@ -234,8 +234,8 @@ export function AppShell({
               to="/history"
               className="inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-3 text-sm font-medium text-background hover:bg-foreground/90"
             >
-              <ShoppingCart className="h-4 w-4" />
-              Cart
+              <History className="h-4 w-4" />
+              History
               {historyCount > 0 && (
                 <span className="rounded bg-brand px-1.5 text-xs text-brand-foreground">
                   {historyCount}

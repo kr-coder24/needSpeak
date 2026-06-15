@@ -74,7 +74,7 @@ function CheckoutPage() {
     return (
       <AppShell>
         <div className="flex h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand" />
+          <Loader2 className="h-4 w-4 animate-spin text-brand" />
         </div>
       </AppShell>
     );
@@ -111,10 +111,15 @@ function CheckoutPage() {
             </h2>
             <div className="mt-4 space-y-3">
               {reservation.reserved_items.map((item: any, idx: number) => (
-                <div key={idx} className="flex justify-between text-sm">
-                  <span>
-                    {item.name} × {item.qty}
-                  </span>
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {item.name} × {item.qty}
+                    </span>
+                    {priceStatuses[item.sku || item.name] && (
+                      <DealStatusPill status={priceStatuses[item.sku || item.name]} />
+                    )}
+                  </div>
                   <span className="font-semibold">₹{item.total.toFixed(2)}</span>
                 </div>
               ))}

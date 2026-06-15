@@ -62,7 +62,6 @@ class LocalVectorRetriever:
         self._products: list[dict] = []
         self._embeddings: dict[str, list[float]] = {}
         self._loaded = False
-        self._gemini_client = get_gemini_client()
 
     def _ensure_loaded(self):
         """Load products and embeddings on first use."""

@@ -1,136 +1,73 @@
-import hashlib
-from typing import List, Optional, Dict, Any
-from .models import PriceStatus, PriceHistoryPoint
+from __future__ import annotations
 
-def _generate_deterministic_range(sku: str, current_price_inr: float):
-    # Generates a stable mock 30-day range based on SKU hash
-    hash_val = int(hashlib.md5(sku.encode()).hexdigest(), 16)
-    
-    # 3 variance profiles: tight (5%), medium (15%), high (30%)
-    variance_pct = [0.05, 0.15, 0.30][hash_val % 3]
-    
-    # Decide if current price is low, mid, or high within that variance
-    # 0 = low, 1 = mid, 2 = high
-    position = (hash_val // 3) % 3
-    
-    half_range = current_price_inr * variance_pct
-    
-    if position == 0:
-        # Current price is near the low end
-        low = current_price_inr * 0.98
-        high = current_price_inr + (half_range * 2)
-    elif position == 1:
-        # Current price is in the middle
-        low = current_price_inr - half_range
-        high = current_price_inr + half_range
+from app.watchlist.models import PricePoint, PriceStatus
+
+
+def _fallback_history(sku: str, current_price_inr: float, days: int = 30) -> list[PricePoint]:
+    points: list[PricePoint] = []
+    base = max(1.0, float(current_price_inr))
+    for index in range(days):
+        day = index - (days - 1)
+        seed = sum(ord(ch) for ch in f"{sku}:{day}")
+        wave = ((seed % 23) - 11) / 100
+        price = round(max(1.0, base * (1 + wave)), 2)
+        points.append(PricePoint(day=day, price=price))
+
+    # Force a stable distribution so unknown SKUs can visibly be green/yellow/red.
+    bucket = sum(ord(ch) for ch in sku) % 3
+    low = min(point.price for point in points)
+    high = max(point.price for point in points)
+    if bucket == 0:
+        points[-1] = PricePoint(day=0, price=round(low, 2))
+    elif bucket == 1:
+        points[-1] = PricePoint(day=0, price=round((low + high) / 2, 2))
     else:
-        # Current price is near the high end
-        low = current_price_inr - (half_range * 2)
-        high = current_price_inr * 1.02
-        
-    return max(1.0, low), max(1.0, high)
+        points[-1] = PricePoint(day=0, price=round(high, 2))
+    return points
 
 
-def get_price_status_for_item(sku: str, current_price_inr: float, history: Optional[List[PriceHistoryPoint]] = None) -> PriceStatus:
-    if history and len(history) >= 2:
-        low = min(p.price_inr for p in history)
-        high = max(p.price_inr for p in history)
-        
-        # Ensure current price is factored in
-        low = min(low, current_price_inr)
-        high = max(high, current_price_inr)
+def get_price_status_for_item(
+    sku: str,
+    current_price_inr: float,
+    history: list[PricePoint] | None = None,
+) -> PriceStatus:
+    effective_history = history or _fallback_history(sku, current_price_inr)
+    prices = [float(point.price) for point in effective_history] or [float(current_price_inr)]
+    current = round(float(current_price_inr), 2)
+    low = round(min(prices), 2)
+    high = round(max(prices), 2)
+    spread = max(1.0, high - low)
+    position = (current - low) / spread
+
+    if position <= 0.15:
+        status = "best"
+        color = "green"
+        label = "Best in 30 days"
+        explanation = "Current price is near the 30-day low."
+        confidence = 94
+    elif position >= 0.85:
+        status = "high"
+        color = "red"
+        label = "Higher than usual"
+        explanation = "Current price is close to the 30-day high."
+        confidence = 88
     else:
-        low, high = _generate_deterministic_range(sku, current_price_inr)
-        
-    price_range = high - low
-    
-    if price_range < 0.01:
-        # No price variance
-        return PriceStatus(
-            status="fair",
-            color_key="yellow",
-            label="Stable Price",
-            explanation="Price has not changed in the last 30 days.",
-            confidence=90,
-            thirty_day_low_inr=low,
-            thirty_day_high_inr=high,
-            current_price_inr=current_price_inr,
-            deal_status="fair",
-            deal_color="yellow",
-            deal_label="Stable Price"
-        )
-        
-    position_pct = (current_price_inr - low) / price_range
-    
-    if position_pct <= 0.15:
-        return PriceStatus(
-            status="best",
-            color_key="green",
-            label="Best in 30 days",
-            explanation="Current price is near the 30-day low.",
-            confidence=92,
-            thirty_day_low_inr=low,
-            thirty_day_high_inr=high,
-            current_price_inr=current_price_inr,
-            deal_status="best",
-            deal_color="green",
-            deal_label="Best in 30 days"
-        )
-    elif position_pct >= 0.85:
-        return PriceStatus(
-            status="high",
-            color_key="red",
-            label="High Price",
-            explanation="Current price is near the 30-day high.",
-            confidence=85,
-            thirty_day_low_inr=low,
-            thirty_day_high_inr=high,
-            current_price_inr=current_price_inr,
-            deal_status="high",
-            deal_color="red",
-            deal_label="High Price"
-        )
-    else:
-        return PriceStatus(
-            status="fair",
-            color_key="yellow",
-            label="Fair Price",
-            explanation="Current price is in the middle of its 30-day range.",
-            confidence=88,
-            thirty_day_low_inr=low,
-            thirty_day_high_inr=high,
-            current_price_inr=current_price_inr,
-            deal_status="fair",
-            deal_color="yellow",
-            deal_label="Fair Price"
-        )
+        status = "fair"
+        color = "yellow"
+        label = "Fair price"
+        explanation = "Current price is within the normal 30-day range."
+        confidence = 82
 
-def get_price_status_batch(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    # Avoids circular import by accepting dictionaries, 
-    # but normally you could import watch_store inside the function if needed to fetch watch history
-    # The instructions say: "Prefer real watch history when SKU is watched." 
-    # We will let watch_store optionally wrap this or we can do it here by fetching watch history.
-    
-    # For batch fetching, if we want to fetch real watch history, we need access to the store.
-    # To keep it decoupled, the caller can pass history or we can look it up.
-    # For now, we will just use the fallback if history isn't provided, 
-    # or we will import watch_store locally.
-    
-    from .watch_store import find_watch_by_sku_across_users
-    
-    results = []
-    for item in items:
-        sku = item.get("sku", "")
-        current_price = item.get("current_price_inr", 0.0)
-        
-        # Try to find a watch for this SKU to get real history
-        watch = find_watch_by_sku_across_users(sku)
-        history = watch.price_history if watch else None
-        
-        status = get_price_status_for_item(sku, current_price, history)
-        results.append({
-            "sku": sku,
-            "price_status": status.model_dump()
-        })
-        
-    return results
+    return PriceStatus(
+        status=status,
+        color_key=color,
+        label=label,
+        explanation=explanation,
+        confidence=confidence,
+        thirty_day_low_inr=low,
+        thirty_day_high_inr=high,
+        current_price_inr=current,
+        deal_status=status,
+        deal_color=color,
+        deal_label=label,
+    )

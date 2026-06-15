@@ -204,6 +204,9 @@ export function AppShell({
                     <div className="space-y-2 mb-4 max-h-[60vh] overflow-auto">
                       {notifications.map((n) => (
                         <div key={n.id} className="p-2.5 rounded-lg bg-surface/50 text-xs">
+                          {n.source === "price_guardian" && (
+                            <div className="mb-1 font-bold uppercase tracking-wide text-brand">Price Guardian</div>
+                          )}
                           {n.message}
                         </div>
                       ))}

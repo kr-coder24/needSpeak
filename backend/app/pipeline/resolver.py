@@ -74,18 +74,19 @@ def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
     
     Priority:
     1. SEARCH_PROVIDER=opensearch -> OpenSearchRetriever (if explicitly set)
-    2. SEARCH_PROVIDER=hybrid (default) -> HybridRetriever (BM25 + synonyms + fuzzy)
-    3. SEARCH_PROVIDER=local -> LocalVectorRetriever (vector-only fallback)
+    2. SEARCH_PROVIDER=hybrid -> HybridRetriever (BM25 + synonyms + fuzzy)
+    3. SEARCH_PROVIDER=local_vector -> LocalVectorRetriever (vector-only fallback)
+    4. SEARCH_PROVIDER=local_basic (default) -> LocalRetriever (BM25 only)
     """
     global _retriever
     if _retriever is None:
-        provider = os.getenv("SEARCH_PROVIDER", "hybrid").strip().lower()
+        provider = os.getenv("SEARCH_PROVIDER", "local_basic").strip().lower()
         
         if provider == "opensearch":
             from app.search.opensearch_retrieval import OpenSearchRetriever
             host = os.getenv("OPENSEARCH_HOST", "")
             _retriever = OpenSearchRetriever(host=host, mock_mode=mock_mode)
-        elif provider in ("local", "local_vector", "vector"):
+        elif provider in ("local_vector", "vector"):
             from app.search.local_vector_retrieval import LocalVectorRetriever
             logger.warning(
                 "SEARCH_PROVIDER=%s is experimental; default local BM25 is safer "
@@ -93,10 +94,13 @@ def _get_retriever(mock_mode: bool = False) -> ProductRetriever:
                 provider,
             )
             _retriever = LocalVectorRetriever(mock_mode=mock_mode)
-        else:
-            # Default: hybrid retriever (BM25 + synonyms + fuzzy matching)
+        elif provider == "hybrid":
             from app.search.hybrid_retrieval import HybridRetriever
             _retriever = HybridRetriever(mock_mode=mock_mode)
+        else:
+            # Default: basic local retriever (previous logic)
+            from app.search.local_retrieval import LocalRetriever
+            _retriever = LocalRetriever(mock_mode=mock_mode)
     return _retriever
 
 

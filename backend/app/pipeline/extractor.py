@@ -158,29 +158,13 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> str:
 
 def _call_bedrock(system_prompt: str, user_prompt: str) -> str:
     """Invoke Bedrock with the given prompts, return raw text response."""
-    client = get_bedrock_client()
-
-    request_body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 4096,
-        "temperature": 0.1,  # Low temperature for structured output
-        "system": system_prompt,
-        "messages": [
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": user_prompt}],
-            }
-        ],
-    }
-
-    response = client.invoke_model(
-        modelId=BEDROCK_MODEL_ID,
-        body=json.dumps(request_body),
-        contentType="application/json",
+    from app.pipeline.bedrock_converse import call_bedrock_text
+    return call_bedrock_text(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_tokens=4096,
+        temperature=0.1,
     )
-
-    response_body = json.loads(response["body"].read())
-    return response_body["content"][0]["text"]
 
 def _call_llm(system_prompt: str, user_prompt: str) -> str:
     """Route intent extraction call to either Gemini or Bedrock."""

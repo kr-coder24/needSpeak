@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
-import { useWishlistStore, type WatchlistItem } from "@/store/useWishlistStore";
-import { useEffect, useState } from "react";
+import { useWatchStore } from "@/store/useWatchStore";
+import { useEffect, useState, useMemo } from "react";
 import {
   Bell, Plus, RefreshCw, Sparkles, TrendingDown, TrendingUp, AlertCircle,
-  Mail, ShieldCheck, Check, DollarSign, Scale, ArrowRight, X, Heart
+  Mail, ShieldCheck, Check, DollarSign, Scale, ArrowRight, X, Heart, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,10 +38,16 @@ function getStoredUserId(): string {
   }
 }
 
+const statusCopy: Record<string, string> = {
+  watching: "Watching",
+  price_dropped: "Price dropped",
+  neighbor_match: "Neighbor match",
+  already_cheaper: "Already cheaper",
+};
+
 function WatchlistPage() {
-  const { wishlist, fetchWishlist, addToWishlist, simulateRestock } = useWishlistStore();
+  const { watches, stats, loading, simulating, fetchWatches, addWatch, removeWatch, simulateDay } = useWatchStore();
   const [selectedSku, setSelectedSku] = useState<string>("");
-  const [isSimulating, setIsSimulating] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Add Watch Form States
@@ -55,34 +61,31 @@ function WatchlistPage() {
   const userId = getStoredUserId();
 
   useEffect(() => {
-    fetchWishlist(userId);
-  }, [userId]);
+    fetchWatches(userId).catch(console.error);
+  }, [userId, fetchWatches]);
 
-  // Set default selection when wishlist loads
+  // Set default selection when watches load
   useEffect(() => {
-    if (wishlist.length > 0 && !selectedSku) {
-      // Prefer Kent Supreme RO if it exists
-      const hasKent = wishlist.find(w => w.sku === "DEMO-PURIFIER");
+    if (watches.length > 0 && !selectedSku) {
+      // Prefer Kent Purifier if it exists
+      const hasKent = watches.find(w => w.sku === "DEMO-PURIFIER");
       if (hasKent) {
         setSelectedSku("DEMO-PURIFIER");
       } else {
-        setSelectedSku(wishlist[0].sku);
+        setSelectedSku(watches[0].sku);
       }
     }
-  }, [wishlist, selectedSku]);
+  }, [watches, selectedSku]);
 
   const handleRefresh = async () => {
     toast.info("Syncing prices with Live Tracker...");
-    await fetchWishlist(userId);
+    await fetchWatches(userId);
     toast.success("Watchlist synced!");
   };
 
   const handleSimulate = async () => {
-    setIsSimulating(true);
     toast.info("Advancing simulation by 1 day...");
-    await simulateRestock(userId);
-    setIsSimulating(false);
-    toast.success("Simulation complete! Prices updated, check notifications.");
+    await simulateDay(userId);
   };
 
   const handleAddWatchSubmit = async (e: React.FormEvent) => {
@@ -93,14 +96,14 @@ function WatchlistPage() {
     }
 
     toast.info("Adding item to Price Guardian...");
-    await addToWishlist(userId, {
-      id: newSku,
+    await addWatch({
       sku: newSku,
       name: newName,
-      brand: newBrand || undefined,
+      brand: newBrand || "",
       current_price_inr: parseFloat(newPrice),
-      target_price_inr: newTarget ? parseFloat(newTarget) : undefined,
+      target_price_inr: newTarget ? parseFloat(newTarget) : parseFloat(newPrice),
       email: newEmail || undefined,
+      user_id: userId,
     });
 
     setIsAddOpen(false);
@@ -112,43 +115,31 @@ function WatchlistPage() {
     setNewPrice("");
     setNewTarget("");
     setNewEmail("");
-    toast.success("Item is now being watched!");
   };
 
-  const selectedItem = wishlist.find((w) => w.sku === selectedSku);
+  const selectedItem = watches.find((w) => w.sku === selectedSku);
 
   // Stats Calculations
-  const watchedValue = wishlist.reduce((sum, w) => sum + w.current_price_inr, 0);
-  const activeAlerts = wishlist.filter(w => w.target_price_inr).length;
-  
-  // Calculate simulated savings (differences from high point)
-  const savedValue = wishlist.reduce((sum, w) => {
-    const low = w.price_status?.thirty_day_low_inr || w.current_price_inr * 0.85;
-    const current = w.current_price_inr;
-    // Assume high is approximately the top of history
-    const high = w.price_status?.thirty_day_high_inr || w.current_price_inr * 1.15;
-    return sum + Math.max(0, high - current);
-  }, 0);
-
-  const bestPriceCount = wishlist.filter(w => w.price_status?.status === "best").length;
+  const watchedValue = watches.reduce((sum, w) => sum + w.current_price_inr, 0);
+  const activeAlerts = stats.alerts;
+  const savedValue = stats.total_saved_inr;
+  const bestPriceCount = watches.filter(w => w.price_status?.status === "best").length;
 
   // Selected item calculated metrics
   const itemLow = selectedItem?.price_status?.thirty_day_low_inr || (selectedItem ? selectedItem.current_price_inr * 0.85 : 0);
   const itemHigh = selectedItem?.price_status?.thirty_day_high_inr || (selectedItem ? selectedItem.current_price_inr * 1.15 : 0);
-  const itemVolatility = selectedItem ? ((itemHigh - itemLow) / itemLow * 100).toFixed(1) : "0.0";
+  const itemVolatility = selectedItem ? ((itemHigh - itemLow) / Math.max(1, itemLow) * 100).toFixed(1) : "0.0";
   const itemConfidence = selectedItem?.price_status?.confidence || 72;
   const itemSaved = selectedItem?.target_price_inr && selectedItem.current_price_inr <= selectedItem.target_price_inr
     ? Math.max(0, selectedItem.target_price_inr - selectedItem.current_price_inr)
     : 0;
 
   // Chart data mapping
-  const chartData = selectedItem?.price_history?.map((pt, index) => {
-    // Label as relative day offset (e.g. -29 to 0) to match screenshot
-    const dayOffset = index - 29;
+  const chartData = selectedItem?.price_history?.map((pt) => {
     return {
-      day: dayOffset <= 0 ? `${dayOffset}` : `+${dayOffset}`,
-      Price: pt.price_inr,
-      "Competitor price": selectedItem.competitor_price_inr || pt.price_inr * 0.95
+      day: `${pt.day}`,
+      Price: pt.price,
+      "Competitor price": selectedItem.competitor_price_inr || pt.price * 0.95
     };
   }) || [];
 
@@ -166,7 +157,7 @@ function WatchlistPage() {
                 Price Guardian
               </h1>
               <p className="text-sm text-muted-foreground truncate mt-1">
-                {wishlist.length} watches · seeded 30-day history · neighbor + competitor matching
+                {watches.length} watches · seeded 30-day history · neighbor + competitor matching
               </p>
             </div>
 
@@ -193,10 +184,10 @@ function WatchlistPage() {
               <div className="flex items-center gap-2 ml-4">
                 <button
                   onClick={handleSimulate}
-                  disabled={isSimulating || wishlist.length === 0}
+                  disabled={simulating || watches.length === 0}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2 text-xs font-bold text-foreground transition-all hover:bg-surface hover:shadow-soft active:scale-[0.98] disabled:opacity-50"
                 >
-                  <Sparkles className={`h-3.5 w-3.5 text-brand ${isSimulating ? "animate-spin" : ""}`} />
+                  <Sparkles className={`h-3.5 w-3.5 text-brand ${simulating ? "animate-spin" : ""}`} />
                   Simulate
                 </button>
                 <button
@@ -224,62 +215,66 @@ function WatchlistPage() {
           
           {/* Left Panel: Watchlist Cards */}
           <div className="w-full md:w-[350px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
-            {wishlist.map((item) => {
-              const isSelected = item.sku === selectedSku;
-              const statusKey = item.price_status?.status || "fair";
-              
-              // Colors matching the design of dot highlights
-              const statusColor = 
-                statusKey === "best" ? "bg-green-500/10 text-green-700 border-green-500/25" :
-                statusKey === "high" ? "bg-red-500/10 text-red-700 border-red-500/25" :
-                "bg-yellow-500/10 text-yellow-700 border-yellow-500/25";
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-xs">
+                <Loader2 className="h-6 w-6 animate-spin mb-2" /> Loading...
+              </div>
+            ) : (
+              watches.map((item) => {
+                const isSelected = item.sku === selectedSku;
+                const statusKey = item.price_status?.status || "fair";
                 
-              const labelText = 
-                statusKey === "best" ? "Already cheaper" :
-                statusKey === "high" ? "Price Peak" :
-                `Fair Price ${item.price_status?.confidence || 82}%`;
+                const statusColor = 
+                  statusKey === "best" ? "bg-green-500/10 text-green-700 border-green-500/25" :
+                  statusKey === "high" ? "bg-red-500/10 text-red-700 border-red-500/25" :
+                  "bg-yellow-500/10 text-yellow-700 border-yellow-500/25";
+                  
+                const labelText = 
+                  item.status === "watching" ? `Fair Price ${itemConfidence}%` :
+                  statusCopy[item.status] || "Watching";
 
-              return (
-                <button
-                  key={item.sku}
-                  onClick={() => setSelectedSku(item.sku)}
-                  className={`flex flex-col text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-soft group relative ${
-                    isSelected 
-                      ? "border-brand bg-card shadow-md shadow-brand/5 scale-[0.99]" 
-                      : "border-border bg-card/45 hover:border-border-hover hover:bg-card"
-                  }`}
-                >
-                  <div className="flex justify-between items-start gap-2 w-full">
-                    <h3 className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-brand transition-colors">
-                      {item.name}
-                    </h3>
-                    <span className="font-black text-sm text-foreground shrink-0">
-                      Rs {item.current_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between w-full text-xs">
-                    <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${statusColor}`}>
-                      {labelText}
-                    </span>
-                    {item.target_price_inr && (
-                      <span className="text-muted-foreground font-semibold">
-                        tgt Rs {item.target_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                return (
+                  <button
+                    key={item.sku}
+                    onClick={() => setSelectedSku(item.sku)}
+                    className={`flex flex-col text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-soft group relative ${
+                      isSelected 
+                        ? "border-brand bg-card shadow-md shadow-brand/5 scale-[0.99]" 
+                        : "border-border bg-card/45 hover:border-border-hover hover:bg-card"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-2 w-full">
+                      <h3 className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-brand transition-colors">
+                        {item.name}
+                      </h3>
+                      <span className="font-black text-sm text-foreground shrink-0">
+                        Rs {item.current_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </span>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="mt-2.5 pt-2.5 border-t border-border/40 flex items-center justify-between w-full text-[10px] text-muted-foreground font-semibold">
-                    <span className="capitalize">{item.brand || "Generic"}</span>
-                    {item.neighbor_match && (
-                      <span className="text-brand flex items-center gap-0.5">
-                        <Check className="h-3 w-3" /> local match
+                    <div className="mt-2 flex items-center justify-between w-full text-xs">
+                      <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${statusColor}`}>
+                        {labelText}
                       </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                      {item.target_price_inr && (
+                        <span className="text-muted-foreground font-semibold">
+                          tgt Rs {item.target_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-2.5 pt-2.5 border-t border-border/40 flex items-center justify-between w-full text-[10px] text-muted-foreground font-semibold">
+                      <span className="capitalize">{item.brand || "Generic"}</span>
+                      {item.neighbor_match && (
+                        <span className="text-brand flex items-center gap-0.5">
+                          <Check className="h-3 w-3" /> local match
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
 
           {/* Right Panel: Selected Item Detail */}
@@ -420,11 +415,11 @@ function WatchlistPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">CO2 AVOIDED</span>
-                    <span className="text-xl font-black text-foreground">0.00 kg</span>
+                    <span className="text-xl font-black text-foreground">{selectedItem.co2_saved_kg.toFixed(2)} kg</span>
                   </div>
                   <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">LOGISTICS SAVED</span>
-                    <span className="text-xl font-black text-foreground">Rs 3,642</span>
+                    <span className="text-xl font-black text-foreground">Rs {selectedItem.logistics_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
                   </div>
                   <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">COMPETITOR</span>
@@ -438,31 +433,33 @@ function WatchlistPage() {
                 </div>
 
                 {/* Bottom Neighbor Price Match Display */}
-                <div className="bg-surface/45 border border-border rounded-2xl p-5">
-                  <h3 className="font-extrabold text-sm text-foreground uppercase tracking-wider flex items-center gap-1.5 mb-4">
-                    <Scale className="h-4 w-4 text-brand" />
-                    Neighbor Price - 5.7 km
-                  </h3>
-                  
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Original</div>
-                      <div className="text-sm font-black text-foreground">
-                        Rs {(selectedItem.current_price_inr * 0.99).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                {selectedItem.neighbor_match && (
+                  <div className="bg-surface/45 border border-border rounded-2xl p-5">
+                    <h3 className="font-extrabold text-sm text-foreground uppercase tracking-wider flex items-center gap-1.5 mb-4">
+                      <Scale className="h-4 w-4 text-brand" />
+                      Neighbor Price - {selectedItem.neighbor_match.distance_km} km
+                    </h3>
+                    
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Original</div>
+                        <div className="text-sm font-black text-foreground">
+                          Rs {selectedItem.neighbor_match.original_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Logistics Saved</div>
-                      <div className="text-sm font-black text-destructive">-Rs 3,642</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-brand mb-1">Your Price</div>
-                      <div className="text-sm font-black text-brand">
-                        Rs {(selectedItem.current_price_inr - 3642).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Logistics Saved</div>
+                        <div className="text-sm font-black text-destructive">-Rs {selectedItem.neighbor_match.logistics_cost_saved_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-brand mb-1">Your Price</div>
+                        <div className="text-sm font-black text-brand">
+                          Rs {selectedItem.neighbor_match.neighbor_price_inr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
               </div>
             ) : (
@@ -513,7 +510,7 @@ function WatchlistPage() {
                     type="text"
                     required
                     placeholder="e.g. Kent Supreme RO Purifier"
-                    value={newName}
+                    value={newSku ? newName : ""}
                     onChange={(e) => setNewName(e.target.value)}
                     className="w-full h-10 px-3.5 rounded-xl border border-border bg-background text-sm outline-none focus:border-brand"
                   />

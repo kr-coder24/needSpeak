@@ -40,18 +40,25 @@ export function AppShell({
   const [historyCount, setHistoryCount] = useState(0);
   const [auth, setAuth] = useState<{ token: string; user: any } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { notifications, wishlist, simulateRestock, markAsRead } = useWishlistStore();
+  const { notifications, wishlist, simulateRestock, markAsRead, fetchWishlist } = useWishlistStore();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const isChat = pathname.startsWith("/chat");
   const isAppLayout = isChat || noFooter;
 
-  // Load auth from localStorage on client mount
   useEffect(() => {
     try {
       const raw = localStorage.getItem("needspeak-auth");
       if (raw) {
-        setAuth(JSON.parse(raw));
+        const parsed = JSON.parse(raw);
+        setAuth(parsed);
+        if (parsed?.user?.id || parsed?.user?.email) {
+          fetchWishlist(parsed.user.id || parsed.user.email);
+        } else {
+          fetchWishlist("demo_user");
+        }
+      } else {
+        fetchWishlist("demo_user");
       }
     } catch (e) {}
   }, []);
@@ -205,7 +212,8 @@ export function AppShell({
                   {/* Demo Simulation Button */}
                   <button
                     onClick={() => {
-                      simulateRestock();
+                      const userId = auth?.user?.id || auth?.user?.email || "demo_user";
+                      simulateRestock(userId);
                     }}
                     disabled={wishlist.length === 0}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-brand/10 text-brand py-2 text-xs font-semibold hover:bg-brand/20 disabled:opacity-50"

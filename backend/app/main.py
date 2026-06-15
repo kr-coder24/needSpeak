@@ -71,6 +71,7 @@ from app.auth.auth_routes import router as auth_router
 from app.collab.collab_routes import router as collab_router
 from app.collab.bulk_buy_routes import router as community_router
 from app.nl_search.routes import router as nl_search_router
+from app.watchlist.watch_routes import router as watchlist_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -179,6 +180,9 @@ app.include_router(community_router)
 
 # Natural Language Search routes
 app.include_router(nl_search_router)
+
+# Watchlist routes
+app.include_router(watchlist_router, prefix="/api/watchlist")
 
 
 # ---------------------------------------------------------------------------

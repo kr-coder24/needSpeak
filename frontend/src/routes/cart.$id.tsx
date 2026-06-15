@@ -234,10 +234,12 @@ function UnavailableItemRow({ item }: { item: any }) {
             onClick={(e) => {
               e.stopPropagation();
               if (!inWishlist) {
-                addToWishlist({
+                addToWishlist(getStoredUserId(), {
                   id: item.sku || item.name,
                   name: item.name,
                   image_url: item.image_url,
+                  current_price_inr: item.total_price_inr || item.price || 100,
+                  brand: item.brand,
                 });
               }
             }}
@@ -749,6 +751,7 @@ export default function CartPage() {
   const [reservationMessage, setReservationMessage] = useState<string>("");
   const [narrative, setNarrative] = useState<string | null>(null);
   const [narrativeLoading, setNarrativeLoading] = useState(false);
+  const [priceStatuses, setPriceStatuses] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -797,10 +800,36 @@ export default function CartPage() {
     .map((g: any) => g.context_summary)
     .filter(Boolean)
     .join(" · ");
-  const intentTypeLabel = Array.from(new Set(resolvedIntents
-    .map((g: any) => g.intent_type === "general" ? "Shopping List" : g.intent_type)
-    .filter(Boolean)))
-    .join(", ");
+  const intentTypeLabel = Array.from(new Set(resolvedIntents.map((g: any) => g.intent_type))).join(" / ") || session?.intent_type;
+
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      const itemsPayload = cartItems.map((it: any) => ({
+        sku: it.sku || it.name,
+        current_price_inr: it.total_price_inr || it.price || 0
+      }));
+      fetch("/api/watchlist/price-status/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: getStoredUserId(),
+          items: itemsPayload
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.items) {
+          const map: Record<string, any> = {};
+          res.items.forEach((i: any) => {
+             map[i.sku] = i.price_status;
+          });
+          setPriceStatuses(map);
+        }
+      })
+      .catch(e => console.error("Failed to fetch price statuses", e));
+    }
+  }, [session]);
+
   const budget = session?.budget_inr || null;
   const total =
     session?.total_price_inr ||
@@ -1147,8 +1176,40 @@ export default function CartPage() {
                       </div>
 
                       {/* Product Name */}
-                      <div className="truncate text-xl font-bold text-foreground">
-                        {it.name}
+                      <div className="flex items-center gap-2 truncate text-xl font-bold text-foreground">
+                        <span>{it.name}</span>
+                        {priceStatuses[it.sku || it.name] && (
+                          <div 
+                            className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                              priceStatuses[it.sku || it.name].color_key === 'green' ? 'bg-green-500' :
+                              priceStatuses[it.sku || it.name].color_key === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            title={priceStatuses[it.sku || it.name].label}
+                          />
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const wId = it.sku || it.name;
+                            if (!wishlist.some(w => w.id === wId)) {
+                              addToWishlist(getStoredUserId(), {
+                                id: wId,
+                                name: it.name,
+                                image_url: it.image_url,
+                                current_price_inr: it.total_price_inr || it.price || 100,
+                                brand: it.brand,
+                              });
+                            }
+                          }}
+                          className={`ml-2 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+                            wishlist.some(w => w.id === (it.sku || it.name))
+                              ? "bg-brand text-white"
+                              : "bg-surface text-muted-foreground hover:bg-brand/10 hover:text-brand"
+                          }`}
+                          title={wishlist.some(w => w.id === (it.sku || it.name)) ? "Watching" : "Watch Price"}
+                        >
+                          <Bell className="h-3.5 w-3.5" />
+                        </button>
                       </div>
 
                       {/* Quantity & Unit */}

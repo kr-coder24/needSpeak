@@ -15,6 +15,7 @@ function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<"standard" | "eco_merge">("standard");
+  const [priceStatuses, setPriceStatuses] = useState<Record<string, any>>({});
 
   const carbonData = reservation?.metadata?.carbon_breakdown;
   const deliveryFee = 40;
@@ -27,7 +28,38 @@ function CheckoutPage() {
   useEffect(() => {
     fetch(`/api/reservation/${reservationId}`)
       .then((res) => res.json())
-      .then((data) => setReservation(data))
+      .then((data) => {
+        setReservation(data);
+        if (data?.reserved_items?.length > 0) {
+          try {
+            const raw = localStorage.getItem("needspeak-auth");
+            let user_id = "demo_user";
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              user_id = parsed?.user?.id || parsed?.user?.email || "demo_user";
+            }
+            fetch("/api/watchlist/price-status/batch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                user_id,
+                items: data.reserved_items.map((i: any) => ({
+                  sku: i.sku || i.name,
+                  current_price_inr: i.total_price_inr || i.price || 0
+                }))
+              })
+            }).then(r => r.json()).then(res => {
+              if (res.items) {
+                const map: Record<string, any> = {};
+                res.items.forEach((i: any) => {
+                  map[i.sku] = i.price_status;
+                });
+                setPriceStatuses(map);
+              }
+            }).catch(e => console.error("Failed to fetch status", e));
+          } catch(e) {}
+        }
+      })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, [reservationId]);
@@ -93,10 +125,21 @@ function CheckoutPage() {
             </h2>
             <div className="mt-4 space-y-3">
               {reservation.reserved_items.map((item: any, idx: number) => (
-                <div key={idx} className="flex justify-between text-sm">
-                  <span>
-                    {item.name} × {item.qty}
-                  </span>
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {item.name} × {item.qty}
+                    </span>
+                    {priceStatuses[item.sku || item.name] && (
+                      <div 
+                        className={`h-2 w-2 rounded-full shrink-0 ${
+                          priceStatuses[item.sku || item.name].color_key === 'green' ? 'bg-green-500' :
+                          priceStatuses[item.sku || item.name].color_key === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        title={priceStatuses[item.sku || item.name].label}
+                      />
+                    )}
+                  </div>
                   <span className="font-semibold">₹{item.total.toFixed(2)}</span>
                 </div>
               ))}

@@ -115,7 +115,7 @@ Thank you for shopping with NeedSpeak!
             <Check className="h-10 w-10 text-success" />
           </div>
 
-          <h1 className="mt-8 text-4xl font-bold">Order Confirmed!</h1>
+          <h1 className="mt-8 text-4xl font-bold">Order Confirmed! 🎉</h1>
           <p className="mt-3 text-lg text-muted-foreground">
             Your items have been reserved and payment is complete.
           </p>

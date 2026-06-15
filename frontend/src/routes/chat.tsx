@@ -24,14 +24,6 @@ import {
   ChevronUp,
   RefreshCw,
   TrendingDown,
-  Bell,
-  Tv,
-  Gift,
-  Compass,
-  Flame,
-  Tent,
-  Heart,
-  BookOpen,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import {
@@ -56,22 +48,11 @@ import { useChatStore } from "@/store/useChatStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { useWatchStore } from "@/store/useWatchStore";
 import type { PriceStatus } from "@/lib/watchlist-api";
+import { Bell, Heart } from "lucide-react";
 import { Chip } from "@/components/common/Chip";
 
 import { SmartRepeatBanner } from "@/components/common/SmartRepeatBanner";
 import { detectOccasion, type OccasionSuggestion } from "@/lib/occasion-detector";
-
-const occasionIcons: Record<string, any> = {
-  ipl: Tv,
-  birthday: Gift,
-  weekly: ShoppingCart,
-  hostel: Home,
-  travel: Compass,
-  festival: Flame,
-  picnic: Tent,
-  "baby-shower": Heart,
-  "exam-prep": BookOpen,
-};
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (search: Record<string, unknown>): { prompt?: string; occasion?: string } => ({
@@ -283,109 +264,109 @@ function getFakeProductBadge(item: any): { label: string; color: string; icon: s
   // ── Cleaning & Household ──
   if (category.includes("cleaning") || name.includes("cleaner") || name.includes("detergent") || name.includes("dishwash")) {
     if (name.includes("eco") || name.includes("green") || name.includes("natural") || name.includes("plant")) {
-      return { label: "Eco-Friendly", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "", type: "eco" };
+      return { label: "Eco-Friendly", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "eco" };
     }
     if (name.includes("antibacterial") || name.includes("disinfectant") || name.includes("germ") || name.includes("99")) {
-      return { label: "Germ Kill", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "", type: "safety" };
+      return { label: "Germ Kill", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "🛡", type: "safety" };
     }
-    return { label: "Household", color: "bg-slate-500/15 text-slate-700 border-slate-500/30", icon: "", type: "household" };
+    return { label: "Household", color: "bg-slate-500/15 text-slate-700 border-slate-500/30", icon: "🏠", type: "household" };
   }
 
   // ── Hygiene & Personal Care ──
   if (category.includes("hygiene") || category.includes("personal_care")) {
     if (name.includes("natural") || name.includes("herbal") || name.includes("ayurvedic") || name.includes("neem") ||
         brand.includes("himalaya") || brand.includes("patanjali")) {
-      return { label: "Natural", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "", type: "natural" };
+      return { label: "Natural", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌿", type: "natural" };
     }
     if (name.includes("anti") || name.includes("clinical") || brand.includes("dettol") || brand.includes("lifebuoy")) {
-      return { label: "Protection", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "", type: "safety" };
+      return { label: "Protection", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "🛡", type: "safety" };
     }
     if (brand.includes("dove") || brand.includes("nivea") || name.includes("moistur")) {
-      return { label: "Derma Care", color: "bg-purple-500/15 text-purple-700 border-purple-500/30", icon: "", type: "quality" };
+      return { label: "Derma Care", color: "bg-purple-500/15 text-purple-700 border-purple-500/30", icon: "✨", type: "quality" };
     }
-    return { label: "Daily Care", color: "bg-cyan-500/15 text-cyan-700 border-cyan-500/30", icon: "", type: "care" };
+    return { label: "Daily Care", color: "bg-cyan-500/15 text-cyan-700 border-cyan-500/30", icon: "💧", type: "care" };
   }
 
   // ── Fashion ──
   if (category.includes("fashion") || category.includes("clothing")) {
     if (name.includes("cotton") || name.includes("organic") || name.includes("linen")) {
-      return { label: "Pure Cotton", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "", type: "comfort" };
+      return { label: "Pure Cotton", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "☁️", type: "comfort" };
     }
     if (name.includes("slim") || name.includes("fit") || name.includes("stretch")) {
-      return { label: "Trendy Fit", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "", type: "style" };
+      return { label: "Trendy Fit", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "✂️", type: "style" };
     }
     if (brand.includes("levi") || brand.includes("nike") || brand.includes("adidas") || brand.includes("puma")) {
-      return { label: "Premium Brand", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "", type: "premium" };
+      return { label: "Premium Brand", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "👑", type: "premium" };
     }
-    return { label: "Fashion", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "", type: "fashion" };
+    return { label: "Fashion", color: "bg-pink-500/15 text-pink-700 border-pink-500/30", icon: "👕", type: "fashion" };
   }
 
   // ── Footwear ──
   if (category.includes("footwear") || name.includes("shoe") || name.includes("slipper") || name.includes("sandal")) {
     if (name.includes("running") || name.includes("sports") || name.includes("gym")) {
-      return { label: "Sports", color: "bg-orange-500/15 text-orange-700 border-orange-500/30", icon: "", type: "sports" };
+      return { label: "Sports", color: "bg-orange-500/15 text-orange-700 border-orange-500/30", icon: "🏃", type: "sports" };
     }
     if (brand.includes("nike") || brand.includes("adidas") || brand.includes("asics") || brand.includes("puma")) {
-      return { label: "Premium", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "", type: "premium" };
+      return { label: "Premium", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "👑", type: "premium" };
     }
-    return { label: "Comfort Fit", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "", type: "comfort" };
+    return { label: "Comfort Fit", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "👟", type: "comfort" };
   }
 
   // ── Accessories ──
   if (category.includes("accessories") || category.includes("accessori")) {
     if (name.includes("watch") || name.includes("smart")) {
-      return { label: "Smart Tech", color: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: "", type: "tech" };
+      return { label: "Smart Tech", color: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: "⌚", type: "tech" };
     }
-    return { label: "Accessory", color: "bg-rose-500/15 text-rose-700 border-rose-500/30", icon: "", type: "accessory" };
+    return { label: "Accessory", color: "bg-rose-500/15 text-rose-700 border-rose-500/30", icon: "💍", type: "accessory" };
   }
 
   // ── Baby ──
   if (category.includes("baby")) {
     if (name.includes("organic") || name.includes("natural")) {
-      return { label: "Organic Baby", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "", type: "organic" };
+      return { label: "Organic Baby", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "organic" };
     }
-    return { label: "Baby Safe", color: "bg-sky-500/15 text-sky-700 border-sky-500/30", icon: "", type: "baby" };
+    return { label: "Baby Safe", color: "bg-sky-500/15 text-sky-700 border-sky-500/30", icon: "👶", type: "baby" };
   }
 
   // ── Pet ──
   if (category.includes("pet") || name.includes("dog food") || name.includes("cat food") || name.includes("puppy food") || name.includes("drools") || name.includes("pedigree")) {
-    return { label: "Vet Approved", color: "bg-teal-500/15 text-teal-700 border-teal-500/30", icon: "", type: "pet" };
+    return { label: "Vet Approved", color: "bg-teal-500/15 text-teal-700 border-teal-500/30", icon: "🐾", type: "pet" };
   }
 
   // ── Medicines ──
   if (category.includes("medicine") || name.includes("tablet") || name.includes("syrup") || name.includes("capsule")) {
-    return { label: "Clinically Tested", color: "bg-red-500/15 text-red-700 border-red-500/30", icon: "", type: "medical" };
+    return { label: "Clinically Tested", color: "bg-red-500/15 text-red-700 border-red-500/30", icon: "💊", type: "medical" };
   }
 
   // ── Stationery ──
   if (category.includes("stationery") || name.includes("pen") || name.includes("notebook") || name.includes("pencil")) {
-    return { label: "Study Essentials", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "", type: "study" };
+    return { label: "Study Essentials", color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30", icon: "📝", type: "study" };
   }
 
   // ── Party Supplies ──
   if (category.includes("party") || name.includes("balloon") || name.includes("decoration") || name.includes("candle")) {
-    return { label: "Party Ready", color: "bg-fuchsia-500/15 text-fuchsia-700 border-fuchsia-500/30", icon: "", type: "party" };
+    return { label: "Party Ready", color: "bg-fuchsia-500/15 text-fuchsia-700 border-fuchsia-500/30", icon: "🎉", type: "party" };
   }
 
   // ── Electronics / Headphones ──
   if (category.includes("headphone") || category.includes("smartphone") || category.includes("laptop")) {
     if (name.includes("pro") || name.includes("ultra") || name.includes("max") || name.includes("flagship")) {
-      return { label: "Flagship", color: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: "", type: "flagship" };
+      return { label: "Flagship", color: "bg-violet-500/15 text-violet-700 border-violet-500/30", icon: "🚀", type: "flagship" };
     }
     if (name.includes("budget") || name.includes("lite") || name.includes("slim")) {
-      return { label: "Value Pick", color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", icon: "", type: "value" };
+      return { label: "Value Pick", color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", icon: "💎", type: "value" };
     }
-    return { label: "Tech", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "", type: "tech" };
+    return { label: "Tech", color: "bg-blue-500/15 text-blue-700 border-blue-500/30", icon: "⚡", type: "tech" };
   }
 
   // ── Fallback: High rating badge ──
   if (rating >= 4.5) {
-    return { label: "Top Rated", color: "bg-amber-500/15 text-amber-700 border-amber-500/30", icon: "", type: "rating" };
+    return { label: "Top Rated", color: "bg-amber-500/15 text-amber-700 border-amber-500/30", icon: "⭐", type: "rating" };
   }
 
   // ── Eco-Friendly disposables ──
   if (name.includes("plate") || name.includes("cup") || name.includes("napkin") || name.includes("foil")) {
-    return { label: "Eco-Friendly", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "", type: "eco" };
+    return { label: "Eco-Friendly", color: "bg-green-500/15 text-green-700 border-green-500/30", icon: "🌱", type: "eco" };
   }
 
   return null;
@@ -1365,7 +1346,7 @@ function ChatPage() {
     } catch (e: any) {
       const msg = e.message || "Something went wrong. Please try again.";
       setErrorMsg(msg);
-      setMessages((m) => [...m, { role: "assistant", text: msg }]);
+      setMessages((m) => [...m, { role: "assistant", text: `⚠️ ${msg}` }]);
       setPhase("idle");
     }
   };
@@ -1602,7 +1583,7 @@ function ChatPage() {
                       setPhase("thinking");
                       setMessages((m) => [
                         ...m,
-                        { role: "user", text: `Uploaded: ${file.name}` },
+                        { role: "user", text: `📷 Uploaded: ${file.name}` },
                       ]);
 
                       const prefs = loadPreferences();
@@ -1647,7 +1628,7 @@ function ChatPage() {
                       setPhase("thinking");
                       setMessages((m) => [
                         ...m,
-                        { role: "user", text: `Uploaded PDF: ${file.name}` },
+                        { role: "user", text: `📄 Uploaded PDF: ${file.name}` },
                       ]);
 
                       const prefs = loadPreferences();
@@ -1686,10 +1667,7 @@ function ChatPage() {
               {/* Proactive Occasion Suggestion Bar */}
               {occasionSuggestion && !occasionDismissed && (
                 <div className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand/5 via-brand/10 to-brand/5 border border-brand/20 px-3 py-2 animate-in slide-in-from-bottom-2 fade-in duration-300">
-                  {(() => {
-                    const Icon = occasionIcons[occasionSuggestion.id] || Sparkles;
-                    return <Icon className="h-4 w-4 text-brand shrink-0" />;
-                  })()}
+                  <span className="text-base">{occasionSuggestion.emoji}</span>
                   <p className="flex-1 text-xs font-medium text-foreground/80">
                     Looks like a{" "}
                     <span className="font-semibold text-foreground">
@@ -1732,9 +1710,9 @@ function ChatPage() {
                   onChange={(e) => setText(e.target.value)}
                   placeholder={
                     voice.status === "listening"
-                      ? "Listening... speak now"
+                      ? "🎙️ Listening… speak now"
                       : voice.status === "processing"
-                        ? "Transcribing..."
+                        ? "⏳ Transcribing…"
                         : "What do you need today? Describe your occasion, paste a recipe, or just list items…"
                   }
                 />

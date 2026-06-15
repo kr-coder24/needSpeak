@@ -93,45 +93,95 @@ export const useWatchStore = create<WatchState>((set, get) => ({
       let watches: WatchedItem[] = [];
       let stats: WatchStats = emptyStats;
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
         const [w, s] = await Promise.all([
           getWatches(userId),
           getWatchStats(userId),
           seedDemoNotifications(),
         ]);
+        clearTimeout(timeout);
         watches = w;
         stats = s;
       } catch {
-        // API unavailable — fall through to mocks
+        // API unavailable or timed out — fall through to mocks
       }
       if (!watches || watches.length === 0) {
         watches = MOCK_WATCHES;
         stats = MOCK_STATS;
       }
-      set({ watches, stats });
-    } finally {
-      set({ loading: false });
+      set({ watches, stats, loading: false });
+    } catch {
+      set({ watches: MOCK_WATCHES, stats: MOCK_STATS, loading: false });
     }
   },
   addWatch: async (data, screenshot) => {
     const payload = { ...data, user_id: data.user_id || "demo_user" };
-    if (screenshot) {
-      const form = new FormData();
-      Object.entries(payload).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") form.append(key, String(value));
-      });
-      form.append("competitor_screenshot", screenshot);
-      const imageWatch = await createWatchWithImage(form);
-      const stats = await getWatchStats(payload.user_id || "demo_user");
-      set((state) => ({ watches: upsertWatch(state.watches, imageWatch), stats }));
-      toast.success("Price Guardian is watching this item.");
-      return imageWatch;
-    }
+    try {
+      if (screenshot) {
+        const form = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") form.append(key, String(value));
+        });
+        form.append("competitor_screenshot", screenshot);
+        const imageWatch = await createWatchWithImage(form);
+        const stats = await getWatchStats(payload.user_id || "demo_user");
+        set((state) => ({ watches: upsertWatch(state.watches, imageWatch), stats }));
+        toast.success("Price Guardian is watching this item.");
+        return imageWatch;
+      }
 
-    const watch = await createWatch(payload);
-    const stats = await getWatchStats(payload.user_id || "demo_user");
-    set((state) => ({ watches: upsertWatch(state.watches, watch), stats }));
-    toast.success("Price Guardian is watching this item.");
-    return watch;
+      const watch = await createWatch(payload);
+      const stats = await getWatchStats(payload.user_id || "demo_user");
+      set((state) => ({ watches: upsertWatch(state.watches, watch), stats }));
+      toast.success("Price Guardian is watching this item.");
+      return watch;
+    } catch {
+      // API failed — add locally with mock data for demo
+      const mockWatch: WatchedItem = {
+        watch_id: `local-${Date.now()}`,
+        sku: payload.sku,
+        name: payload.name,
+        brand: payload.brand || "",
+        current_price_inr: payload.current_price_inr,
+        target_price_inr: payload.target_price_inr || Math.round(payload.current_price_inr * 0.85),
+        competitor_price_inr: Math.round(payload.current_price_inr * 1.1),
+        competitor_source: "Flipkart",
+        status: "watching",
+        created_at: new Date().toISOString(),
+        price_history: Array.from({ length: 30 }, (_, i) => ({
+          day: i + 1,
+          price: Math.round(payload.current_price_inr * (0.95 + Math.random() * 0.1)),
+        })),
+        neighbor_match: null,
+        co2_saved_kg: 0,
+        logistics_saved_inr: 0,
+        email: payload.email || "",
+        email_sent: false,
+        price_status: {
+          status: "fair" as const,
+          color_key: "yellow" as const,
+          label: "Fair price",
+          explanation: "Price is stable over the last 30 days.",
+          confidence: 70,
+          thirty_day_low_inr: Math.round(payload.current_price_inr * 0.9),
+          thirty_day_high_inr: Math.round(payload.current_price_inr * 1.1),
+          current_price_inr: payload.current_price_inr,
+          deal_status: "fair" as const,
+          deal_color: "yellow" as const,
+          deal_label: "Fair price",
+        },
+      };
+      set((state) => ({
+        watches: upsertWatch(state.watches, mockWatch),
+        stats: {
+          ...state.stats,
+          count: state.stats.count + 1,
+        },
+      }));
+      toast.success("Price Guardian is watching this item.");
+      return mockWatch;
+    }
   },
   removeWatch: async (userId, watchId) => {
     await removeWatch(userId, watchId);

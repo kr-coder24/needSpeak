@@ -46,6 +46,7 @@ import { getItemBadge } from "@/lib/mock/item-badges";
 import { SemanticSearchSkeleton } from "@/components/common/SemanticSearchSkeleton";
 import { useChatStore } from "@/store/useChatStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
+import { useWatchStore } from "@/store/useWatchStore";
 import type { PriceStatus } from "@/lib/watchlist-api";
 import { Bell, Heart } from "lucide-react";
 import { Chip } from "@/components/common/Chip";
@@ -522,6 +523,14 @@ function CartItemRow({
                         current_price_inr: item.price_per_unit_inr || item.total_price_inr || item.price || 100,
                         brand: item.brand,
                       });
+                      // Also add to watch store so it shows in Watchlist page
+                      useWatchStore.getState().addWatch({
+                        sku: item.sku || wId,
+                        name: item.name,
+                        brand: item.brand,
+                        current_price_inr: item.price_per_unit_inr || item.total_price_inr || 100,
+                        user_id: getStoredUserId(),
+                      }).catch(() => {/* ignore API errors for demo */});
                     }
                   }}
                   className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
@@ -786,68 +795,93 @@ function HistoryPanel({
   if (!open) return null;
 
   return (
-    <div className="absolute inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-border bg-background shadow-pop">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <span className="text-sm font-medium">Cart history</span>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+    <div className="absolute inset-y-0 left-0 z-30 flex w-80 flex-col border-r border-border/60 bg-background shadow-xl">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3.5">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-brand" />
+          <span className="text-sm font-semibold">Cart History</span>
+        </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {history.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
-            <History className="h-8 w-8 opacity-30" />
-            <p>No saved carts yet. Build one from chat!</p>
+          <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+            <ShoppingCart className="h-10 w-10 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground">No saved carts yet.</p>
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {history.map((entry) => (
-              <div key={entry.session_id} className="px-4 py-3 transition-colors hover:bg-surface">
-                <div className="flex items-center justify-between">
-                  <span className="truncate text-sm font-medium">
-                    {entry.context_summary || entry.intent_type}
-                  </span>
-                  <span className="ml-2 shrink-0 text-xs font-semibold text-brand">
-                    ₹{entry.total_price_inr}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
-                  {entry.item_count} items ·{" "}
-                  {new Date(entry.saved_at).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </div>
-                {entry.budget_inr && (
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    Budget ₹{entry.budget_inr}
+          <div className="p-3 space-y-3">
+            {history.map((entry) => {
+              // Get item names from cart
+              const items = entry.cart || [];
+              const itemNames = items.slice(0, 4).map((it: any) => it.name || "Item");
+              const remaining = items.length - 4;
+
+              return (
+                <div key={entry.session_id} className="rounded-xl border border-border/50 bg-background p-3.5 transition-all hover:shadow-md hover:border-brand/20">
+                  {/* Header: date + price */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      {new Date(entry.saved_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="text-sm font-bold text-foreground tabular-nums">
+                      ₹{Math.round(entry.total_price_inr).toLocaleString("en-IN")}
+                    </span>
                   </div>
-                )}
-                {/* Action buttons */}
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      onRestore(entry);
-                      onClose();
-                    }}
-                    className="inline-flex h-7 items-center gap-1 rounded-md bg-surface px-2.5 text-[10px] font-semibold text-foreground transition-colors hover:bg-brand/10 hover:text-brand"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Load in Chat
-                  </button>
-                  <button
-                    onClick={() => {
-                      onReorder(entry);
-                      onClose();
-                    }}
-                    className="inline-flex h-7 items-center gap-1 rounded-md bg-brand/10 px-2.5 text-[10px] font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
-                  >
-                    <ShoppingCart className="h-3 w-3" />
-                    Reorder
-                  </button>
+
+                  {/* Item list */}
+                  <div className="space-y-1 mb-2.5">
+                    {itemNames.map((name: string, i: number) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-foreground/80">
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand/50 shrink-0" />
+                        <span className="truncate capitalize">{name}</span>
+                      </div>
+                    ))}
+                    {remaining > 0 && (
+                      <div className="text-[10px] text-muted-foreground pl-3.5">
+                        +{remaining} more item{remaining > 1 ? "s" : ""}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Meta info */}
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-2.5">
+                    <span>{entry.item_count} items</span>
+                    {entry.budget_inr && (
+                      <>
+                        <span className="text-border">·</span>
+                        <span>Budget ₹{entry.budget_inr}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { onRestore(entry); onClose(); }}
+                      className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-lg bg-surface border border-border/40 text-[10px] font-semibold text-foreground transition-colors hover:bg-brand/10 hover:text-brand hover:border-brand/30"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Load
+                    </button>
+                    <button
+                      onClick={() => { onReorder(entry); onClose(); }}
+                      className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-lg bg-brand/10 text-[10px] font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
+                    >
+                      <ShoppingCart className="h-3 w-3" />
+                      Reorder
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

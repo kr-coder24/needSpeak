@@ -1,34 +1,18 @@
 """
-Bedrock Stage 3 — Generate plain English summary of the resolved cart.
+Cart Summary Generator — Fast template-based (no LLM call).
 
-This is the last pipeline stage, implemented after Stages 1 and 2 are working.
-Makes one Bedrock call to produce a 2-3 sentence human-readable summary.
+Produces a concise, friendly message for the chat UI.
+Handles all edge cases: empty cart, partial matches, substitutions, budget status.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Optional
 
-
-from app.config import AWS_REGION, BEDROCK_MODEL_ID, MOCK_MODE, GEMINI_MODEL_ID, LLM_PROVIDER
-from app.models import IntentGroup, CartItem, UnavailableItem
-from app.pipeline.bedrock_client import get_bedrock_client
+from app.models import IntentGroup
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Summary Generation
-# ---------------------------------------------------------------------------
-SUMMARY_SYSTEM_PROMPT = """You are a helpful shopping assistant. Given a resolved shopping cart (which may contain multiple distinct intents or groups), \
-generate a brief 2-3 sentence summary in plain English that tells the user:
-1. What was found and added to cart
-2. Any substitutions made and why
-3. Any items that weren't available
-
-Be concise, friendly, and helpful. Use Indian Rupee (Rs.) for prices. Do not use markdown or special formatting."""
 
 
 def generate_summary(
@@ -39,165 +23,67 @@ def generate_summary(
     mock_mode: Optional[bool] = None,
 ) -> str:
     """
-    Stage 3: Generate a plain English summary of the cart.
-
-    Returns a 2-3 sentence string.
+    Generate a concise cart summary message.
+    
+    Cases handled:
+    1. All items unavailable (0 matched)
+    2. Single item added
+    3. Multiple items added
+    4. Some items unavailable (partial match)
+    5. Substitutions made
+    6. Under budget
+    7. Over budget
+    8. No budget set
     """
-    is_mock = mock_mode if mock_mode is not None else MOCK_MODE
-    if is_mock:
-        return _get_mock_summary(intent_groups, total_price)
+    total_items = sum(len(g.cart) for g in intent_groups)
+    total_unavailable = sum(len(g.unavailable_items) for g in intent_groups)
+    total_substitutions = sum(1 for g in intent_groups for i in g.cart if i.substituted)
+    unavailable_names = [i.name for g in intent_groups for i in g.unavailable_items]
 
-    # Build the context for Bedrock
-    cart_summary = {
-        "intent_groups": [
-            {
-                "intent": g.intent_type.value,
-                "context": g.context_summary,
-                "items_found": len(g.cart),
-                "items_unavailable": len(g.unavailable_items),
-                "substitutions": [
-                    {"name": i.name, "brand": i.brand, "reason": i.substitution_reason}
-                    for i in g.cart if i.substituted
-                ],
-                "unavailable": [
-                    {"name": i.name, "reason": i.reason.value}
-                    for i in g.unavailable_items
-                ],
-            }
-            for g in intent_groups
-        ],
-        "total_price_inr": total_price,
-    }
+    # ── Case 1: Nothing found at all ──
+    if total_items == 0 and total_unavailable == 0:
+        return "I couldn't extract any items from that. Could you try rephrasing?"
 
+    # ── Case 2: All items unavailable ──
+    if total_items == 0 and total_unavailable > 0:
+        names = ", ".join(unavailable_names[:3])
+        suffix = f" and {total_unavailable - 3} more" if total_unavailable > 3 else ""
+        return f"Sorry, couldn't find {names}{suffix} in our catalog. Try a different name or ask for alternatives!"
+
+    # ── Case 3+: At least some items matched ──
+    parts = []
+
+    # Main message
+    if total_items == 1:
+        item_name = intent_groups[0].cart[0].name if intent_groups and intent_groups[0].cart else "your item"
+        parts.append(f"Added {item_name} to your cart — ₹{total_price:.0f}.")
+    else:
+        parts.append(f"Added {total_items} items to your cart — ₹{total_price:.0f} total.")
+
+    # Substitutions
+    if total_substitutions == 1:
+        sub_item = next(i for g in intent_groups for i in g.cart if i.substituted)
+        reason = sub_item.substitution_reason or "better value"
+        parts.append(f" Swapped 1 item ({reason}).")
+    elif total_substitutions > 1:
+        parts.append(f" Swapped {total_substitutions} items for better value.")
+
+    # Unavailable items (partial match)
+    if total_unavailable == 1:
+        parts.append(f" Note: {unavailable_names[0]} wasn't available.")
+    elif total_unavailable > 1:
+        names = ", ".join(unavailable_names[:2])
+        extra = f" +{total_unavailable - 2} more" if total_unavailable > 2 else ""
+        parts.append(f" Couldn't find: {names}{extra}.")
+
+    # Budget status
     if budget_inr:
-        cart_summary["budget_inr"] = budget_inr
-        cart_summary["budget_exceeded"] = budget_exceeded
-
-    user_prompt = f"Summarize this shopping cart result:\n{json.dumps(cart_summary, indent=2)}"
-
-    try:
-        if LLM_PROVIDER == "bedrock":
-            logger.info("Using Bedrock provider for summarization.")
-            from app.pipeline.bedrock_converse import call_bedrock_text
-            summary = call_bedrock_text(
-                system_prompt=SUMMARY_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                max_tokens=256,
-                temperature=0.4,
-            ).strip()
+        if budget_exceeded:
+            over = total_price - budget_inr
+            parts.append(f" ₹{over:.0f} over budget — check alternatives to save.")
         else:
-            logger.info("Using Google Gemini provider for summarization.")
-            from app.pipeline.gemini_client import get_gemini_client
-            from google.genai import types
-            import time
-            client = get_gemini_client()
-            last_error = None
-            for attempt in range(3):
-                try:
-                    response = client.models.generate_content(
-                        model=GEMINI_MODEL_ID,
-                        contents=user_prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=SUMMARY_SYSTEM_PROMPT,
-                            max_output_tokens=256,
-                            temperature=0.4,
-                        )
-                    )
-                    summary = response.text.strip() if response.text else ""
-                    break
-                except Exception as retry_err:
-                    last_error = retry_err
-                    err_str = str(retry_err)
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        wait_time = (attempt + 1) * 10
-                        logger.warning(f"Gemini rate limited (attempt {attempt+1}/3), waiting {wait_time}s...")
-                        time.sleep(wait_time)
-                    else:
-                        raise
-            else:
-                logger.info("Attempting Gemini call with model=gemini-2.5-flash-lite (fallback)...")
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash-lite",
-                    contents=user_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SUMMARY_SYSTEM_PROMPT,
-                        max_output_tokens=256,
-                        temperature=0.4,
-                    )
-                )
-                summary = response.text.strip() if response.text else ""
-                logger.info("Gemini call succeeded with model=gemini-2.5-flash-lite")
-        
-        # Validate summary is complete and not truncated
-        if not summary:
-            logger.warning("Summary generation returned empty string, using fallback")
-            return _generate_fallback_summary(intent_groups, total_price)
+            remaining = budget_inr - total_price
+            if remaining > 0:
+                parts.append(f" ₹{remaining:.0f} left in your ₹{budget_inr} budget ✓")
 
-        # Check if summary looks incomplete (ends mid-sentence without punctuation)
-        if summary and summary[-1] not in '.!?':
-            logger.warning(f"Summary appears incomplete (no ending punctuation): {summary[:100]}")
-            summary += "."  # Add period to complete it
-
-        logger.info(f"Summary generated: {summary[:100]}...")
-        return summary
-
-    except Exception as e:
-        logger.error(f"Summary generation failed: {e}", exc_info=True)
-        # Fallback: generate a basic summary without LLM
-        return _generate_fallback_summary(intent_groups, total_price)
-
-
-def _generate_fallback_summary(
-    intent_groups: list[IntentGroup],
-    total_price: float,
-) -> str:
-    """Generate a basic summary without Bedrock (fallback)."""
-    total_items = sum(len(g.cart) for g in intent_groups)
-    
-    if not intent_groups or total_items == 0:
-        return "No items were found for your request."
-    
-    parts = [f"Found {total_items} item{'s' if total_items != 1 else ''} totaling ₹{total_price:.0f}."]
-
-    sub_count = sum(1 for g in intent_groups for i in g.cart if i.substituted)
-    if sub_count:
-        parts.append(f"{sub_count} item{'s were' if sub_count != 1 else ' was'} substituted with budget-friendly alternatives.")
-
-    all_unavailable = [i for g in intent_groups for i in g.unavailable_items]
-    if all_unavailable:
-        names = ", ".join(i.name for i in all_unavailable[:3])
-        if len(all_unavailable) > 3:
-            names += f" and {len(all_unavailable) - 3} more"
-        parts.append(f"{names} could not be found in our catalog.")
-
-    return " ".join(parts)
-
-
-# ---------------------------------------------------------------------------
-# Mock Summary
-# ---------------------------------------------------------------------------
-def _get_mock_summary(
-    intent_groups: list[IntentGroup],
-    total_price: float,
-) -> str:
-    """Generate a realistic mock summary."""
-    total_items = sum(len(g.cart) for g in intent_groups)
-    
-    if not intent_groups or total_items == 0:
-        return "No items were found for your request."
-        
-    contexts = [g.context_summary.lower() for g in intent_groups if g.context_summary]
-    context_str = " and ".join(contexts) if contexts else "your request"
-    
-    parts = [f"I found {total_items} item{'s' if total_items != 1 else ''} for {context_str}, totaling ₹{total_price:.0f}."]
-
-    sub_count = sum(1 for g in intent_groups for i in g.cart if i.substituted)
-    if sub_count:
-        parts.append(f"{sub_count} item{'s were' if sub_count != 1 else ' was'} swapped for more affordable alternatives.")
-
-    all_unavailable = [i for g in intent_groups for i in g.unavailable_items]
-    if all_unavailable:
-        names = ", ".join(i.name for i in all_unavailable[:2])
-        parts.append(f"{names} {'are' if len(all_unavailable) > 1 else 'is'} not currently available.")
-
-    return " ".join(parts)
+    return "".join(parts)
